@@ -1,3 +1,32 @@
+//! RMT (Remote Control) peripheral support.
+//!
+//! The RMT (Remote Control Transceiver) peripheral was designed to act as an infrared transceiver.
+//! However, due to the flexibility of its data format, RMT can be extended to a versatile and
+//! general-purpose transceiver, transmitting or receiving many other types of signals.
+//! From the perspective of network layering, the RMT hardware contains both physical and data
+//! link layers. The physical layer defines the communication media and bit signal representation.
+//! The data link layer defines the format of an RMT frame. The minimal data unit in the frame is
+//! called the RMT symbol, which is represented by [`Symbol`] in the driver.
+//!
+//! ESP32 contains multiple channels in the RMT peripheral. Each channel can be independently
+//! configured as either transmitter or receiver.
+//!
+//! Typically, the RMT peripheral can be used in the following scenarios:
+//! - Transmit or receive infrared signals, with any IR protocols, e.g., NEC
+//! - General-purpose sequence generator
+//! - Transmit signals in a hardware-controlled loop, with a finite or infinite number of times
+//! - Multi-channel simultaneous transmission
+//! - Modulate the carrier to the output signal or demodulate the carrier from the input signal
+//!
+//! # Driver redesign in ESP-IDF 5.0
+//!
+//! In ESP-IDF 5.0, the [RMT API was redesigned] to simplify and unify the usage of the
+//! RMT peripheral.
+//!
+//! It is recommended to use the new API, but for now the old API is available through
+//! the `rmt-legacy` feature. The ESP-IDF 6.0 release will remove support for the legacy API.
+//!
+//! [RMT API was redesigned]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/migration-guides/release-5.x/5.0/peripherals.html#rmt-driver
 pub mod config;
 pub mod encoder;
 
@@ -23,12 +52,12 @@ use esp_idf_sys::*;
 use crate::rmt::config::CarrierConfig;
 use crate::units::Hertz;
 
-/// Symbols
+/// A [`Symbol`] constists of two [`Pulse`]s, where each pulse defines a level of the pin (high or low)
+/// and a duration ([`PulseTicks`]).
 ///
-/// Represents a single pulse cycle symbol comprised of mark (high)
-/// and space (low) periods in either order or a fixed level if both
-/// halves have the same [`PinState`]. This is just a newtype over the
-/// IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
+/// The `Pulse`s can be the same level (e.g., both high) and must not necessarily be different levels.
+///
+/// This is just a newtype over the IDF's `rmt_item32_t` or `rmt_symbol_word_t` type.
 #[derive(Clone, Copy)]
 #[repr(transparent)]
 pub struct Symbol(rmt_symbol_word_t);
@@ -47,21 +76,24 @@ impl Symbol {
     ///
     /// This is a convenience function that combines [`Pulse::new_with_duration`] and [`Symbol::new`].
     pub fn new_with(
-        ticks_hz: Hertz,
+        resolution: Hertz,
         level0: PinState,
         duration0: Duration,
         level1: PinState,
         duration1: Duration,
     ) -> Result<Self, EspError> {
         Ok(Self::new(
-            Pulse::new_with_duration(ticks_hz, level0, duration0)?,
-            Pulse::new_with_duration(ticks_hz, level1, duration1)?,
+            Pulse::new_with_duration(resolution, level0, duration0)?,
+            Pulse::new_with_duration(resolution, level1, duration1)?,
         ))
     }
 
     /// Constructs a new symbol where the duration is split evenly between the two levels.
+    ///
+    /// It is guaranteed that the combined duration of the two levels adds up to the given duration.
+    /// If the duration is odd, the first level might be a bit shorter than the second level.
     pub fn new_half_split(
-        ticks_hz: Hertz,
+        resolution: Hertz,
         level0: PinState,
         level1: PinState,
         duration: Duration,
@@ -72,35 +104,67 @@ impl Symbol {
         let second_half_duration = duration - first_half_duration;
 
         Ok(Self::new(
-            Pulse::new_with_duration(ticks_hz, level0, first_half_duration)?,
-            Pulse::new_with_duration(ticks_hz, level1, second_half_duration)?,
+            Pulse::new_with_duration(resolution, level0, first_half_duration)?,
+            Pulse::new_with_duration(resolution, level1, second_half_duration)?,
         ))
     }
 
-    pub fn new_delay_for(
-        ticks: Hertz,
-        level0: PinState,
-        level1: PinState,
-        duration: Duration,
-    ) -> impl Iterator<Item = Self> {
-        let max_duration = PulseTicks::max().duration(ticks).unwrap() * 2; // times two, because we use half-split symbols
+    /// Repeats the symbol to have the returned sequence of symbols last for
+    /// exactly the given duration.
+    ///
+    /// There is an upper limit for how long a single symbol can be ([`PulseTicks::max`]).
+    /// To create a symbol that lasts longer than that, it is split into multiple symbols.
+    /// The returned iterator yields as many symbols as necessary to reach the
+    /// desired duration.
+    ///
+    /// If the given duration is not a multiple of the symbol duration,
+    /// the last symbol will be adjusted to occupy the remaining time.
+    ///
+    /// # Panics
+    ///
+    /// If `self` has a duration of zero.
+    pub fn repeat_for(&self, resolution: Hertz, duration: Duration) -> impl Iterator<Item = Self> {
+        // Calculate the maximum allowed duration for a single symbol consisting of two pulses:
+        // let max_duration = PulseTicks::max().duration(resolution) * 2;
 
-        // The delay might be larger than what is allowed for one symbol -> it is split into multiple symbols:
-        let count = duration.as_nanos() / max_duration.as_nanos();
+        let symbol_duration = self.duration(resolution);
+
+        // Handle edge-case to prevent an infinite loop:
+        if symbol_duration.is_zero() {
+            panic!(
+                "Cannot repeat a symbol with zero duration for {:?}",
+                duration
+            );
+        }
+
+        let count = duration.as_nanos() / symbol_duration.as_nanos();
         let remainder =
-            Duration::from_nanos((duration.as_nanos() % max_duration.as_nanos()) as u64);
+            Duration::from_nanos((duration.as_nanos() % symbol_duration.as_nanos()) as u64);
+
+        let last_symbol = {
+            if remainder.is_zero() {
+                None
+            } else {
+                let duration0 = self.level0().ticks.duration(resolution).min(remainder);
+                let duration1 = remainder.saturating_sub(duration0);
+
+                Some(
+                    Self::new_with(
+                        resolution,
+                        self.level0().pin_state,
+                        duration0,
+                        self.level1().pin_state,
+                        duration1,
+                    )
+                    .unwrap(),
+                )
+            }
+        };
 
         // This can be replaced with a call to `core::iter::repeat_n` once the target rust version is high enough
-        core::iter::repeat(max_duration)
+        core::iter::repeat(*self)
             .take(count as usize)
-            .chain(core::iter::once(remainder))
-            .filter_map(move |duration| {
-                if duration.is_zero() {
-                    return None;
-                }
-
-                Some(Symbol::new_half_split(ticks, level0, level1, duration).unwrap())
-            })
+            .chain(core::iter::once(last_symbol).flatten())
     }
 
     #[must_use]
@@ -128,6 +192,11 @@ impl Symbol {
     #[must_use]
     pub fn level1(&self) -> Pulse {
         Self::symbol_word_to_pulse(&self.0).1
+    }
+
+    /// Returns the combined duration of both half-cycles of this symbol.
+    pub fn duration(&self, resolution: Hertz) -> Duration {
+        self.level0().ticks.duration(resolution) + self.level1().ticks.duration(resolution)
     }
 
     /// Mutate this symbol to store a different pair of half-cycles.
@@ -176,9 +245,33 @@ impl From<Symbol> for rmt_symbol_word_t {
     }
 }
 
+/// A small helper function to assert that the current code is not running in an ISR.
+///
+/// This is useful for functions that must not be called from an ISR context.
 fn assert_not_in_isr() {
     if crate::interrupt::active() {
         panic!("This function cannot be called from an ISR");
+    }
+}
+
+/// Type of RMT TX done event data.
+#[derive(Debug, Clone, Copy)]
+#[non_exhaustive]
+pub struct TxDoneEventData {
+    /// The number of symbols ([`Symbol`]) that have been transmitted.
+    ///
+    /// This also reflects the size of the encoding artifacts. Please
+    /// note, this value accounts for the `EOF` symbol as well, which
+    /// is automatically appended by the driver to mark the end of one
+    /// transaction.
+    pub num_symbols: usize,
+}
+
+impl From<rmt_tx_done_event_data_t> for TxDoneEventData {
+    fn from(data: rmt_tx_done_event_data_t) -> Self {
+        Self {
+            num_symbols: data.num_symbols,
+        }
     }
 }
 
@@ -224,7 +317,7 @@ impl RxDoneEventData {
     ///
     /// Both the pointer and the length must be valid.
     /// If these haven't been changed from the values provided by the driver,
-    /// this should be the case in the ISR callback.
+    /// this should be the case **in** the ISR callback.
     pub unsafe fn as_slice(&self) -> &[Symbol] {
         core::slice::from_raw_parts(self.received_symbols, self.num_symbols)
     }
@@ -241,6 +334,7 @@ impl From<rmt_rx_done_event_data_t> for RxDoneEventData {
     }
 }
 
+/// A trait implemented by an RMT channel that provides common functionality.
 pub trait RmtChannel {
     /// Returns the underlying `rmt_channel_handle_t`.
     fn handle(&self) -> rmt_channel_handle_t;

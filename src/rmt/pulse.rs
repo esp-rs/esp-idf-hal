@@ -1,6 +1,3 @@
-// TODO: merge with rmt_legacy code/add changes back to it?
-// TODO: I think it would be better to have the code in this module and have rmt_legacy re-export it?
-
 use core::time::Duration;
 
 use esp_idf_sys::*;
@@ -33,17 +30,34 @@ impl From<u32> for PinState {
     }
 }
 
-/// A `Pulse` contains a pin state and a tick count, used in creating a [`Signal`].
+/// A [`Pulse`] defines for how long the output pin should be high or low.
 ///
-/// The real time duration of a tick depends on the [`Config::clock_divider`] setting.
+/// The duration is defined through the [`PulseTicks`] type.
 ///
-/// You can create a `Pulse` with a [`Duration`] by using [`Pulse::new_with_duration`].
+/// <div class="warning">The conversion from
+/// ticks to real time depends on the selected resolution of the RMT channel.</div>
 ///
 /// # Example
+///
 /// ```rust
-/// # use esp_idf_hal::rmt::PulseTicks;
+/// # use esp_idf_hal::rmt::{PulseTicks, Pulse, PinState};
 /// let pulse = Pulse::new(PinState::High, PulseTicks::new(32));
 /// ```
+///
+/// You can create a [`Pulse`] with a [`Duration`] by using [`Pulse::new_with_duration`]:
+/// ```rust
+/// # use esp_idf_sys::EspError;
+/// # use core::time::Duration;
+/// # fn example() -> Result<(), EspError> {
+/// use esp_idf_hal::rmt::{Pulse, PinState, PulseTicks};
+/// use esp_idf_hal::units::FromValueType;
+///
+/// let ticks = 1_000_000.Hz(); // 1 MHz
+/// let pulse = Pulse::new_with_duration(1_000_000.Hz(), PinState::High, Duration::from_nanos(300))?;
+/// # Ok(())
+/// # }
+/// ```
+/// [`Duration`]: core::time::Duration
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct Pulse {
     pub ticks: PulseTicks,
@@ -63,30 +77,19 @@ impl Pulse {
 
     /// Create a [`Pulse`] using a [`Duration`].
     ///
-    /// The ticks frequency, which depends on the clock divider set on the channel within a
-    /// [`Transmit`]. To get the frequency for the `ticks_hz` argument, use [`Transmit::counter_clock()`].
+    /// To convert the duration into ticks, the resolution (clock ticks) set for the
+    /// RMT channel must be provided ([`TxChannelConfig::resolution`](crate::rmt::config::TxChannelConfig::resolution)).
     ///
-    /// # Example
-    /// ```
-    /// # use esp_idf_sys::EspError;
-    /// # use esp_idf_hal::gpio::Output;
-    /// # use esp_idf_hal::rmt::Channel::Channel0;
-    /// # fn example() -> Result<(), EspError> {
-    /// # let peripherals = Peripherals::take()?;
-    /// # let led = peripherals.pins.gpio18.into_output()?;
-    /// # let channel = peripherals.rmt.channel0;
-    /// # let config = Config::new()?;
-    /// let tx = Transmit::new(led, channel, &config)?;
-    /// let ticks_hz = tx.counter_clock()?;
-    /// let pulse = Pulse::new_with_duration(ticks_hz, PinState::High, Duration::from_nanos(500))?;
-    /// # }
-    /// ```
+    /// # Errors
+    ///
+    /// If the duration is too long to be represented as ticks with the given resolution,
+    /// an error with the code [`ERR_EOVERFLOW`] or [`ESP_ERR_INVALID_ARG`] will be returned.
     pub const fn new_with_duration(
-        ticks_hz: Hertz,
+        resolution: Hertz,
         pin_state: PinState,
         duration: Duration,
     ) -> Result<Self, EspError> {
-        match PulseTicks::new_with_duration(ticks_hz, duration) {
+        match PulseTicks::new_with_duration(resolution, duration) {
             Ok(ticks) => Ok(Self::new(pin_state, ticks)),
             Err(error) => Err(error),
         }
@@ -116,8 +119,12 @@ impl PulseTicks {
         Self(Self::MAX)
     }
 
-    /// Needs to be unsigned 15 bits: 0-32767 inclusive, otherwise an [ESP_ERR_INVALID_ARG] is
-    /// returned.
+    /// Create a `PulseTicks` from the given number of ticks.
+    ///
+    /// # Errors
+    ///
+    /// If the given number of ticks is larger than [`PulseTicks::max()`], an error with the code
+    /// [`ESP_ERR_INVALID_ARG`] will be returned.
     pub const fn new(ticks: u16) -> Result<Self, EspError> {
         if ticks > Self::MAX {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
@@ -126,11 +133,17 @@ impl PulseTicks {
         }
     }
 
-    /// Convert a `Duration` into `PulseTicks`.
+    /// Constructs a [`PulseTicks`] from a [`Duration`].
     ///
-    /// See `Pulse::new_with_duration()` for details.
-    pub const fn new_with_duration(ticks_hz: Hertz, duration: Duration) -> Result<Self, EspError> {
-        match duration_to_ticks(ticks_hz, duration) {
+    /// # Errors
+    ///
+    /// If the duration is too long to be represented as ticks with the given resolution,
+    /// an error with the code [`ERR_EOVERFLOW`] or [`ESP_ERR_INVALID_ARG`] will be returned.
+    pub const fn new_with_duration(
+        resolution: Hertz,
+        duration: Duration,
+    ) -> Result<Self, EspError> {
+        match duration_to_ticks(resolution, duration) {
             Ok(ticks) => Self::new(ticks),
             Err(error) => Err(error),
         }
@@ -142,21 +155,28 @@ impl PulseTicks {
     }
 
     /// Returns the duration it takes for the number of ticks, depending on the given clock ticks.
-    pub const fn duration(&self, ticks_hz: Hertz) -> Result<Duration, EspError> {
-        ticks_to_duration(ticks_hz, self.ticks())
+    ///
+    /// # Panics
+    ///
+    /// This function panics if the conversion from ticks to duration overflows.
+    pub const fn duration(&self, resolution: Hertz) -> Duration {
+        match ticks_to_duration(resolution, self.ticks()) {
+            Ok(duration) => duration,
+            Err(_) => panic!("Overflow while converting ticks to duration"),
+        }
     }
 }
 
 const ONE_SECOND_IN_NANOS: u128 = Duration::from_secs(1).as_nanos();
 
 /// A utility to convert a duration into ticks, depending on the clock ticks.
-pub const fn duration_to_ticks(ticks_hz: Hertz, duration: Duration) -> Result<u16, EspError> {
-    let Some(ticks) = duration.as_nanos().checked_mul(ticks_hz.0 as u128) else {
+pub const fn duration_to_ticks(resolution: Hertz, duration: Duration) -> Result<u16, EspError> {
+    let Some(ticks) = duration.as_nanos().checked_mul(resolution.0 as u128) else {
         return Err(EspError::from_infallible::<ERR_EOVERFLOW>());
     };
 
     // To get the result we calculate:
-    // duration (s) * ticks_hz (ticks/s) = ticks
+    // duration (s) * resolution (ticks/s) = ticks
     //
     // The above calculates with the duration in nanoseconds,
     // which is why it has to be divided by 1_000_000_000 (= 1s)
@@ -172,12 +192,12 @@ pub const fn duration_to_ticks(ticks_hz: Hertz, duration: Duration) -> Result<u1
 }
 
 /// A utility to convert ticks into duration, depending on the clock ticks.
-pub const fn ticks_to_duration(ticks_hz: Hertz, ticks: u16) -> Result<Duration, EspError> {
+pub const fn ticks_to_duration(resolution: Hertz, ticks: u16) -> Result<Duration, EspError> {
     let Some(duration) = ONE_SECOND_IN_NANOS.checked_mul(ticks as u128) else {
         return Err(EspError::from_infallible::<ERR_EOVERFLOW>());
     };
 
-    let duration = duration / ticks_hz.0 as u128;
+    let duration = duration / resolution.0 as u128;
 
     if duration > u64::MAX as u128 {
         return Err(EspError::from_infallible::<ERR_EOVERFLOW>());

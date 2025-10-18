@@ -9,7 +9,7 @@ use crate::rmt::{RmtChannel, TxChannelDriver};
 /// this by creating a so-called Sync Manager.
 ///
 /// The procedure of RMT sync transmission is shown [here](https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-reference/peripherals/rmt.html#multiple-channels-simultaneous-transmission).
-pub struct SyncManager<T, const N: usize> {
+pub struct SyncManager<'d, const N: usize> {
     handle: rmt_sync_manager_handle_t,
     // It is possible to convert a SyncManager back into its channels,
     // which would require taking ownership of them.
@@ -17,10 +17,10 @@ pub struct SyncManager<T, const N: usize> {
     // Because it implements Drop, rust forbids moving fields out of the struct,
     // to workaround this, the channels are wrapped in an Option that always
     // contains a value, except when dropped where it might be None.
-    channels: Option<[T; N]>,
+    channels: Option<[TxChannelDriver<'d>; N]>,
 }
 
-impl<'d, const N: usize> SyncManager<TxChannelDriver<'d>, N> {
+impl<'d, const N: usize> SyncManager<'d, N> {
     /// Create a synchronization manager for multiple TX channels,
     /// so that the managed channel can start transmitting at the same time.
     ///
@@ -58,11 +58,7 @@ impl<'d, const N: usize> SyncManager<TxChannelDriver<'d>, N> {
 
         Ok(this)
     }
-}
 
-// TODO: remove generic T if there will be no AsyncTxChannelDriver
-
-impl<T, const N: usize> SyncManager<T, N> {
     /// Reset synchronization manager.
     ///
     /// # Errors
@@ -74,24 +70,24 @@ impl<T, const N: usize> SyncManager<T, N> {
     }
 
     /// Returns a mutable reference to the managed TX channels.
-    pub fn channels_mut(&mut self) -> &mut [T; N] {
+    pub fn channels_mut(&mut self) -> &mut [TxChannelDriver<'d>; N] {
         // SAFETY: Channels are always Some except when dropped.
         unsafe { self.channels.as_mut().unwrap_unchecked() }
     }
 
     /// Returns a reference to the managed TX channels.
-    pub fn channels(&self) -> &[T; N] {
+    pub fn channels(&self) -> &[TxChannelDriver<'d>; N] {
         // SAFETY: Channels are always Some except when dropped.
         unsafe { self.channels.as_ref().unwrap_unchecked() }
     }
 
     /// Consumes the sync manager and returns the managed TX channels.
-    pub fn into_channels(mut self) -> [T; N] {
+    pub fn into_channels(mut self) -> [TxChannelDriver<'d>; N] {
         unsafe { self.channels.take().unwrap_unchecked() }
     }
 }
 
-impl<T, const N: usize> Drop for SyncManager<T, N> {
+impl<'d, const N: usize> Drop for SyncManager<'d, N> {
     fn drop(&mut self) {
         unsafe { rmt_del_sync_manager(self.handle) };
     }

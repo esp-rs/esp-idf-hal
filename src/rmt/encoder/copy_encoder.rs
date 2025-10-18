@@ -9,6 +9,9 @@ use crate::rmt::Symbol;
 ///
 /// It is usually used to encode non-`mut` data, i.e. data that does not change at runtime
 /// after initialization, such as the leading code in the IR protocol.
+///
+/// For custom [`Encoder`](crate::rmt::encoder::Encoder) this type is essential to
+/// copy the generated symbols into the RMT driver.
 #[derive(Debug)]
 pub struct CopyEncoder {
     handle: rmt_encoder_handle_t,

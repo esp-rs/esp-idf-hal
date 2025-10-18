@@ -1,12 +1,36 @@
 use core::time::Duration;
 
-use esp_idf_sys::TickType_t;
-
-pub use crate::rmt_legacy::config::DutyPercent;
-pub use crate::rmt_legacy::config::Loop;
+use esp_idf_sys::{EspError, TickType_t, ESP_ERR_INVALID_ARG};
 
 use crate::rmt::ClockSource;
 use crate::units::{FromValueType, Hertz};
+
+/// A percentage from 0 to 100%, used to specify the duty percentage in [`CarrierConfig`].
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+pub struct DutyPercent(pub(crate) u8);
+
+impl DutyPercent {
+    /// Must be between 0 and 100, otherwise an error is returned.
+    pub fn new(v: u8) -> Result<Self, EspError> {
+        if v > 100 {
+            Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
+        } else {
+            Ok(Self(v))
+        }
+    }
+}
+
+/// Configuration setting for looping a signal.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Loop {
+    /// No looping, transmit the signal only once.
+    None,
+    /// Repeats the transmission indefinitely.
+    Endless,
+    /// Repeats the transmission for the specified number of times.
+    Count(u32),
+}
 
 /// Controls how the channel accesses memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

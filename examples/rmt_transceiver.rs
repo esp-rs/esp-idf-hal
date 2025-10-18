@@ -118,12 +118,13 @@ mod example {
         ];
 
         // Add a delay at the end of each signal:
-        signal.extend(Symbol::new_delay_for(
-            RMT_RESOLUTION,
-            PinState::Low,
-            PinState::Low,
-            DELAY_DURATION,
-        ));
+        signal.extend(
+            Symbol::new(
+                Pulse::new(PinState::Low, PulseTicks::max()),
+                Pulse::new(PinState::Low, PulseTicks::max()),
+            )
+            .repeat_for(RMT_RESOLUTION, DELAY_DURATION),
+        );
 
         let mut encoder = CopyEncoder::new()?;
 
@@ -158,7 +159,7 @@ mod example {
                     // A pulse whose width is larger than the max will be treated as idle and end the reception.
                     //
                     // In the above declared signals, the largest pulse is 620 ticks long -> 700 should be good.
-                    signal_range_max: PulseTicks::new(700)?.duration(RMT_RESOLUTION)?,
+                    signal_range_max: PulseTicks::new(700)?.duration(RMT_RESOLUTION),
                     ..Default::default()
                 },
             )?;
@@ -196,7 +197,7 @@ mod example {
     use esp_idf_hal::{
         delay::FreeRtos,
         peripherals::Peripherals,
-        rmt_legacy::{
+        rmt::{
             FixedLengthSignal, PinState, Pulse, PulseTicks, Receive, RmtReceiveConfig,
             RmtTransmitConfig, RxRmtDriver, TxRmtDriver,
         },

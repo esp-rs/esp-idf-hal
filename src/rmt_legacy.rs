@@ -61,7 +61,6 @@ use esp_idf_sys::*;
 use crate::units::Hertz;
 
 pub use chip::*;
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 pub use driver::*;
 
 // Might not always be available in the generated `esp-idf-sys` bindings
@@ -707,7 +706,6 @@ pub enum Receive {
     Timeout,
 }
 
-#[cfg(any(feature = "rmt-legacy", esp_idf_version_major = "4"))]
 mod driver {
     use core::cell::UnsafeCell;
     use core::marker::PhantomData;
@@ -1230,7 +1228,6 @@ mod chip {
         pub channel7: CHANNEL7<'static>,
     }
 
-    #[cfg(feature = "rmt-legacy")]
     impl RMT {
         /// Creates a new instance of the RMT peripheral. Typically one wants
         /// to use the instance [`rmt`](crate::peripherals::Peripherals::rmt) from

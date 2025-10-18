@@ -1,5 +1,10 @@
+//! The [`SimpleEncoder`] provides a simpler interface than the [`Encoder`](crate::rmt::encoder::Encoder)
+//! to implement a custom RMT encoder.
+//!
+//! The encoder  will take care of allocating a target buffer for the output symbols
+//! and will call a user-provided callback ([`EncoderCallback`]) to fill the buffer with symbols.
+
 use core::ffi::c_void;
-use core::pin::Pin;
 use core::{mem, ptr, slice};
 
 use alloc::boxed::Box;
@@ -191,32 +196,34 @@ pub trait EncoderCallback {
     ///
     /// Once you have processed all input elements, you should return with [`Ok`].
     ///
-    /// # Safety
+    /// # ISR Safety
     ///
     /// This function is called from an ISR context. Care should be taken not to call std,
     /// libc or FreeRTOS APIs (except for a few allowed ones).
     ///
     /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
-    unsafe fn encode(
+    fn encode(
         &mut self,
         input_data: &[Self::Item],
         buffer: &mut SymbolBuffer<'_>,
     ) -> Result<(), NotEnoughSpace>;
 }
 
+/// This type represents the simple encoder, it wraps a [`EncoderCallback`] to delegate
+/// the encoding work to it.
 #[derive(Debug)]
 pub struct SimpleEncoder<T> {
-    _encoder: Pin<Box<T>>,
+    _encoder: Box<T>,
     handle: rmt_encoder_handle_t,
 }
 
 impl<T: EncoderCallback> SimpleEncoder<T> {
     /// Constructs a new simple encoder with the given callback and configuration.
     pub fn with_config(encoder: T, config: &SimpleEncoderConfig) -> Result<Self, EspError> {
-        let mut encoder = Box::pin(encoder);
+        let mut encoder = Box::new(encoder);
 
         // SAFETY: The reference will only be used to mutate the encoder and never to move it.
-        let reference = unsafe { encoder.as_mut().get_unchecked_mut() };
+        let reference = encoder.as_mut();
         let sys_config = rmt_simple_encoder_config_t {
             callback: Some(delegator::<T>),
             arg: reference as *mut T as *mut c_void,

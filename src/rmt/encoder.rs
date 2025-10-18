@@ -3,23 +3,18 @@ pub use copy_encoder::*;
 mod bytes_encoder;
 pub use bytes_encoder::*;
 
-mod encoder_allocator;
-use encoder_allocator::RmtEncoderAllocator;
+#[cfg(esp_idf_version_at_least_5_3_0)]
+#[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_3_0)))]
+pub mod simple_encoder;
 
-#[cfg(all(feature = "alloc", esp_idf_version_at_least_5_3_0))]
-mod simple_encoder;
-#[cfg(all(feature = "alloc", esp_idf_version_at_least_5_3_0))]
-pub use simple_encoder::*;
-
-use core::alloc::Layout;
+use alloc::boxed::Box;
 use core::mem;
-use core::ptr::NonNull;
 
 use esp_idf_sys::*;
 
 /// This trait represents an RMT encoder that is used to encode data for transmission.
 pub trait RawEncoder {
-    /// The type of input data that the encoder can encode.
+    /// The type of input data the encoder can encode.
     type Item;
 
     /// Returns a mutable reference to the underlying `rmt_encoder_t`.
@@ -27,6 +22,12 @@ pub trait RawEncoder {
     /// The functions of the `rmt_encoder_t` will be called by the RMT driver.
     fn handle(&mut self) -> &mut rmt_encoder_t;
 
+    /// Reset the encoder state.
+    ///
+    /// # Errors
+    ///
+    /// If resetting the encoder fails, it should return an [`EspError`]
+    /// with the code [`ESP_FAIL`].
     fn reset(&mut self) -> Result<(), EspError> {
         esp!(unsafe { rmt_encoder_reset(self.handle()) })
     }
@@ -44,11 +45,20 @@ impl<E: RawEncoder> RawEncoder for &mut E {
     }
 }
 
+/// RMT encoding state
+#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum EncoderState {
+    /// The encoding session is in reset state
     EncodingReset,
+    /// The encoding session is finished, the caller can continue with subsequent encoding
     EncodingComplete,
+    /// The encoding artifact memory is full, the caller should return from current encoding session.
     EncodingMemoryFull,
-    // EncodingWithEof, // TODO: likely a new state
+    /// The encoding session has inserted the EOF marker to the symbol stream
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_5_0)))]
+    EncodingWithEof,
 }
 
 impl From<EncoderState> for rmt_encode_state_t {
@@ -57,7 +67,8 @@ impl From<EncoderState> for rmt_encode_state_t {
             EncoderState::EncodingReset => rmt_encode_state_t_RMT_ENCODING_RESET,
             EncoderState::EncodingComplete => rmt_encode_state_t_RMT_ENCODING_COMPLETE,
             EncoderState::EncodingMemoryFull => rmt_encode_state_t_RMT_ENCODING_MEM_FULL,
-            // EncoderState::EncodingWithEof => rmt_encode_state_t_RMT_ENCODING_WITH_EOF,
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            EncoderState::EncodingWithEof => rmt_encode_state_t_RMT_ENCODING_WITH_EOF,
         }
     }
 }
@@ -69,7 +80,8 @@ impl From<rmt_encode_state_t> for EncoderState {
             rmt_encode_state_t_RMT_ENCODING_RESET => Self::EncodingReset,
             rmt_encode_state_t_RMT_ENCODING_COMPLETE => Self::EncodingComplete,
             rmt_encode_state_t_RMT_ENCODING_MEM_FULL => Self::EncodingMemoryFull,
-            // rmt_encode_state_t_RMT_ENCODING_WITH_EOF => Self::EncodingWithEof,
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            rmt_encode_state_t_RMT_ENCODING_WITH_EOF => Self::EncodingWithEof,
             _ => panic!("Unknown rmt_encode_state_t value: {}", value),
         }
     }
@@ -121,6 +133,7 @@ impl RmtChannelHandle {
 ///   To speed up the encoding session, it is highly recommended to put
 ///   the encoding function into IRAM. This can also avoid the cache miss during encoding.
 pub trait Encoder {
+    /// The type of input data the encoder can encode.
     type Item;
 
     /// Encode the user data into RMT symbols and write into RMT memory.
@@ -198,36 +211,35 @@ impl<E: RawEncoder> Encoder for E {
     }
 }
 
+/// A helper function to convert a custom RMT encoder into a raw encoder
+/// that can be used by the RMT driver.
+///
+/// # Panics
+///
+/// If the allocation for the encoder wrapper fails.
 #[must_use]
 pub fn into_raw<E: Encoder>(encoder: E) -> EncoderWrapper<E> {
     EncoderWrapper::new(encoder).expect("Failed to allocate memory for RMT encoder")
 }
 
+#[derive(Debug)]
 struct InternalEncoderWrapper<E> {
     base: rmt_encoder_t, // the base "class", declares the standard encoder interface
     encoder: Option<E>,
 }
 
+/// A type implementing [`Encoder`] can not be directly used by the driver,
+/// because the driver expects a different interface (see [`RawEncoder`]).
+///
+/// This type adapts an [`Encoder`] to a [`RawEncoder`], taking care of the
+/// unsafe parts.
 #[derive(Debug)]
 #[repr(C)]
-pub struct EncoderWrapper<E>(NonNull<InternalEncoderWrapper<E>>);
+pub struct EncoderWrapper<E>(Box<InternalEncoderWrapper<E>>);
 
 impl<E: Encoder> EncoderWrapper<E> {
     pub fn new(encoder: E) -> Result<Self, EspError> {
-        let ptr = RmtEncoderAllocator.allocate_value(InternalEncoderWrapper::new(encoder))?;
-
-        Ok(Self(ptr))
-    }
-}
-
-impl<E> Drop for EncoderWrapper<E> {
-    fn drop(&mut self) {
-        unsafe {
-            RmtEncoderAllocator.deallocate(
-                self.0.cast::<u8>(),
-                Layout::new::<InternalEncoderWrapper<E>>(),
-            );
-        }
+        Ok(Self(Box::new(InternalEncoderWrapper::new(encoder))))
     }
 }
 
@@ -316,6 +328,6 @@ impl<E: Encoder> RawEncoder for EncoderWrapper<E> {
     type Item = E::Item;
 
     fn handle(&mut self) -> &mut rmt_encoder_t {
-        unsafe { &mut self.0.as_mut().base }
+        &mut self.0.as_mut().base
     }
 }

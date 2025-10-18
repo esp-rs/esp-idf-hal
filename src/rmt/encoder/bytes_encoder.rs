@@ -37,7 +37,7 @@ impl Default for BytesEncoderConfig {
     }
 }
 
-/// An encoder that dynamically encodes a user space byte stream into RMT symbols dynamically.
+/// An encoder that dynamically encodes a user space byte stream into RMT symbols.
 ///
 /// It is usually used to encode dynamic data, e.g., the address and command fields in the IR protocol.
 #[derive(Debug)]

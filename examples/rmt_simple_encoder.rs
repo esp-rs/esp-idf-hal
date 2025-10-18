@@ -32,7 +32,9 @@ fn main() -> anyhow::Result<()> {
 mod example {
     use esp_idf_hal::peripherals::Peripherals;
     use esp_idf_hal::rmt::config::{MemoryAccess, TxChannelConfig};
-    use esp_idf_hal::rmt::encoder::{EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer};
+    use esp_idf_hal::rmt::encoder::simple_encoder::{
+        EncoderCallback, NotEnoughSpace, SimpleEncoder, SymbolBuffer,
+    };
     use esp_idf_hal::rmt::TxChannelDriver;
     use esp_idf_hal::rmt::{PinState, PulseTicks, Symbol};
     use esp_idf_hal::units::Hertz;
@@ -131,7 +133,7 @@ mod example {
     impl EncoderCallback for LedEncoder {
         type Item = Color;
 
-        unsafe fn encode(
+        fn encode(
             &mut self,
             input_data: &[Self::Item],
             buffer: &mut SymbolBuffer<'_>,
@@ -160,42 +162,17 @@ mod example {
 
             // Add a delay between this signal and the next one:
 
-            let max_duration = PulseTicks::max()
-                .duration(RMT_LED_STRIP_RESOLUTION_HZ)
-                .unwrap()
-                * 2; // times two, because we use half-split symbols
+            let max_duration = PulseTicks::max().duration(RMT_LED_STRIP_RESOLUTION_HZ) * 2; // times two, because we use half-split symbols
 
-            // The delay might be larger than what is allowed for one symbol -> it is split into multiple symbols:
-            let count = FRAME_DURATION.as_nanos() / max_duration.as_nanos();
-            let remainder =
-                Duration::from_nanos((FRAME_DURATION.as_nanos() % max_duration.as_nanos()) as u64);
-
-            let mut vec = Vec::with_capacity(
-                (count + if remainder > Duration::ZERO { 1 } else { 0 }) as usize,
-            );
-            for _ in 0..count {
-                vec.push(
-                    Symbol::new_half_split(
-                        RMT_LED_STRIP_RESOLUTION_HZ,
-                        PinState::Low,
-                        PinState::Low,
-                        max_duration,
-                    )
-                    .unwrap(),
-                );
-            }
-
-            if remainder > Duration::ZERO {
-                vec.push(
-                    Symbol::new_half_split(
-                        RMT_LED_STRIP_RESOLUTION_HZ,
-                        PinState::Low,
-                        PinState::Low,
-                        remainder,
-                    )
-                    .unwrap(),
-                );
-            }
+            let vec = Symbol::new_half_split(
+                RMT_LED_STRIP_RESOLUTION_HZ,
+                PinState::Low,
+                PinState::Low,
+                max_duration,
+            )
+            .unwrap()
+            .repeat_for(RMT_LED_STRIP_RESOLUTION_HZ, FRAME_DURATION)
+            .collect::<Vec<Symbol>>();
 
             buffer.write_all(&vec)?;
 

@@ -2,26 +2,22 @@ use core::fmt;
 use core::marker::PhantomData;
 use core::mem;
 use core::ptr;
-#[cfg(feature = "alloc")]
 use core::sync::atomic::{AtomicUsize, Ordering};
 use core::time::Duration;
 
-#[cfg(feature = "alloc")]
 use alloc::boxed::Box;
 use esp_idf_sys::*;
 
 use crate::gpio::OutputPin;
-#[cfg(feature = "alloc")]
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::rmt::config::{Loop, TransmitConfig, TxChannelConfig};
 use crate::rmt::encoder::{into_raw, Encoder, RawEncoder};
-#[cfg(feature = "alloc")]
 use crate::rmt::tx_queue::TxQueue;
+use crate::rmt::TxDoneEventData;
 use crate::rmt::{assert_not_in_isr, EncoderBuffer, RmtChannel};
 
-#[cfg(feature = "alloc")]
-struct UserData {
-    callback: Option<Box<dyn FnMut(rmt_tx_done_event_data_t) + Send + 'static>>,
+struct UserData<'d> {
+    callback: Option<Box<dyn FnMut(TxDoneEventData) + Send + 'd>>,
     queue_size: AtomicUsize,
     queue_has_progressed: HalIsrNotification,
 }
@@ -31,17 +27,14 @@ pub struct TxChannelDriver<'d> {
     //         It relies on the fact that in disabled state, the ISR handler will not be called.
     is_enabled: bool,
     handle: rmt_channel_handle_t,
-    #[cfg(feature = "alloc")]
-    on_transmit_data: Box<UserData>,
+    on_transmit_data: Box<UserData<'d>>,
     _p: PhantomData<&'d mut ()>,
 }
 
 impl<'d> TxChannelDriver<'d> {
-    #[cfg(feature = "alloc")]
     const TX_EVENT_CALLBACKS: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
         on_trans_done: Some(Self::handle_isr),
     };
-    #[cfg(feature = "alloc")]
     const TX_EVENT_CALLBACKS_DISABLE: rmt_tx_event_callbacks_t = rmt_tx_event_callbacks_t {
         on_trans_done: None,
     };
@@ -92,7 +85,6 @@ impl<'d> TxChannelDriver<'d> {
         let mut this = Self {
             is_enabled: false,
             handle,
-            #[cfg(feature = "alloc")]
             on_transmit_data: Box::new(UserData {
                 callback: None,
                 queue_size: AtomicUsize::new(0),
@@ -102,7 +94,6 @@ impl<'d> TxChannelDriver<'d> {
         };
 
         // The callback is used to detect when a transmission is finished.
-        #[cfg(feature = "alloc")]
         esp!(unsafe {
             rmt_tx_register_event_callbacks(
                 handle,
@@ -166,8 +157,23 @@ impl<'d> TxChannelDriver<'d> {
     /// in the callback passed to this function, as it is executed in an ISR context.
     ///
     /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
-    #[cfg(feature = "alloc")]
-    pub fn subscribe(&mut self, callback: impl FnMut(rmt_tx_done_event_data_t) + Send + 'static) {
+    pub fn subscribe(&mut self, callback: impl FnMut(TxDoneEventData) + Send + 'static) {
+        // SAFETY: because of 'static lifetime, it doesn't matter if mem::forget is called on the driver
+        unsafe {
+            self.subscribe_nonstatic(callback);
+        }
+    }
+
+    /// Subscribe a non-'static callback for when a transmission is done.
+    ///
+    /// # Safety
+    ///
+    /// You must not forget the channel driver (for example through [`mem::forget`]),
+    /// while the callback is still subscribed, otherwise this would lead to undefined behavior.
+    pub unsafe fn subscribe_nonstatic(
+        &mut self,
+        callback: impl FnMut(TxDoneEventData) + Send + 'd,
+    ) {
         assert_not_in_isr();
         if self.is_enabled() {
             panic!("Can't subscribe while the channel is enabled");
@@ -176,14 +182,11 @@ impl<'d> TxChannelDriver<'d> {
         self.on_transmit_data.callback = Some(Box::new(callback));
     }
 
-    // TODO: Add a subscribe_nonstatic variant?
-
     /// Remove the ISR handler for when a transmission is done.
     ///
     /// # Panics
     ///
     /// This function will panic if called from an ISR context or while the channel is enabled.
-    #[cfg(feature = "alloc")]
     pub fn unsubscribe(&mut self) {
         assert_not_in_isr();
         if self.is_enabled() {
@@ -194,16 +197,13 @@ impl<'d> TxChannelDriver<'d> {
     }
 
     /// Handles the ISR event for when a transmission is done.
-    #[cfg(feature = "alloc")]
     unsafe extern "C" fn handle_isr(
         _channel: rmt_channel_handle_t,
         event_data: *const rmt_tx_done_event_data_t,
         user_data: *mut core::ffi::c_void,
     ) -> bool {
-        let event_data = event_data.read();
-        let user_data = &mut *(user_data as *mut UserData);
-
-        // TODO: is task::yield_with_isr needed here?
+        let event_data = TxDoneEventData::from(event_data.read());
+        let user_data = &mut *(user_data as *mut UserData<'d>);
 
         user_data.queue_size.fetch_sub(1, Ordering::SeqCst);
         if let Some(handler) = user_data.callback.as_mut() {
@@ -282,7 +282,6 @@ impl<'d> TxChannelDriver<'d> {
     /// are done.
     ///
     /// Therefore, one should use [`TxChannelDriver::queue`] for a non-blocking use case.
-    #[cfg(feature = "alloc")]
     pub fn send_iter<E: Encoder, S: AsRef<[E::Item]>>(
         &mut self,
         encoders: impl IntoIterator<Item = E>,
@@ -360,7 +359,6 @@ impl<'d> TxChannelDriver<'d> {
     /// - `ESP_ERR_INVALID_ARG`: Transmit failed because of invalid argument
     /// - `ESP_ERR_NOT_SUPPORTED`: Some feature is not supported by hardware e.g. unsupported loop count
     /// - `ESP_FAIL`: Because of other errors
-    #[cfg(feature = "alloc")]
     pub fn send_and_wait<E: Encoder>(
         &mut self,
         encoder: E,
@@ -395,7 +393,6 @@ impl<'d> RmtChannel for TxChannelDriver<'d> {
         self.is_enabled = is_enabled;
 
         // If the channel was disabled, all pending transmissions are cancelled
-        #[cfg(feature = "alloc")]
         if !self.is_enabled {
             self.on_transmit_data.queue_size.store(0, Ordering::SeqCst);
             self.on_transmit_data.queue_has_progressed.reset();
@@ -415,7 +412,6 @@ impl<'d> Drop for TxChannelDriver<'d> {
         // SAFETY: The disable will cancel all pending transmission -> the stored data can be freed
 
         // Remove the isr handler:
-        #[cfg(feature = "alloc")]
         let _res = unsafe {
             rmt_tx_register_event_callbacks(
                 self.handle,

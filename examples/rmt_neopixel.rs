@@ -34,7 +34,7 @@ mod example {
     use esp_idf_hal::{
         delay::FreeRtos,
         peripherals::Peripherals,
-        rmt_legacy::{config::TransmitConfig, FixedLengthSignal, PinState, Pulse, TxRmtDriver},
+        rmt::{config::TransmitConfig, FixedLengthSignal, PinState, Pulse, TxRmtDriver},
     };
 
     pub fn main() -> Result<()> {
