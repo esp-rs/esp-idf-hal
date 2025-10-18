@@ -6,17 +6,23 @@ use crate::rmt::ClockSource;
 use crate::units::{FromValueType, Hertz};
 
 /// A percentage from 0 to 100%, used to specify the duty percentage in [`CarrierConfig`].
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub struct DutyPercent(pub(crate) u8);
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub struct DutyPercent(f32);
 
 impl DutyPercent {
-    /// Must be between 0 and 100, otherwise an error is returned.
-    pub fn new(v: u8) -> Result<Self, EspError> {
-        if v > 100 {
+    /// Must be between 0 and 1.0, otherwise an error is returned.
+    pub fn new(value: f32) -> Result<Self, EspError> {
+        if value > 1.0 || value < 0.0 {
             Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>())
         } else {
-            Ok(Self(v))
+            Ok(Self(value))
         }
+    }
+
+    /// Returns the percentage as a value between 0.0 and 1.0.
+    #[must_use]
+    pub const fn to_f32(&self) -> f32 {
+        self.0
     }
 }
 
@@ -201,7 +207,7 @@ impl Default for CarrierConfig {
     fn default() -> Self {
         Self {
             frequency: 38000.Hz(),
-            duty_cycle: DutyPercent(50),
+            duty_cycle: DutyPercent(0.5),
             polarity_active_low: false,
             always_on: false,
             __internal: (),

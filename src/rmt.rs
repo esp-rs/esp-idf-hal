@@ -411,7 +411,7 @@ pub trait RmtChannel {
         {
             sys_carrier = Some(rmt_carrier_config_t {
                 frequency_hz: (*frequency).into(),
-                duty_cycle: duty_cycle.0 as f32 / 100.0,
+                duty_cycle: duty_cycle.to_f32(),
                 flags: rmt_carrier_config_t__bindgen_ty_1 {
                     _bitfield_1: rmt_carrier_config_t__bindgen_ty_1::new_bitfield_1(
                         *polarity_active_low as u32,
