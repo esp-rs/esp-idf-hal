@@ -182,7 +182,7 @@ fn main() -> anyhow::Result<()> {
     // Sometimes the default stack size is not enough -> it is increased here.
     std::thread::Builder::new()
         .stack_size(10_000)
-        .spawn(|| example::run())?
+        .spawn(example::run)?
         .join()
         .unwrap()
 }
