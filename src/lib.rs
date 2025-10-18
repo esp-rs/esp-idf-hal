@@ -46,7 +46,7 @@ pub mod modem;
     esp_idf_soc_rmt_supported,
     not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
-))] // TODO: onewire will be broken...
+))]
 pub mod onewire;
 
 #[cfg(all(not(feature = "pcnt-legacy"), esp_idf_soc_pcnt_supported))]
