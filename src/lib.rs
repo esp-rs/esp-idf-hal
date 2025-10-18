@@ -92,6 +92,13 @@ pub mod reset;
 )]
 pub mod rmt;
 #[cfg(feature = "rmt-legacy")]
+#[cfg_attr(
+    feature = "rmt-legacy"
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `rmt` api by disabling the `rmt-legacy` feature"
+    )
+)]
 mod rmt_legacy;
 #[cfg(feature = "rmt-legacy")]
 pub mod rmt {
