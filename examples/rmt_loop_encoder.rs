@@ -83,7 +83,7 @@ mod example {
                     }
 
                     // If the target count has been reached, stop encoding.
-                    if self.target.map_or(false, |target| self.count >= target) {
+                    if self.target.is_some_and(|target| self.count >= target) {
                         break;
                     }
                 } else {
