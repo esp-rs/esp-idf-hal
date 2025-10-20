@@ -46,6 +46,7 @@ fn quote_link_section(name: &str, subsection: Option<syn::Expr>) -> TokenStream 
 /// the function will try to rewrite any expression, if not, it will only rewrite
 /// string and byte string literals.
 fn rewrite_static_expr(
+    section: &str,
     syn::ItemStatic {
         attrs,
         vis,
@@ -59,7 +60,7 @@ fn rewrite_static_expr(
 ) -> syn::ItemStatic {
     let mut expr = (*expr).clone();
 
-    let link_attr = quote_link_section(".dram1", Some(unique_section([&ident])));
+    let link_attr = quote_link_section(section, Some(unique_section([&ident])));
 
     // Check if the expression is a string or byte string literal which are always `Copy`
     if let syn::Expr::Lit(syn::ExprLit { attrs, lit }) = &expr {
@@ -149,7 +150,12 @@ impl syn::parse::Parse for Arguments {
     }
 }
 
-pub fn ram(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
+pub fn link_to_section(
+    function_section: &str,
+    data_section: &str,
+    args: TokenStream,
+    input: TokenStream,
+) -> syn::Result<TokenStream> {
     let args_span = args.span();
     let attr_args = syn::parse2::<Arguments>(args)?;
 
@@ -157,7 +163,10 @@ pub fn ram(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
     let item = syn::parse2::<Item>(input)?;
     match &item {
         Item::Static(item_static) => {
-            Ok(rewrite_static_expr(item_static.clone(), attr_args.is_copy).into_token_stream())
+            Ok(
+                rewrite_static_expr(data_section, item_static.clone(), attr_args.is_copy)
+                    .into_token_stream(),
+            )
         }
         Item::Fn(syn::ItemFn {
             sig: syn::Signature { ident, .. },
@@ -168,7 +177,7 @@ pub fn ram(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
                 return Err(syn::Error::new(args_span, "Unknown argument"));
             }
 
-            let link_attr = quote_link_section(".iram1", Some(unique_section([ident])));
+            let link_attr = quote_link_section(function_section, Some(unique_section([ident])));
 
             Ok(quote! {
                 #link_attr

@@ -78,7 +78,7 @@ mod ram;
 /// </div>
 #[proc_macro_attribute]
 pub fn ram(args: TokenStream, input: TokenStream) -> TokenStream {
-    ram::ram(args.into(), input.into())
+    ram::link_to_section(".iram1", ".dram1", args.into(), input.into())
         .unwrap_or_else(|err| err.to_compile_error())
         .into()
 }
