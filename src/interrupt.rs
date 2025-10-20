@@ -2,6 +2,8 @@ use enumset::{EnumSet, EnumSetType};
 
 use esp_idf_sys::*;
 
+use crate::ram;
+
 /// For backwards compatibility
 pub type IntrFlags = InterruptType;
 
@@ -83,8 +85,7 @@ impl From<InterruptType> for u32 {
 pub(crate) static CS: IsrCriticalSection = IsrCriticalSection::new();
 
 /// Returns true if the currently active core is executing an ISR request
-#[inline(always)]
-#[link_section = ".iram1.interrupt_active"]
+#[ram]
 pub fn active() -> bool {
     unsafe { xPortInIsrContext() != 0 }
 }
@@ -116,8 +117,7 @@ unsafe fn do_yield_signal(arg: *mut ()) {
 static mut ISR_YIELDER: Option<(unsafe fn(*mut ()), *mut ())> = None;
 
 #[allow(clippy::type_complexity)]
-#[inline(always)]
-#[link_section = ".iram1.interrupt_get_isr_yielder"]
+#[ram]
 pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> {
     if active() {
         free(|| {
@@ -144,8 +144,7 @@ pub(crate) unsafe fn get_isr_yielder() -> Option<(unsafe fn(*mut ()), *mut ())> 
 /// ISR handler so as to reastore the yield function which was valid before the
 /// ISR handler was invoked.
 #[allow(clippy::type_complexity)]
-#[inline(always)]
-#[link_section = ".iram1.interrupt_set_isr_yielder"]
+#[ram]
 pub unsafe fn set_isr_yielder(
     yielder: Option<(unsafe fn(*mut ()), *mut ())>,
 ) -> Option<(unsafe fn(*mut ()), *mut ())> {
@@ -170,8 +169,7 @@ pub struct IsrCriticalSection(core::cell::UnsafeCell<portMUX_TYPE>);
 pub struct IsrCriticalSection(core::marker::PhantomData<*const ()>);
 
 #[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
-#[inline(always)]
-#[link_section = ".iram1.interrupt_enter"]
+#[ram]
 fn enter(_cs: &IsrCriticalSection) {
     unsafe {
         vPortEnterCritical();
@@ -179,8 +177,7 @@ fn enter(_cs: &IsrCriticalSection) {
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
-#[inline(always)]
-#[link_section = ".iram1.interrupt_enter"]
+#[ram]
 fn enter(cs: &IsrCriticalSection) {
     unsafe {
         xPortEnterCriticalTimeout(cs.0.get(), portMUX_NO_TIMEOUT);
@@ -188,8 +185,7 @@ fn enter(cs: &IsrCriticalSection) {
 }
 
 #[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
-#[inline(always)]
-#[link_section = ".iram1.interrupt_exit"]
+#[ram]
 fn exit(_cs: &IsrCriticalSection) {
     unsafe {
         vPortExitCritical();
@@ -197,8 +193,7 @@ fn exit(_cs: &IsrCriticalSection) {
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
-#[inline(always)]
-#[link_section = ".iram1.interrupt_exit"]
+#[ram]
 fn exit(cs: &IsrCriticalSection) {
     unsafe {
         vPortExitCritical(cs.0.get());
@@ -274,8 +269,7 @@ impl Drop for IsrCriticalSectionGuard<'_> {
 }
 
 /// Executes closure f in an interrupt-free context
-#[inline(always)]
-#[link_section = ".iram1.interrupt_free"]
+#[ram]
 pub fn free<R>(f: impl FnOnce() -> R) -> R {
     let _guard = CS.enter();
 

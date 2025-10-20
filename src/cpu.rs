@@ -5,6 +5,8 @@ use esp_idf_sys::*;
 
 use enumset::EnumSetType;
 
+use crate::ram;
+
 /// Returns the number of cores supported by the esp32* chip
 pub const CORES: u32 = SOC_CPU_CORES_NUM;
 
@@ -46,8 +48,7 @@ impl From<i32> for Core {
 /// On dual-core systems like esp32 and esp32s3 this function returns:
 /// 0 - when the active core is the PRO CPU
 /// 1 - when the active core is the APP CPU
-#[inline(always)]
-#[link_section = ".iram1.cpu_core"]
+#[ram]
 pub fn core() -> Core {
     #[cfg(any(esp32c3, esp32s2, esp32c2, esp32h2, esp32c5, esp32c6))]
     let core = 0;

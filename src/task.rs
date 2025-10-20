@@ -13,6 +13,7 @@ use esp_idf_sys::*;
 
 use crate::cpu::Core;
 use crate::interrupt;
+use crate::ram;
 
 #[cfg(not(any(
     esp_idf_version_major = "4",
@@ -83,8 +84,7 @@ pub unsafe fn destroy(task: TaskHandle_t) {
     vTaskDelete(task)
 }
 
-#[inline(always)]
-#[link_section = ".iram1.interrupt_task_do_yield"]
+#[ram]
 pub fn do_yield() {
     if interrupt::active() {
         unsafe {
@@ -114,8 +114,7 @@ pub fn do_yield() {
     }
 }
 
-#[inline(always)]
-#[link_section = ".iram1.interrupt_task_current"]
+#[ram]
 pub fn current() -> Option<TaskHandle_t> {
     if interrupt::active() {
         None
@@ -463,8 +462,7 @@ pub struct CriticalSection(Cell<Option<NonNull<QueueDefinition>>>, AtomicBool);
 // Not available in the esp-idf-sys bindings
 const QUEUE_TYPE_RECURSIVE_MUTEX: u8 = 4;
 
-#[inline(always)]
-#[link_section = ".iram1.cs_enter"]
+#[ram]
 fn enter(cs: &CriticalSection) {
     if !cs.1.load(Ordering::SeqCst) {
         interrupt::free(|| {
@@ -484,8 +482,7 @@ fn enter(cs: &CriticalSection) {
     }
 }
 
-#[inline(always)]
-#[link_section = ".iram1.cs_exit"]
+#[ram]
 fn exit(cs: &CriticalSection) {
     if !cs.1.load(Ordering::SeqCst) {
         panic!("Called exit() without matching enter()");
