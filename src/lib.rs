@@ -44,7 +44,7 @@ pub mod mac;
 pub mod modem;
 #[cfg(all(
     esp_idf_soc_rmt_supported,
-    not(esp_idf_version_major = "4"),
+    not(feature = "rmt-legacy"),
     esp_idf_comp_espressif__onewire_bus_enabled,
 ))]
 pub mod onewire;
@@ -76,7 +76,35 @@ pub mod pcnt {
 
 pub mod peripherals;
 pub mod reset;
+
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(feature = "rmt-legacy"),
+    feature = "alloc"
+))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(
+        esp_idf_soc_rmt_supported,
+        not(feature = "rmt-legacy"),
+        feature = "alloc"
+    )))
+)]
 pub mod rmt;
+#[cfg(feature = "rmt-legacy")]
+#[cfg_attr(
+    feature = "rmt-legacy"
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `rmt` api by disabling the `rmt-legacy` feature"
+    )
+)]
+mod rmt_legacy;
+#[cfg(feature = "rmt-legacy")]
+pub mod rmt {
+    pub use crate::rmt_legacy::*;
+}
+
 pub mod rom;
 pub mod sd;
 pub mod spi;
@@ -190,3 +218,6 @@ macro_rules! impl_peripheral {
 pub(crate) use embedded_hal_error;
 #[allow(unused_imports)]
 pub(crate) use impl_peripheral;
+
+#[cfg(test)]
+fn main() {}

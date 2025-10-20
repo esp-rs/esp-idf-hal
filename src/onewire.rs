@@ -23,7 +23,7 @@ use core::ptr;
 
 use esp_idf_sys::*;
 
-use crate::rmt::RmtChannel;
+use crate::gpio::{InputPin, OutputPin};
 
 /// Onewire Address type
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -49,7 +49,7 @@ impl<'a, 'b> DeviceSearch<'a, 'b> {
     fn new(bus: &'a mut OWDriver<'b>) -> Result<Self, EspError> {
         let mut my_iter: onewire_device_iter_handle_t = ptr::null_mut();
 
-        esp!(unsafe { onewire_new_device_iter(bus.bus, &mut my_iter) })?;
+        esp!(unsafe { onewire_new_device_iter(bus.handle(), &mut my_iter) })?;
 
         Ok(Self {
             search: my_iter,
@@ -85,8 +85,7 @@ impl<'a, 'b> Drop for DeviceSearch<'a, 'b> {
 
 #[derive(Debug)]
 pub struct OWDriver<'a> {
-    bus: onewire_bus_handle_t,
-    _channel: u8,
+    handle: onewire_bus_handle_t,
     _p: PhantomData<&'a mut ()>,
 }
 
@@ -94,34 +93,39 @@ impl<'a> OWDriver<'a> {
     /// Create a new One Wire driver on the allocated pin.
     ///
     /// The pin will be used as an open drain output.
-    pub fn new<C: RmtChannel + 'a>(
-        pin: impl crate::gpio::InputPin + crate::gpio::OutputPin + 'a,
-        _channel: C,
-    ) -> Result<Self, EspError> {
-        let mut bus: onewire_bus_handle_t = ptr::null_mut();
-
+    pub fn new(pin: impl InputPin + OutputPin + 'a) -> Result<Self, EspError> {
         let pin = pin.pin() as _;
-        let bus_config = esp_idf_sys::onewire_bus_config_t { bus_gpio_num: pin };
+        let bus_config = onewire_bus_config_t {
+            bus_gpio_num: pin,
+            flags: Default::default(),
+        };
 
-        let rmt_config = esp_idf_sys::onewire_bus_rmt_config_t { max_rx_bytes: 10 };
+        let rmt_config = onewire_bus_rmt_config_t { max_rx_bytes: 10 };
 
-        esp!(unsafe { onewire_new_bus_rmt(&bus_config, &rmt_config, &mut bus as _) })?;
+        let mut handle: onewire_bus_handle_t = ptr::null_mut();
+        esp!(unsafe { onewire_new_bus_rmt(&bus_config, &rmt_config, &mut handle) })?;
 
         Ok(Self {
-            bus,
-            _channel: C::channel() as _,
+            handle,
             _p: PhantomData,
         })
     }
 
-    pub fn read(&self, buff: &mut [u8]) -> Result<(), EspError> {
-        esp!(unsafe { onewire_bus_read_bytes(self.bus, buff.as_mut_ptr() as *mut _, buff.len()) })?;
+    /// Returns the underlying bus handle
+    pub fn handle(&self) -> onewire_bus_handle_t {
+        self.handle
+    }
+
+    pub fn read(&self, buf: &mut [u8]) -> Result<(), EspError> {
+        esp!(unsafe {
+            onewire_bus_read_bytes(self.handle(), buf.as_mut_ptr() as *mut _, buf.len())
+        })?;
 
         Ok(())
     }
 
     pub fn write(&self, data: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe { onewire_bus_write_bytes(self.bus, data.as_ptr(), data.len() as u8) })?;
+        esp!(unsafe { onewire_bus_write_bytes(self.handle(), data.as_ptr(), data.len() as u8) })?;
 
         Ok(())
     }
@@ -130,7 +134,7 @@ impl<'a> OWDriver<'a> {
     ///
     /// If there are no devices on the bus, this will result in an error.
     pub fn reset(&self) -> Result<(), EspError> {
-        esp!(unsafe { onewire_bus_reset(self.bus) })
+        esp!(unsafe { onewire_bus_reset(self.handle()) })
     }
 
     /// Start a search for devices attached to the OneWire bus.
@@ -141,7 +145,7 @@ impl<'a> OWDriver<'a> {
 
 impl<'d> Drop for OWDriver<'d> {
     fn drop(&mut self) {
-        esp!(unsafe { onewire_bus_del(self.bus) }).unwrap();
+        esp!(unsafe { onewire_bus_del(self.handle()) }).unwrap();
     }
 }
 

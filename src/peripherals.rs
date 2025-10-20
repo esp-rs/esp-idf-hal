@@ -11,7 +11,8 @@ use crate::modem;
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
 use crate::pcnt;
-use crate::rmt;
+#[cfg(feature = "rmt-legacy")]
+use crate::rmt_legacy;
 #[cfg(esp_idf_soc_sdmmc_host_supported)]
 use crate::sd;
 use crate::spi;
@@ -85,7 +86,8 @@ pub struct Peripherals {
     pub ledc: ledc::LEDC,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
-    pub rmt: rmt::RMT,
+    #[cfg(feature = "rmt-legacy")]
+    pub rmt: rmt_legacy::RMT,
     #[cfg(all(
         any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
         esp_idf_comp_ulp_enabled
@@ -200,7 +202,8 @@ impl Peripherals {
             ledc: ledc::LEDC::new(),
             #[cfg(esp32)]
             hledc: ledc::HLEDC::new(),
-            rmt: rmt::RMT::new(),
+            #[cfg(feature = "rmt-legacy")]
+            rmt: rmt_legacy::RMT::new(),
             #[cfg(all(
                 any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
                 esp_idf_comp_ulp_enabled
