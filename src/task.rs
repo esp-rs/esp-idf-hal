@@ -955,6 +955,7 @@ pub mod queue {
 
     use esp_idf_sys::{EspError, TickType_t, ESP_FAIL};
 
+    use crate::ram;
     use crate::sys;
 
     /// Thin wrapper on top of the FreeRTOS queue.
@@ -1026,7 +1027,7 @@ pub mod queue {
         /// it will return true if a higher priority task was awoken.
         /// In non-ISR contexts, the function will always return `false`.
         /// In this case the interrupt should call [`crate::task::do_yield`].
-        #[inline]
+        #[ram]
         pub fn send_back(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
             self.send_generic(item, timeout, 0)
         }
@@ -1051,7 +1052,7 @@ pub mod queue {
         /// it will return true if a higher priority task was awoken.
         /// In non-ISR contexts, the function will always return `false`.
         /// In this case the interrupt should call [`crate::task::do_yield`].
-        #[inline]
+        #[ram]
         pub fn send_front(&self, item: T, timeout: TickType_t) -> Result<bool, EspError> {
             self.send_generic(item, timeout, 1)
         }
@@ -1075,7 +1076,7 @@ pub mod queue {
         /// it will return true if a higher priority task was awoken.
         /// In non-ISR contexts, the function will always return `false`.
         /// In this case the interrupt should call [`crate::task::do_yield`].
-        #[inline]
+        #[ram]
         fn send_generic(
             &self,
             item: T,

@@ -3,15 +3,20 @@ use quote::{quote, ToTokens};
 use syn::spanned::Spanned;
 use syn::{punctuated::Punctuated, Item, Token};
 
-fn quote_link_section(name: &str, subsection: Option<impl quote::ToTokens>) -> TokenStream {
-    // TODO: make sure #[unsafe()] is supported on the target rustc version?
+fn quote_link_section(name: &str, subsection: Option<syn::Expr>) -> TokenStream {
+    // NOTE: With rustc 1.82 the link_section attribute should be marked unsafe like this:
+    // #[unsafe(link_section = ::core::concat!(#name, #subsection))]
+    // With the 2024 edition this is mandatory.
+    //
+    // As of now, esp-idf-hal is targeting rustc 1.79
+    // See https://doc.rust-lang.org/nightly/edition-guide/rust-2024/unsafe-attributes.html
     if let Some(subsection) = subsection {
         quote! {
-            #[unsafe(link_section = ::core::concat!(#name, #subsection))]
+            #[link_section = ::core::concat!(#name, #subsection)]
         }
     } else {
         quote! {
-            #[unsafe(link_section = #name)]
+            #[link_section = #name]
         }
     }
 }
@@ -56,6 +61,7 @@ fn rewrite_static_expr(
 
     let link_attr = quote_link_section(".dram1", Some(unique_section([&ident])));
 
+    // Check if the expression is a string or byte string literal which are always `Copy`
     if let syn::Expr::Lit(syn::ExprLit { attrs, lit }) = &expr {
         let mut bytes: Option<Vec<u8>> = None;
         let mut from_buffer_expr: Option<syn::Expr> = None;
@@ -76,11 +82,10 @@ fn rewrite_static_expr(
 
         if let (Some(bytes), Some(from_buffer_expr)) = (bytes, from_buffer_expr) {
             let buffer_len = bytes.len();
-            let buffer_expr: syn::ExprArray = syn::parse_quote!([#(#bytes),*]);
 
             expr = syn::parse_quote!(#(#attrs)* {
                 #link_attr
-                static _BUFFER: [u8; #buffer_len] = #buffer_expr;
+                static _BUFFER: [u8; #buffer_len] = [#(#bytes),*];
 
                 #from_buffer_expr
             });
@@ -97,16 +102,15 @@ fn rewrite_static_expr(
 
                     #link_attr
                     static _BUFFER: [#elem; SLICE_EXPR.len()] = {
-                        let mut buf: [::core::mem::MaybeUninit<#elem>; SLICE_EXPR.len()] =
-                            unsafe { ::core::mem::MaybeUninit::uninit().assume_init() };
+                        let mut buf: [#elem; SLICE_EXPR.len()] = [SLICE_EXPR[0]; SLICE_EXPR.len()];
 
                         let mut i = 0;
                         while i < buf.len() {
-                            buf[i] = ::core::mem::MaybeUninit::new(SLICE_EXPR[i]);
+                            buf[i] = SLICE_EXPR[i];
                             i += 1;
                         }
 
-                        unsafe { ::core::mem::transmute::<_, [#elem; SLICE_EXPR.len()]>(buf) }
+                        buf
                     };
 
                     _BUFFER.as_slice()
@@ -128,21 +132,20 @@ struct Arguments {
 
 impl syn::parse::Parse for Arguments {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let items = Punctuated::<syn::Meta, Token![,]>::parse_terminated(&input).unwrap();
+        let items = Punctuated::<syn::Meta, Token![,]>::parse_terminated(input)?;
+        if items.is_empty() {
+            return Ok(Self { is_copy: false });
+        }
+
         if items.len() == 1 {
             if let syn::Meta::Path(path) = &items[0] {
                 if path.is_ident("copy") {
                     return Ok(Self { is_copy: true });
                 }
             }
-        } else if items.is_empty() {
-            return Ok(Self { is_copy: false });
         }
 
-        return Err(syn::Error::new(
-            input.span(),
-            "The only supported argument to the `#[ram]` attribute is `copy`",
-        ));
+        Err(syn::Error::new(input.span(), "Unknown argument"))
     }
 }
 
@@ -162,10 +165,7 @@ pub fn ram(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
         }) => {
             // For now, only support empty attribute arguments
             if attr_args.is_copy {
-                return Err(syn::Error::new(
-                    args_span,
-                    "Invalid argument to the `#[ram]` attribute on functions",
-                ));
+                return Err(syn::Error::new(args_span, "Unknown argument"));
             }
 
             let link_attr = quote_link_section(".iram1", Some(unique_section([ident])));
@@ -178,11 +178,12 @@ pub fn ram(args: TokenStream, input: TokenStream) -> syn::Result<TokenStream> {
         }
         _ => Err(syn::Error::new(
             input_span,
-            "The `#[ram]` attribute can not be applied to this item",
+            "The attribute can not be applied to this item",
         )),
     }
 }
 
+/// This function generates a likely unique subsection name based on the provided identifiers.
 fn unique_section<T: quote::ToTokens>(idents: impl IntoIterator<Item = T>) -> syn::Expr {
     let separator = quote!("_",);
     let iter = idents.into_iter();
