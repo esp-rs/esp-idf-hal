@@ -1,103 +1,137 @@
-#![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
-#![cfg_attr(
-    feature = "nightly",
-    feature(async_fn_in_trait),
-    feature(impl_trait_projections),
-    allow(incomplete_features)
-)]
+#![no_std]
+#![allow(async_fn_in_trait)]
+#![allow(unknown_lints)]
+#![allow(renamed_and_removed_lints)]
 #![allow(clippy::unused_unit)] // enumset
+#![allow(unexpected_cfgs)]
+#![warn(clippy::large_futures)]
+#![cfg_attr(feature = "nightly", feature(doc_cfg))]
+#![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(feature = "esp-idf-sys")))]
-compile_error!("Exactly one of the features `esp-idf-sys` or `riscv-ulp-hal` needs to be enabled");
-
-#[cfg(all(not(feature = "riscv-ulp-hal"), not(esp_idf_comp_driver_enabled)))]
+#[cfg(not(esp_idf_comp_driver_enabled))]
 compile_error!("esp-idf-hal requires the `driver` ESP-IDF component to be enabled");
 
-#[cfg(all(
-    any(
-        feature = "std",
-        feature = "alloc",
-        feature = "critical-section-interrupt",
-        feature = "critical-section-mutex"
-    ),
-    feature = "riscv-ulp-hal"
-))]
-compile_error!("Enabling feature `riscv-ulp-hal` implies no other feature is enabled");
+// mutually exclusive features assert
+#[cfg(all(feature = "rmt-legacy", esp_idf_comp_espressif__onewire_bus_enabled))]
+compile_error!("the onewire component cannot be used with the legacy rmt peripheral");
 
-#[cfg(all(feature = "riscv-ulp-hal", not(esp32s2)))]
-compile_error!("Feature `riscv-ulp-hal` is currently only supported on esp32s2");
-
+#[cfg(feature = "std")]
+#[allow(unused_imports)]
 #[macro_use]
-pub mod riscv_ulp_hal;
+extern crate std;
+
+#[cfg(feature = "alloc")]
+#[allow(unused_imports)]
+#[macro_use]
+extern crate alloc;
 
 pub mod adc;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod can;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod cpu;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod delay;
 pub mod gpio;
-#[cfg(all(esp32, esp_idf_version_major = "4"))]
-pub mod hall;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod i2c;
-#[cfg(all(not(feature = "riscv-ulp-hal"), esp_idf_comp_driver_enabled))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(esp_idf_soc_i2s_supported, esp_idf_comp_driver_enabled)))
+)]
 pub mod i2s;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod interrupt;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod io;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod ledc;
-#[cfg(all(
-    any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth),
-    not(feature = "riscv-ulp-hal")
-))]
+#[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 pub mod mac;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod modem;
-#[cfg(all(not(feature = "riscv-ulp-hal"), any(esp32, esp32s2, esp32s3)))]
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(feature = "rmt-legacy"),
+    esp_idf_comp_espressif__onewire_bus_enabled,
+))]
+pub mod onewire;
+
+#[cfg(all(not(feature = "pcnt-legacy"), esp_idf_soc_pcnt_supported))]
+#[cfg_attr(feature = "nightly", doc(cfg(esp_idf_soc_pcnt_supported)))]
 pub mod pcnt;
-pub mod peripheral;
+
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
+#[cfg_attr(
+    all(
+        not(esp_idf_version_at_least_6_0_0),
+        any(esp32, esp32s2, esp32s3, esp32c6),
+        feature = "pcnt-legacy"
+    ),
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `pcnt` api by disabling the `pcnt-legacy` feature"
+    )
+)]
+mod pcnt_legacy;
+
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
+pub mod pcnt {
+    pub use crate::pcnt_legacy::*;
+}
+
 pub mod peripherals;
-pub mod prelude;
-#[cfg(not(feature = "riscv-ulp-hal"))]
-mod private;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod reset;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+
+#[cfg(all(
+    esp_idf_soc_rmt_supported,
+    not(feature = "rmt-legacy"),
+    feature = "alloc"
+))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(
+        esp_idf_soc_rmt_supported,
+        not(feature = "rmt-legacy"),
+        feature = "alloc"
+    )))
+)]
 pub mod rmt;
-#[cfg(not(feature = "riscv-ulp-hal"))]
-pub mod rom;
+#[cfg(feature = "rmt-legacy")]
+#[cfg_attr(
+    feature = "rmt-legacy"
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `rmt` api by disabling the `rmt-legacy` feature"
+    )
+)]
+mod rmt_legacy;
+#[cfg(feature = "rmt-legacy")]
+pub mod rmt {
+    pub use crate::rmt_legacy::*;
+}
+
 #[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod sleep;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+
+pub mod rom;
+pub mod sd;
 pub mod spi;
 pub mod sys;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod task;
-#[cfg(not(feature = "riscv-ulp-hal"))]
+#[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
+pub mod temp_sensor;
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
 pub mod timer;
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod uart;
 #[cfg(all(
     any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
-    not(feature = "riscv-ulp-hal")
+    esp_idf_comp_ulp_enabled
 ))]
 pub mod ulp;
 pub mod units;
-
-#[cfg(feature = "riscv-ulp-hal")]
-pub use crate::riscv_ulp_hal::delay;
+#[cfg(esp_idf_soc_usb_serial_jtag_supported)]
+pub mod usb_serial;
 
 // This is used to create `embedded_hal` compatible error structs
 // that preserve original `EspError`.
 //
 // Example:
 // embedded_hal_error!(I2cError, embedded_hal::i2c::Error, embedded_hal::i2c::ErrorKind)
-#[cfg(not(feature = "riscv-ulp-hal"))]
 #[allow(unused_macros)]
 macro_rules! embedded_hal_error {
     ($error:ident, $errortrait:ty, $kind:ty) => {
@@ -147,97 +181,39 @@ macro_rules! embedded_hal_error {
     };
 }
 
-#[cfg(feature = "riscv-ulp-hal")]
-#[allow(unused_macros)]
-macro_rules! embedded_hal_error {
-    ($error:ident, $errortrait:ty, $kind:ty) => {
-        #[derive(Debug, Copy, Clone, Eq, PartialEq)]
-        pub struct $error {
-            kind: $kind,
-            cause: crate::riscv_ulp_hal::sys::EspError,
-        }
-
-        impl $error {
-            pub fn new(kind: $kind, cause: crate::riscv_ulp_hal::sys::EspError) -> Self {
-                Self { kind, cause }
-            }
-            pub fn other(cause: crate::riscv_ulp_hal::sys::EspError) -> Self {
-                Self::new(<$kind>::Other, cause)
-            }
-            pub fn cause(&self) -> crate::riscv_ulp_hal::sys::EspError {
-                self.cause
-            }
-        }
-        impl From<crate::riscv_ulp_hal::sys::EspError> for $error {
-            fn from(e: crate::riscv_ulp_hal::sys::EspError) -> Self {
-                Self::other(e)
-            }
-        }
-
-        impl $errortrait for $error {
-            fn kind(&self) -> $kind {
-                self.kind
-            }
-        }
-
-        impl core::fmt::Display for $error {
-            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-                write!(
-                    f,
-                    "{} {{ kind: {}, cause: {} }}",
-                    stringify!($error),
-                    self.kind,
-                    self.cause()
-                )
-            }
-        }
-    };
-}
-
-#[macro_export]
-#[allow(unused_macros)]
-macro_rules! into_ref {
-    ($($name:ident),*) => {
-        $(
-            let $name = $name.into_ref();
-        )*
-    }
-}
-
-#[allow(unused_macros)]
-macro_rules! impl_peripheral_trait {
-    ($type:ident) => {
-        unsafe impl Send for $type {}
-
-        impl $crate::peripheral::sealed::Sealed for $type {}
-
-        impl $crate::peripheral::Peripheral for $type {
-            type P = $type;
-
-            #[inline]
-            unsafe fn clone_unchecked(&mut self) -> Self::P {
-                $type { ..*self }
-            }
-        }
-    };
-}
-
 #[allow(unused_macros)]
 macro_rules! impl_peripheral {
-    ($type:ident) => {
-        pub struct $type(::core::marker::PhantomData<*const ()>);
+    ($name:ident) => {
+        pub struct $name<'a>(::core::marker::PhantomData<&'a mut ()>);
 
-        impl $type {
+        impl $name<'_> {
+            /// Unsafely create an instance of this peripheral out of thin air.
+            ///
             /// # Safety
             ///
-            /// Care should be taken not to instantiate this peripheral instance, if it is already instantiated and used elsewhere
+            /// You must ensure that you're only using one instance of this type at a time.
             #[inline(always)]
-            pub unsafe fn new() -> Self {
-                $type(::core::marker::PhantomData)
+            pub unsafe fn steal() -> Self {
+                Self(::core::marker::PhantomData)
+            }
+
+            /// Creates a new peripheral reference with a shorter lifetime.
+            ///
+            /// Use this method if you would like to keep working with the peripheral after
+            /// you dropped the driver that consumes this.
+            ///
+            /// # Safety
+            ///
+            /// You must ensure that you are not using reborrowed peripherals in drivers which are
+            /// forgotten via `core::mem::forget`.
+            #[inline]
+            #[allow(dead_code)]
+            pub unsafe fn reborrow(&mut self) -> $name<'_> {
+                Self(::core::marker::PhantomData)
             }
         }
 
-        $crate::impl_peripheral_trait!($type);
+        unsafe impl Send for $name<'_> {}
     };
 }
 
@@ -245,5 +221,6 @@ macro_rules! impl_peripheral {
 pub(crate) use embedded_hal_error;
 #[allow(unused_imports)]
 pub(crate) use impl_peripheral;
-#[allow(unused_imports)]
-pub(crate) use impl_peripheral_trait;
+
+#[cfg(test)]
+fn main() {}

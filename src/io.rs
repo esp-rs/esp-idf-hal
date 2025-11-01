@@ -17,7 +17,7 @@ impl Error for EspIOError {
 
 impl From<EspError> for EspIOError {
     fn from(e: EspError) -> Self {
-        EspIOError(e)
+        Self(e)
     }
 }
 
@@ -30,7 +30,6 @@ impl Display for EspIOError {
 #[cfg(feature = "std")]
 impl std::error::Error for EspIOError {}
 
-#[cfg(feature = "nightly")]
 pub mod asynch {
     pub use embedded_io_async::*;
 }

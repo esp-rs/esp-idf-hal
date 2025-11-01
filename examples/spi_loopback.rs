@@ -12,23 +12,22 @@
 //! This example transfers data via SPI.
 //! Connect SDI and SDO pins to see the outgoing data is read as incoming data.
 
-use embedded_hal::spi::Operation;
 use esp_idf_hal::delay::FreeRtos;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
 use esp_idf_hal::spi::*;
+use esp_idf_hal::units::*;
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let spi = peripherals.spi2;
 
-    let sclk = peripherals.pins.gpio6;
-    let serial_in = peripherals.pins.gpio2; // SDI
-    let serial_out = peripherals.pins.gpio7; // SDO
-    let cs_1 = peripherals.pins.gpio10;
-    let cs_2 = peripherals.pins.gpio3;
+    let sclk = peripherals.pins.gpio15;
+    let serial_in = peripherals.pins.gpio16; // SDI
+    let serial_out = peripherals.pins.gpio17; // SDO
+    let cs_1 = peripherals.pins.gpio18;
+    let cs_2 = peripherals.pins.gpio19;
 
     println!("Starting SPI loopback test");
 

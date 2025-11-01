@@ -18,7 +18,6 @@ pub enum Core {
 
 impl Core {
     #[inline(always)]
-    #[link_section = ".iram1.cpu_core"]
     pub fn is_active(&self) -> bool {
         *self == core()
     }
@@ -66,6 +65,6 @@ pub fn core() -> Core {
         0 => Core::Core0,
         #[cfg(any(esp32, esp32s3, esp32p4))]
         1 => Core::Core1,
-        other => panic!("Unknown core: {}", other),
+        other => panic!("Unknown core: {other}"),
     }
 }

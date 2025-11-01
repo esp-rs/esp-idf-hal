@@ -1,12 +1,13 @@
 //! Time-division multiplexing (TDM) support for I2S.
 use super::*;
-use crate::{gpio::*, peripheral::*};
+use crate::gpio::*;
 
 use esp_idf_sys::*;
 
 pub(super) mod config {
     #[allow(unused)]
-    use crate::{gpio::*, i2s::config::*, peripheral::*};
+    use crate::{gpio::*, i2s::config::*};
+    use core::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign, Not};
     use esp_idf_sys::*;
 
     /// Automatic total number of slots, equivalent to the maximum active slot number.
@@ -15,7 +16,8 @@ pub(super) mod config {
     /// Automatic word-select signal width, equivalent to half the width of a frame.
     pub const TDM_AUTO_WS_WIDTH: u32 = 0;
 
-    /// The time-division multiplexing (TDM) mode configuration for the I2S peripheral.
+    /// Time-division multiplexing (TDM) mode configuration for the I2S peripheral.
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct TdmConfig {
         /// The base channel configuration.
         pub(super) channel_cfg: Config,
@@ -55,11 +57,11 @@ pub(super) mod config {
         #[inline(always)]
         pub(super) fn as_sdk<'d>(
             &self,
-            bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
-            din: Option<PeripheralRef<'d, impl InputPin>>,
-            dout: Option<PeripheralRef<'d, impl OutputPin>>,
-            mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
-            ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+            bclk: impl InputPin + OutputPin + 'd,
+            din: Option<impl InputPin + 'd>,
+            dout: Option<impl OutputPin + 'd>,
+            mclk: Option<impl InputPin + OutputPin + 'd>,
+            ws: impl InputPin + OutputPin + 'd,
         ) -> i2s_tdm_config_t {
             i2s_tdm_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -76,20 +78,15 @@ pub(super) mod config {
         /// `I2S_MODE_ADC_BUILT_IN`, and `I2S_MODE_PDM` should not be used here.
         #[cfg(esp_idf_version_major = "4")]
         pub(crate) fn as_sdk(&self) -> i2s_driver_config_t {
-            let chan_fmt = match self.slot_cfg.slot_mode {
-                SlotMode::Stereo => i2s_channel_fmt_t_I2S_CHANNEL_FMT_MULTIPLE,
-                SlotMode::Mono => i2s_channel_fmt_t_I2S_CHANNEL_FMT_ONLY_LEFT, // Use channel 0
-            };
-
             i2s_driver_config_t {
                 mode: self.channel_cfg.role.as_sdk(),
                 sample_rate: self.clk_cfg.sample_rate_hz,
                 bits_per_sample: self.slot_cfg.data_bit_width.as_sdk(),
-                channel_format: chan_fmt,
+                channel_format: i2s_channel_fmt_t_I2S_CHANNEL_FMT_MULTIPLE, // mono mode doesn't make sense in TDM
                 communication_format: self.slot_cfg.comm_fmt.as_sdk(),
                 intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
-                dma_buf_count: self.channel_cfg.dma_desc as i32,
-                dma_buf_len: self.channel_cfg.frames as i32,
+                dma_buf_count: self.channel_cfg.dma_buffer_count as i32,
+                dma_buf_len: self.channel_cfg.frames_per_buffer as i32,
                 #[cfg(any(esp32, esp32s2))]
                 use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
                 #[cfg(not(any(esp32, esp32s2)))]
@@ -109,7 +106,7 @@ pub(super) mod config {
     }
 
     /// TDM mode channel clock configuration.
-    #[derive(Clone)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct TdmClkConfig {
         /// I2S sample rate.
         sample_rate_hz: u32,
@@ -122,7 +119,7 @@ pub(super) mod config {
 
         /// The division from MCLK to BCLK. This is used only in I2S target (slave) mode. This should not be smaller
         /// than TDM_BCLK_DIV_MIN (8). Increase this field if the target device is not able to transmit data in time.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         bclk_div: u32,
     }
 
@@ -132,10 +129,7 @@ pub(super) mod config {
     impl TdmClkConfig {
         /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
         /// the sample rate.
-        #[cfg(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
-        ))]
+        #[cfg(not(esp_idf_version_at_least_5_1_0))]
         #[inline(always)]
         pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
             Self {
@@ -147,7 +141,7 @@ pub(super) mod config {
 
         /// Create a TDM clock configuration with the specified rate (in Hz), clock source, and MCLK multiple of
         /// the sample rate.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[inline(always)]
         pub fn new(sample_rate_hz: u32, clk_src: ClockSource, mclk_multiple: MclkMultiple) -> Self {
             Self {
@@ -162,12 +156,9 @@ pub(super) mod config {
         /// PLL_F160M and the MCLK multiple to 256 times the sample rate.
         ///
         /// # Note
-        /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
+        /// Set the mclk_multiple to [`MclkMultiple::M384`] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
-        #[cfg(any(
-            esp_idf_version_major = "4",
-            all(esp_idf_version_major = "5", esp_idf_version_minor = "0")
-        ))]
+        #[cfg(not(esp_idf_version_at_least_5_1_0))]
         #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
@@ -183,7 +174,7 @@ pub(super) mod config {
         /// # Note
         /// Set the mclk_multiple to [MclkMultiple::M384] when using 24-bit data width. Otherwise, the sample rate
         /// might be imprecise since the BCLK division is not an integer.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[inline(always)]
         pub fn from_sample_rate_hz(rate: u32) -> Self {
             Self {
@@ -209,7 +200,7 @@ pub(super) mod config {
         }
 
         /// Set the MCLK to BCLK division on this TDM clock configuration.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[inline(always)]
         pub fn bclk_div(mut self, bclk_div: u32) -> Self {
             self.bclk_div = bclk_div;
@@ -217,7 +208,7 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
-        #[cfg(all(esp_idf_version_major = "5", esp_idf_version_minor = "0"))]
+        #[cfg(not(esp_idf_version_at_least_5_1_0))]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
             i2s_tdm_clk_config_t {
@@ -228,7 +219,7 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_clk_config_t` representation.
-        #[cfg(all(esp_idf_version_major = "5", not(esp_idf_version_minor = "0")))]
+        #[cfg(esp_idf_version_at_least_5_1_0)]
         #[allow(clippy::needless_update)]
         #[inline(always)]
         pub(crate) fn as_sdk(&self) -> i2s_tdm_clk_config_t {
@@ -246,8 +237,7 @@ pub(super) mod config {
     pub type TdmCommFormat = crate::i2s::std::config::StdCommFormat;
 
     /// TDM mode GPIO (general purpose input/output) configuration.
-    #[cfg(not(esp_idf_version_major = "4"))]
-    #[derive(Default)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct TdmGpioConfig {
         /// Invert the BCLK signal.
         bclk_invert: bool,
@@ -259,7 +249,6 @@ pub(super) mod config {
         ws_invert: bool,
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
     impl TdmGpioConfig {
         /// Create a new TDM mode GPIO configuration with the specified inversion flags for BCLK, MCLK, and WS.
         pub fn new(bclk_invert: bool, mclk_invert: bool, ws_invert: bool) -> Self {
@@ -292,13 +281,14 @@ pub(super) mod config {
         }
 
         /// Convert to the ESP-IDF SDK `i2s_tdm_gpio_config_t` representation.
+        #[cfg(not(esp_idf_version_major = "4"))]
         pub(crate) fn as_sdk<'d>(
             &self,
-            bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
-            din: Option<PeripheralRef<'d, impl InputPin>>,
-            dout: Option<PeripheralRef<'d, impl OutputPin>>,
-            mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
-            ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+            bclk: impl InputPin + OutputPin + 'd,
+            din: Option<impl InputPin + 'd>,
+            dout: Option<impl OutputPin + 'd>,
+            mclk: Option<impl InputPin + OutputPin + 'd>,
+            ws: impl InputPin + OutputPin + 'd,
         ) -> i2s_tdm_gpio_config_t {
             let invert_flags = i2s_tdm_gpio_config_t__bindgen_ty_1 {
                 _bitfield_1: i2s_tdm_gpio_config_t__bindgen_ty_1::new_bitfield_1(
@@ -310,28 +300,59 @@ pub(super) mod config {
             };
 
             i2s_tdm_gpio_config_t {
-                bclk: bclk.pin(),
-                din: if let Some(din) = din { din.pin() } else { -1 },
+                bclk: bclk.pin() as _,
+                din: if let Some(din) = din {
+                    din.pin() as _
+                } else {
+                    -1
+                },
                 dout: if let Some(dout) = dout {
-                    dout.pin()
+                    dout.pin() as _
                 } else {
                     -1
                 },
                 mclk: if let Some(mclk) = mclk {
-                    mclk.pin()
+                    mclk.pin() as _
                 } else {
                     -1
                 },
-                ws: ws.pin(),
+                ws: ws.pin() as _,
                 invert_flags,
             }
         }
     }
 
-    /// TDM mode channel slot configuration.
+    /// TDM mode slot configuration.
     ///
-    /// To create a slot configuration, use [TdmSlotConfig::philips_slot_default], [TdmSlotConfig::pcm_slot_default], or
-    /// [TdmSlotConfig::msb_slot_default], then customize it as needed.
+    /// To create a slot configuration, use [`TdmSlotConfig::philips_slot_default`],
+    /// [`TdmSlotConfig::pcm_short_slot_default`], [`TdmSlotConfig::pcm_long_slot_default`], or
+    /// [`TdmSlotConfig::msb_slot_default`], then customize it as needed.
+    ///
+    /// In TDM mode, WS (word select, sometimes called LRCLK or left/right clock) becomes a frame synchronization
+    /// signal that signals the first slot of a frame. The two sides of the TDM link must agree on the number
+    /// of channels, data bit width, and frame synchronization pattern; this cannot be determined by examining the
+    /// signal itself.
+    ///
+    /// The Philips default pulls the WS line low one BCK period before the first data bit of the first slot is
+    /// sent and holds it low for 50% of the frame.
+    ///
+    #[doc = include_str!("tdm_slot_philips.svg")]
+    ///
+    /// MSB (most-significant bit) mode is similar to Philips mode, except the WS line is pulled low at the same time
+    /// the first data bit of the first slot is sent. It is held low for 50% of the frame.
+    ///
+    #[doc = include_str!("tdm_slot_msb.svg")]
+    ///
+    /// PCM (pulse-code modulation) short mode pulls the WS line *high* one BCK period before the first data bit of
+    /// the first slot is sent, keeps it high for one BCK, then pulls it low for the remainder of the frame.
+    #[doc = include_str!("tdm_slot_pcm_short.svg")]
+    /// PCM long mode pulls the WS line *high* one BCK period before the first data bit of the first slot is sent,
+    /// keeps it high until just before the last data bit of the first slot is sent, then pulls it low for the
+    /// remainder of the frame.
+    #[doc = include_str!("tdm_slot_pcm_long.svg")]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    ///
+    /// Diagrams from _ESP-IDF Programming Guide_; rendered by Wavedrom.
     pub struct TdmSlotConfig {
         /// I2S sample data bit width (valid data bits per sample).
         data_bit_width: DataBitWidth,
@@ -339,17 +360,14 @@ pub(super) mod config {
         /// I2S slot bit width (total bits per slot).
         slot_bit_width: SlotBitWidth,
 
-        /// Mono or stereo mode operation.
-        slot_mode: SlotMode,
-
-        /// Are we using the left, right, or both data slots?
+        /// Which slots are active in the TDM frame.
         slot_mask: TdmSlotMask,
 
         /// The word select (WS) signal width, in terms of the bit clock (BCK) periods.
         #[cfg(not(esp_idf_version_major = "4"))]
         ws_width: u32,
 
-        /// The word select signal polarity; true enables the light lever first.
+        /// The word select signal polarity; `true` enables the high level first.
         #[cfg(not(esp_idf_version_major = "4"))]
         ws_polarity: bool,
 
@@ -381,45 +399,62 @@ pub(super) mod config {
     impl TdmSlotConfig {
         /// Update the data bit width on this TDM slot configuration.
         #[inline(always)]
+        #[must_use]
         pub fn data_bit_width(mut self, data_bit_width: DataBitWidth) -> Self {
             self.data_bit_width = data_bit_width;
             self
         }
 
         /// Update the slot bit width on this TDM slot configuration.
+        ///
+        /// This is normally set to [`SlotBitWidth::Auto`] to match `[data_bit_width][TdmSlotConfig::data_bit_width()]`.
         #[inline(always)]
+        #[must_use]
         pub fn slot_bit_width(mut self, slot_bit_width: SlotBitWidth) -> Self {
             self.slot_bit_width = slot_bit_width;
             self
         }
 
-        /// Update the slot mode and mask on this TDM slot configuration.
+        /// Update the slot mask on this TDM slot configuration.
         #[inline(always)]
-        pub fn slot_mode_mask(mut self, slot_mode: SlotMode, slot_mask: TdmSlotMask) -> Self {
-            self.slot_mode = slot_mode;
+        #[must_use]
+        pub fn slot_mask(mut self, slot_mask: TdmSlotMask) -> Self {
             self.slot_mask = slot_mask;
             self
         }
 
         /// Update the word select signal width on this TDM slot configuration.
+        ///
+        /// This sets the number of bits to keep the word select signal active at the start of each frame. If this is
+        /// set to 0 ([`TDM_AUTO_WS_WIDTH`]), the word select signal will be kept active for half of the frame.
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
+        #[must_use]
         pub fn ws_width(mut self, ws_width: u32) -> Self {
             self.ws_width = ws_width;
             self
         }
 
         /// Update the word select signal polarity on this TDM slot configuration.
+        ///
+        /// Setting this to `true` will make the word select (WS) signal active high at the start (PCM modes).
+        /// Setting this to `false` will make the WS signal active low at the start (Philips and MSB modes).
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
+        #[must_use]
         pub fn ws_polarity(mut self, ws_polarity: bool) -> Self {
             self.ws_polarity = ws_polarity;
             self
         }
 
         /// Update the bit shift flag on this TDM slot configuration.
+        ///
+        /// Setting this to `true` will activate the word select (WS) signal lone BCK period before the first data bit
+        /// of the first slot is sent (Philips and PCM modes). Setting this to `false` will activate the WS
+        /// signal at the same time the first data bit of the first slot is sent (MSB mode).
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
+        #[must_use]
         pub fn bit_shift(mut self, bit_shift: bool) -> Self {
             self.bit_shift = bit_shift;
             self
@@ -428,41 +463,66 @@ pub(super) mod config {
         /// Update the communication format on this TDM slot configuration.
         #[cfg(esp_idf_version_major = "4")]
         #[inline(always)]
+        #[must_use]
         pub fn comm_fmt(mut self, comm_fmt: TdmCommFormat) -> Self {
             self.comm_fmt = comm_fmt;
             self
         }
 
         /// Update the left-alignment flag on this TDM slot configuration.
+        ///
+        /// This only has an effect when `[slot_bit_width][TdmSlotMask::slot_bit_width()]` is greater than
+        /// `[data_bit_width][TdmSlotMask::data_bit_width()]`. Setting this to `true` will left-align the data in the slot and
+        /// fill the right-most bits (usually the least-significant bits) with zeros. Setting this to `false` will right-align the
+        /// data in the slot and fill the left-most bits (usually the most-significant bits) with zeros.
         #[inline(always)]
+        #[must_use]
         pub fn left_align(mut self, left_align: bool) -> Self {
             self.left_align = left_align;
             self
         }
 
         /// Update the big-endian flag on this TDM slot configuration.
+        ///
+        /// This affects the interpretation of the data when `[data_bit_width][TdmSlotMask::data_bit_width()]` is
+        /// greater than 8. Setting this to
+        /// `true` will interpret the data as big-endian. Setting this to `false` will interpret the data as
+        /// little-endian (the default, and the native endian-ness of all ESP32 microcontrollers).
         #[inline(always)]
+        #[must_use]
         pub fn big_endian(mut self, big_endian: bool) -> Self {
             self.big_endian = big_endian;
             self
         }
 
         /// Update the LSB-first flag on this TDM slot configuration.
+        ///
+        /// Setting this to `true` will transmit data LSB-first (no known modes do this). Setting this to `false`
+        /// will transmit data MSB-first (the default for all known modes).
         #[inline(always)]
+        #[must_use]
         pub fn bit_order_lsb(mut self, bit_order_lsb: bool) -> Self {
             self.bit_order_lsb = bit_order_lsb;
             self
         }
 
         /// Update the skip mask flag on this TDM slot configuration.
+        ///
+        /// Setting this to `true` will ignore `[slot_mask][TdmSlotMask::slot_mask()]` and transmit all slots. Setting this to `false` will
+        /// respect the slot mask.
         #[inline(always)]
+        #[must_use]
         pub fn skip_mask(mut self, skip_mask: bool) -> Self {
             self.skip_mask = skip_mask;
             self
         }
 
         /// Update the total number of slots on this TDM slot configuration.
+        ///
+        /// Setting this to 0 ([`TDM_AUTO_SLOT_NUM`]) will automatically set the total number of slots to the
+        /// the number of active slots in `[slot_mask][TdmSlotMask::slot_mask()]`.
         #[inline(always)]
+        #[must_use]
         pub fn total_slots(mut self, total_slots: u32) -> Self {
             self.total_slots = total_slots;
             self
@@ -470,15 +530,11 @@ pub(super) mod config {
 
         /// Configure in Philips format with the active slots enabled by the specified mask.
         #[inline(always)]
-        pub fn philips_slot_default(
-            bits_per_sample: DataBitWidth,
-            slot_mode: SlotMode,
-            slot_mask: TdmSlotMask,
-        ) -> Self {
+        #[must_use]
+        pub fn philips_slot_default(bits_per_sample: DataBitWidth, slot_mask: TdmSlotMask) -> Self {
             Self {
                 data_bit_width: bits_per_sample,
                 slot_bit_width: SlotBitWidth::Auto,
-                slot_mode,
                 slot_mask,
                 #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: TDM_AUTO_WS_WIDTH,
@@ -498,15 +554,11 @@ pub(super) mod config {
 
         /// Configure in MSB format with the active slots enabled by the specified mask.
         #[inline(always)]
-        pub fn msb_slot_default(
-            bits_per_sample: DataBitWidth,
-            slot_mode: SlotMode,
-            slot_mask: TdmSlotMask,
-        ) -> Self {
+        #[must_use]
+        pub fn msb_slot_default(bits_per_sample: DataBitWidth, slot_mask: TdmSlotMask) -> Self {
             Self {
                 data_bit_width: bits_per_sample,
                 slot_bit_width: SlotBitWidth::Auto,
-                slot_mode,
                 slot_mask,
                 #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: TDM_AUTO_WS_WIDTH,
@@ -525,15 +577,15 @@ pub(super) mod config {
         }
 
         /// Configure in PCM (short) format with the active slots enabled by the specified mask.
+        #[inline(always)]
+        #[must_use]
         pub fn pcm_short_slot_default(
             bits_per_sample: DataBitWidth,
-            slot_mode: SlotMode,
             slot_mask: TdmSlotMask,
         ) -> Self {
             Self {
                 data_bit_width: bits_per_sample,
                 slot_bit_width: SlotBitWidth::Auto,
-                slot_mode,
                 slot_mask,
                 #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: 1,
@@ -552,15 +604,15 @@ pub(super) mod config {
         }
 
         /// Configure in PCM (long) format with the active slots enabled by the specified mask.
+        #[inline(always)]
+        #[must_use]
         pub fn pcm_long_slot_default(
             bits_per_sample: DataBitWidth,
-            slot_mode: SlotMode,
             slot_mask: TdmSlotMask,
         ) -> Self {
             Self {
                 data_bit_width: bits_per_sample,
                 slot_bit_width: SlotBitWidth::Auto,
-                slot_mode,
                 slot_mask,
                 #[cfg(not(esp_idf_version_major = "4"))]
                 ws_width: bits_per_sample.into(),
@@ -585,7 +637,7 @@ pub(super) mod config {
             i2s_tdm_slot_config_t {
                 data_bit_width: self.data_bit_width.as_sdk(),
                 slot_bit_width: self.slot_bit_width.as_sdk(),
-                slot_mode: self.slot_mode.as_sdk(),
+                slot_mode: SlotMode::Stereo.as_sdk(), // mono mode doesn't make sense in TDM
                 slot_mask: self.slot_mask.as_sdk(),
                 ws_width: self.ws_width,
                 ws_pol: self.ws_polarity,
@@ -599,81 +651,275 @@ pub(super) mod config {
         }
     }
 
-    // The derived Clone appears to have problems with some of the cfg attributes in rust-analyzer.
-    impl Clone for TdmSlotConfig {
-        fn clone(&self) -> Self {
-            Self {
-                data_bit_width: self.data_bit_width,
-                slot_bit_width: self.slot_bit_width,
-                slot_mode: self.slot_mode,
-                slot_mask: self.slot_mask,
-                #[cfg(not(esp_idf_version_major = "4"))]
-                ws_width: self.ws_width,
-                #[cfg(not(esp_idf_version_major = "4"))]
-                ws_polarity: self.ws_polarity,
-                #[cfg(not(esp_idf_version_major = "4"))]
-                bit_shift: self.bit_shift,
-                #[cfg(esp_idf_version_major = "4")]
-                comm_fmt: self.comm_fmt,
-                left_align: self.left_align,
-                big_endian: self.big_endian,
-                bit_order_lsb: self.bit_order_lsb,
-                skip_mask: self.skip_mask,
-                total_slots: self.total_slots,
-            }
-        }
+    /// An individual TDM slot.
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+    pub enum TdmSlot {
+        /// TDM slot #0
+        Slot0,
+
+        /// TDM slot #1
+        Slot1,
+
+        /// TDM slot #2
+        Slot2,
+
+        /// TDM slot #3
+        Slot3,
+
+        /// TDM slot #4
+        Slot4,
+
+        /// TDM slot #5
+        Slot5,
+
+        /// TDM slot #6
+        Slot6,
+
+        /// TDM slot #7
+        Slot7,
+
+        /// TDM slot #8
+        Slot8,
+
+        /// TDM slot #9
+        Slot9,
+
+        /// TDM slot #10
+        Slot10,
+
+        /// TDM slot #11
+        Slot11,
+
+        /// TDM slot #12
+        Slot12,
+
+        /// TDM slot #13
+        Slot13,
+
+        /// TDM slot #14
+        Slot14,
+
+        /// TDM slot #15
+        Slot15,
     }
 
     /// Mask of TDM slots to enable.
     #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
     pub struct TdmSlotMask(u16);
 
-    pub const SLOT0: TdmSlotMask = TdmSlotMask(1 << 0);
-    pub const SLOT1: TdmSlotMask = TdmSlotMask(1 << 1);
-    pub const SLOT2: TdmSlotMask = TdmSlotMask(1 << 2);
-    pub const SLOT3: TdmSlotMask = TdmSlotMask(1 << 3);
-    pub const SLOT4: TdmSlotMask = TdmSlotMask(1 << 4);
-    pub const SLOT5: TdmSlotMask = TdmSlotMask(1 << 5);
-    pub const SLOT6: TdmSlotMask = TdmSlotMask(1 << 6);
-    pub const SLOT7: TdmSlotMask = TdmSlotMask(1 << 7);
-    pub const SLOT8: TdmSlotMask = TdmSlotMask(1 << 8);
-    pub const SLOT9: TdmSlotMask = TdmSlotMask(1 << 9);
-    pub const SLOT10: TdmSlotMask = TdmSlotMask(1 << 10);
-    pub const SLOT11: TdmSlotMask = TdmSlotMask(1 << 11);
-    pub const SLOT12: TdmSlotMask = TdmSlotMask(1 << 12);
-    pub const SLOT13: TdmSlotMask = TdmSlotMask(1 << 13);
-    pub const SLOT14: TdmSlotMask = TdmSlotMask(1 << 14);
-    pub const SLOT15: TdmSlotMask = TdmSlotMask(1 << 15);
+    /// Attempt to convert from a `u8` to a `TdmSlot`.
+    impl TryFrom<u8> for TdmSlot {
+        type Error = EspError;
 
-    impl core::ops::BitAnd for TdmSlotMask {
+        fn try_from(slot: u8) -> Result<Self, Self::Error> {
+            match slot {
+                0 => Ok(Self::Slot0),
+                1 => Ok(Self::Slot1),
+                2 => Ok(Self::Slot2),
+                3 => Ok(Self::Slot3),
+                4 => Ok(Self::Slot4),
+                5 => Ok(Self::Slot5),
+                6 => Ok(Self::Slot6),
+                7 => Ok(Self::Slot7),
+                8 => Ok(Self::Slot8),
+                9 => Ok(Self::Slot9),
+                10 => Ok(Self::Slot10),
+                11 => Ok(Self::Slot11),
+                12 => Ok(Self::Slot12),
+                13 => Ok(Self::Slot13),
+                14 => Ok(Self::Slot14),
+                15 => Ok(Self::Slot15),
+                _ => Err(EspError::from(ESP_ERR_INVALID_ARG).unwrap()),
+            }
+        }
+    }
+
+    /// Convert a `TdmSlot` to a `u8`.
+    impl From<TdmSlot> for u8 {
+        fn from(slot: TdmSlot) -> u8 {
+            match slot {
+                TdmSlot::Slot0 => 0,
+                TdmSlot::Slot1 => 1,
+                TdmSlot::Slot2 => 2,
+                TdmSlot::Slot3 => 3,
+                TdmSlot::Slot4 => 4,
+                TdmSlot::Slot5 => 5,
+                TdmSlot::Slot6 => 6,
+                TdmSlot::Slot7 => 7,
+                TdmSlot::Slot8 => 8,
+                TdmSlot::Slot9 => 9,
+                TdmSlot::Slot10 => 10,
+                TdmSlot::Slot11 => 11,
+                TdmSlot::Slot12 => 12,
+                TdmSlot::Slot13 => 13,
+                TdmSlot::Slot14 => 14,
+                TdmSlot::Slot15 => 15,
+            }
+        }
+    }
+
+    /// Convert a `TdmSlot` into a `TdmSlotMask`.
+    impl From<TdmSlot> for TdmSlotMask {
+        #[inline(always)]
+        fn from(slot: TdmSlot) -> TdmSlotMask {
+            TdmSlotMask(1 << u8::from(slot))
+        }
+    }
+
+    /// Bitwise AND a`TdmSlot` with another `TdmSlot` to produce a `TdmSlotMask`.
+    ///
+    /// If the slots are the same, the result is a `TdmSlotMask` containing that slot.
+    /// Otherwise, the result is an empty slot mask.
+    impl BitAnd<TdmSlot> for TdmSlot {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn bitand(self, rhs: Self) -> Self::Output {
+            TdmSlotMask::from(self) & TdmSlotMask::from(rhs)
+        }
+    }
+
+    /// Bitwise AND a `TdmSlot` with a `TdmSlotMask` to produce a `TdmSlotMask`.
+    ///
+    /// If the slot mask contains the slot, the result is a `TdmSlotMask` containing that slot.
+    /// Otherwise, the result is an empty slot mask.
+    impl BitAnd<TdmSlotMask> for TdmSlot {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn bitand(self, rhs: TdmSlotMask) -> Self::Output {
+            TdmSlotMask::from(self) & rhs
+        }
+    }
+
+    /// Bitwise AND a `TdmSlotMask` with a `TdmSlot` to produce a `TdmSlotMask`.
+    ///
+    /// If the slot mask contains the slot, the result is a `TdmSlotMask` containing that slot.
+    /// Otherwise, the result is an empty slot mask.
+    impl BitAnd<TdmSlot> for TdmSlotMask {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn bitand(self, rhs: TdmSlot) -> Self::Output {
+            self & TdmSlotMask::from(rhs)
+        }
+    }
+
+    /// Bitwise AND a `TdmSlotMask` with another `TdmSlotMask` to produce a `TdmSlotMask`.
+    ///
+    /// The result is a slot mask containing the slots that are common to both slot masks.
+    impl BitAnd<TdmSlotMask> for TdmSlotMask {
         type Output = Self;
 
+        #[inline(always)]
         fn bitand(self, rhs: Self) -> Self::Output {
             Self(self.0 & rhs.0)
         }
     }
 
-    impl core::ops::BitAndAssign for TdmSlotMask {
+    /// Bitwise AND a `TdmSlotMask` with a `TdmSlot` and assign the result to `self`.
+    ///
+    /// If the slot mask contains the slot, the result is a `TdmSlotMask` containing that slot.
+    /// Otherwise, the result is an empty slot mask.
+    impl BitAndAssign<TdmSlot> for TdmSlotMask {
+        #[inline(always)]
+        fn bitand_assign(&mut self, rhs: TdmSlot) {
+            self.0 &= TdmSlotMask::from(rhs).0;
+        }
+    }
+
+    /// Bitwise AND a `TdmSlotMask` with another `TdmSlotMask` and assign the result to `self`.
+    ///
+    /// The result is a slot mask containing the slots that are common to both slot masks.
+    impl BitAndAssign<TdmSlotMask> for TdmSlotMask {
+        #[inline(always)]
         fn bitand_assign(&mut self, rhs: Self) {
             self.0 &= rhs.0;
         }
     }
 
-    impl core::ops::BitOr for TdmSlotMask {
+    /// Bitwise OR a`TdmSlot` with another `TdmSlot` to produce a `TdmSlotMask`.
+    ///
+    /// The result is a `TdmSlotMask` containing both slots.
+    impl BitOr<TdmSlot> for TdmSlot {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn bitor(self, rhs: Self) -> Self::Output {
+            TdmSlotMask::from(self) | TdmSlotMask::from(rhs)
+        }
+    }
+
+    /// Bitwise OR a`TdmSlot` with a `TdmSlotMask` to produce a `TdmSlotMask`.
+    ///
+    /// The result is a `TdmSlotMask` containing the slot and all slots in the slot mask.
+    impl BitOr<TdmSlotMask> for TdmSlot {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn bitor(self, rhs: TdmSlotMask) -> Self::Output {
+            TdmSlotMask::from(self) | rhs
+        }
+    }
+
+    /// Bitwise OR a`TdmSlotMask` with a `TdmSlot` to produce a `TdmSlotMask`.
+    ///
+    /// The result is a `TdmSlotMask` containing the slot and all slots in the slot mask.
+    impl BitOr<TdmSlot> for TdmSlotMask {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn bitor(self, rhs: TdmSlot) -> Self::Output {
+            self | TdmSlotMask::from(rhs)
+        }
+    }
+
+    /// Bitwise OR a`TdmSlotMask` with another `TdmSlotMask` to produce a `TdmSlotMask`.
+    ///
+    /// The result is a `TdmSlotMask` containing the slots in either slot mask.
+    impl BitOr<TdmSlotMask> for TdmSlotMask {
         type Output = Self;
 
+        #[inline(always)]
         fn bitor(self, rhs: Self) -> Self::Output {
             Self(self.0 | rhs.0)
         }
     }
 
-    impl core::ops::BitOrAssign for TdmSlotMask {
+    /// Bitwise OR a`TdmSlotMask` with a `TdmSlot` and assign the result to `self`.
+    ///
+    /// The result is a `TdmSlotMask` containing the slot and all slots in the slot mask.
+    impl BitOrAssign<TdmSlot> for TdmSlotMask {
+        #[inline(always)]
+        fn bitor_assign(&mut self, rhs: TdmSlot) {
+            self.0 |= TdmSlotMask::from(rhs).0;
+        }
+    }
+
+    /// Bitwise OR a`TdmSlotMask` with another `TdmSlotMask` and assign the result to `self.
+    ///
+    /// The result is a `TdmSlotMask` containing the slots in either slot mask.
+    impl BitOrAssign<TdmSlotMask> for TdmSlotMask {
+        #[inline(always)]
         fn bitor_assign(&mut self, rhs: Self) {
             self.0 |= rhs.0;
         }
     }
 
-    impl core::ops::Not for TdmSlotMask {
+    /// Produce the bitwise NOT of a `TdmSlot` to produce a `TdmSlotMask` containing all slots
+    /// except the original slot.
+    impl Not for TdmSlot {
+        type Output = TdmSlotMask;
+
+        #[inline(always)]
+        fn not(self) -> Self::Output {
+            !TdmSlotMask::from(self)
+        }
+    }
+
+    /// Produce the bitwise NOT of a `TdmSlotMask` to produce a `TdmSlotMask` containing all slots
+    /// except the slots in the original slot mask.
+    impl Not for TdmSlotMask {
         type Output = Self;
 
         fn not(self) -> Self::Output {
@@ -682,6 +928,30 @@ pub(super) mod config {
     }
 
     impl TdmSlotMask {
+        /// Creates a `TdmSlotMask` from the raw bit mask value.
+        #[inline(always)]
+        pub fn from_mask_value(value: u16) -> Self {
+            Self(value)
+        }
+
+        /// Indicates whether this slot mask is empty.
+        #[inline(always)]
+        pub fn is_empty(&self) -> bool {
+            self.0 == 0
+        }
+
+        /// Returns the number of slots in the slot mask.
+        #[inline(always)]
+        pub fn len(&self) -> usize {
+            self.0.count_ones() as usize
+        }
+
+        /// Returns the mask value as a `u16`.
+        #[inline(always)]
+        pub fn mask_value(&self) -> u16 {
+            self.0
+        }
+
         /// Converts this mask to an ESP-IDF SDK `i2s_tdm_slot_mask_t` value.
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
@@ -701,29 +971,23 @@ pub(super) mod config {
 impl<'d, Dir> I2sDriver<'d, Dir> {
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    fn internal_new_tdm<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    fn internal_new_tdm<I2S: I2s + 'd>(
+        _i2s: I2S,
         config: &config::TdmConfig,
         rx: bool,
         tx: bool,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: Option<impl InputPin + 'd>,
+        dout: Option<impl OutputPin + 'd>,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let chan_cfg = config.channel_cfg.as_sdk(I2S::port());
 
         let this = Self::internal_new::<I2S>(&chan_cfg, rx, tx)?;
 
         // Create the channel configuration.
-        let tdm_config = config.as_sdk(
-            bclk.into_ref(),
-            din.map(|d_in| d_in.into_ref()),
-            dout.map(|d_out| d_out.into_ref()),
-            mclk.map(|m_clk| m_clk.into_ref()),
-            ws.into_ref(),
-        );
+        let tdm_config = config.as_sdk(bclk, din, dout, mclk, ws);
 
         if rx {
             unsafe {
@@ -744,16 +1008,16 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
-    fn internal_new_tdm<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    fn internal_new_tdm<I2S: I2s + 'd>(
+        _i2s: I2S,
         config: &config::TdmConfig,
         rx: bool,
         tx: bool,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: Option<impl InputPin + 'd>,
+        dout: Option<impl OutputPin + 'd>,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let mut driver_cfg = config.as_sdk();
 
@@ -769,11 +1033,11 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
         // Set the pin configuration.
         let pin_cfg = i2s_pin_config_t {
-            bck_io_num: bclk.into_ref().pin(),
-            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
-            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
-            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
-            ws_io_num: ws.into_ref().pin(),
+            bck_io_num: bclk.pin() as _,
+            data_in_num: din.map(|din| din.pin() as _).unwrap_or(-1),
+            data_out_num: dout.map(|dout| dout.pin() as _).unwrap_or(-1),
+            mck_io_num: mclk.map(|mclk| mclk.pin() as _).unwrap_or(-1),
+            ws_io_num: ws.pin() as _,
         };
 
         // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
@@ -787,15 +1051,17 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
 impl<'d> I2sDriver<'d, I2sBiDir> {
     /// Create a new TDM mode driver for the given I2S peripheral with both the receive and transmit channels open.
+    #[cfg(not(any(esp32, esp32s2)))]
+    #[cfg_attr(feature = "nightly", doc(cfg(not(any(esp32, esp32s2)))))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tdm_bidir<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_tdm_bidir<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: impl InputPin + 'd,
+        dout: impl OutputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_tdm(
             i2s,
@@ -813,14 +1079,16 @@ impl<'d> I2sDriver<'d, I2sBiDir> {
 
 impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new TDM mode driver for the given I2S peripheral with only the receive channel open.
+    #[cfg(not(any(esp32, esp32s2)))]
+    #[cfg_attr(feature = "nightly", doc(cfg(not(any(esp32, esp32s2)))))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tdm_rx<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_tdm_rx<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: impl InputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_tdm(
             i2s,
@@ -838,14 +1106,16 @@ impl<'d> I2sDriver<'d, I2sRx> {
 
 impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new TDM mode driver for the given I2S peripheral with only the transmit channel open.
+    #[cfg(not(any(esp32, esp32s2)))]
+    #[cfg_attr(feature = "nightly", doc(cfg(not(any(esp32, esp32s2)))))]
     #[allow(clippy::too_many_arguments)]
-    pub fn new_tdm_tx<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_tdm_tx<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::TdmConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        dout: impl OutputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_tdm(
             i2s,

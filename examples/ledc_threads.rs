@@ -1,10 +1,11 @@
-use std::{sync::Arc, time::Duration};
+use std::rc::Rc;
+use std::time::Duration;
 
 use embedded_hal_0_2::PwmPin;
 
 use esp_idf_hal::ledc::*;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
+use esp_idf_hal::units::*;
 
 const CYCLES: usize = 3;
 
@@ -13,9 +14,9 @@ fn main() -> anyhow::Result<()> {
 
     println!("Setting up PWM output channels");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
     let config = config::TimerConfig::new().frequency(25.kHz().into());
-    let timer = Arc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config)?);
+    let timer = Rc::new(LedcTimerDriver::new(peripherals.ledc.timer0, &config)?);
     let channel0 = LedcDriver::new(
         peripherals.ledc.channel0,
         timer.clone(),

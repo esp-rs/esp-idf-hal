@@ -7,8 +7,7 @@ use esp_idf_sys::*;
 
 use crate::delay::*;
 use crate::gpio::*;
-use crate::interrupt::IntrFlags;
-use crate::peripheral::Peripheral;
+use crate::interrupt::InterruptType;
 use crate::units::*;
 
 pub use embedded_hal::i2c::Operation;
@@ -19,15 +18,53 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
+#[cfg(any(esp32, esp32s2))]
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
+
+#[cfg(all(esp32c2, esp_idf_xtal_freq_40))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
+#[cfg(all(esp32c2, esp_idf_xtal_freq_26))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 26_000_000;
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(not(any(esp32, esp32s2, esp32c2)))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
+// TODO: Below is probably not correct
+#[cfg(esp_idf_version_at_least_6_0_0)]
+#[cfg(not(any(esp32, esp32s2, esp32c2)))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
+
 #[derive(Copy, Clone, Debug)]
 pub struct APBTickType(::core::ffi::c_int);
 impl From<Duration> for APBTickType {
+    #[cfg(any(esp32, esp32s2))]
+    #[allow(clippy::manual_div_ceil)]
     fn from(duration: Duration) -> Self {
         APBTickType(
             ((duration.as_nanos() + APB_TICK_PERIOD_NS as u128 - 1) / APB_TICK_PERIOD_NS as u128)
                 as ::core::ffi::c_int,
         )
+    }
+    #[cfg(not(any(esp32, esp32s2)))]
+    /// Conversion for newer esp models, be aware, that the hardware can only represent 22 different values, values will be rounded to the next larger valid one. Calculation only valid for 40mhz clock source
+    fn from(duration: Duration) -> Self {
+        let target_ns = duration.as_nanos() as u64;
+        let timeout_in_xtal_clock_cycles = target_ns / (XTAL_TICK_PERIOD_NS as u64);
+        //ilog2 but with ceiling logic
+        let register_value = timeout_in_xtal_clock_cycles.ilog2()
+            + (if timeout_in_xtal_clock_cycles.leading_zeros()
+                + timeout_in_xtal_clock_cycles.trailing_zeros()
+                + 1
+                < 64
+            {
+                1
+            } else {
+                0
+            });
+        if register_value <= 22 {
+            return APBTickType(register_value as ::core::ffi::c_int);
+        }
+        //produce an error in the lower set_i2c_timeout, so the user is informed that the requested timeout is larger than the next valid one.
+        APBTickType(32 as ::core::ffi::c_int)
     }
 }
 
@@ -40,7 +77,7 @@ pub mod config {
     use enumset::EnumSet;
 
     use super::APBTickType;
-    use crate::{interrupt::IntrFlags, units::*};
+    use crate::{interrupt::InterruptType, units::*};
 
     /// I2C Master configuration
     #[derive(Debug, Clone)]
@@ -49,7 +86,7 @@ pub mod config {
         pub sda_pullup_enabled: bool,
         pub scl_pullup_enabled: bool,
         pub timeout: Option<APBTickType>,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     impl Config {
@@ -82,7 +119,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -95,7 +132,7 @@ pub mod config {
                 sda_pullup_enabled: true,
                 scl_pullup_enabled: true,
                 timeout: None,
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
     }
@@ -108,7 +145,7 @@ pub mod config {
         pub scl_pullup_enabled: bool,
         pub rx_buf_len: usize,
         pub tx_buf_len: usize,
-        pub intr_flags: EnumSet<IntrFlags>,
+        pub intr_flags: EnumSet<InterruptType>,
     }
 
     #[cfg(not(esp32c2))]
@@ -142,7 +179,7 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn intr_flags(mut self, flags: EnumSet<IntrFlags>) -> Self {
+        pub fn intr_flags(mut self, flags: EnumSet<InterruptType>) -> Self {
             self.intr_flags = flags;
             self
         }
@@ -156,7 +193,7 @@ pub mod config {
                 scl_pullup_enabled: true,
                 rx_buf_len: 0,
                 tx_buf_len: 0,
-                intr_flags: EnumSet::<IntrFlags>::empty(),
+                intr_flags: EnumSet::<InterruptType>::empty(),
             }
         }
     }
@@ -172,10 +209,10 @@ pub struct I2cDriver<'d> {
 }
 
 impl<'d> I2cDriver<'d> {
-    pub fn new<I2C: I2c>(
-        _i2c: impl Peripheral<P = I2C> + 'd,
-        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    pub fn new<I2C: I2c + 'd>(
+        _i2c: I2C,
+        sda: impl InputPin + OutputPin + 'd,
+        scl: impl InputPin + OutputPin + 'd,
         config: &config::Config,
     ) -> Result<Self, EspError> {
         // i2c_config_t documentation says that clock speed must be no higher than 1 MHz
@@ -183,13 +220,11 @@ impl<'d> I2cDriver<'d> {
             return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
         }
 
-        crate::into_ref!(sda, scl);
-
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_MASTER,
-            sda_io_num: sda.pin(),
+            sda_io_num: sda.pin() as _,
             sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: scl.pin(),
+            scl_io_num: scl.pin() as _,
             scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 master: i2c_config_t__bindgen_ty_1__bindgen_ty_1 {
@@ -207,7 +242,7 @@ impl<'d> I2cDriver<'d> {
                 i2c_mode_t_I2C_MODE_MASTER,
                 0, // Not used in master mode
                 0, // Not used in master mode
-                IntrFlags::to_native(config.intr_flags) as _,
+                InterruptType::to_native(config.intr_flags) as _,
             )
         })?;
 
@@ -352,15 +387,15 @@ impl<'d> I2cDriver<'d> {
     }
 }
 
-impl<'d> Drop for I2cDriver<'d> {
+impl Drop for I2cDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
 }
 
-unsafe impl<'d> Send for I2cDriver<'d> {}
+unsafe impl Send for I2cDriver<'_> {}
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'d> {
+impl embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'_> {
     type Error = I2cError;
 
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -368,7 +403,7 @@ impl<'d> embedded_hal_0_2::blocking::i2c::Read for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'d> {
+impl embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'_> {
     type Error = I2cError;
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
@@ -376,7 +411,7 @@ impl<'d> embedded_hal_0_2::blocking::i2c::Write for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
+impl embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'_> {
     type Error = I2cError;
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
@@ -384,11 +419,11 @@ impl<'d> embedded_hal_0_2::blocking::i2c::WriteRead for I2cDriver<'d> {
     }
 }
 
-impl<'d> embedded_hal::i2c::ErrorType for I2cDriver<'d> {
+impl embedded_hal::i2c::ErrorType for I2cDriver<'_> {
     type Error = I2cError;
 }
 
-impl<'d> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'d> {
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'_> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         I2cDriver::read(self, addr, buffer, BLOCK).map_err(to_i2c_err)
     }
@@ -425,47 +460,28 @@ pub struct I2cSlaveDriver<'d> {
 }
 
 #[cfg(not(esp32c2))]
-unsafe impl<'d> Send for I2cSlaveDriver<'d> {}
+unsafe impl Send for I2cSlaveDriver<'_> {}
 
 #[cfg(not(esp32c2))]
 impl<'d> I2cSlaveDriver<'d> {
-    pub fn new<I2C: I2c>(
-        _i2c: impl Peripheral<P = I2C> + 'd,
-        sda: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        scl: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+    pub fn new<I2C: I2c + 'd>(
+        _i2c: I2C,
+        sda: impl InputPin + OutputPin + 'd,
+        scl: impl InputPin + OutputPin + 'd,
         slave_addr: u8,
         config: &config::SlaveConfig,
     ) -> Result<Self, EspError> {
-        crate::into_ref!(sda, scl);
-
-        #[cfg(not(esp_idf_version = "4.3"))]
         let sys_config = i2c_config_t {
             mode: i2c_mode_t_I2C_MODE_SLAVE,
-            sda_io_num: sda.pin(),
+            sda_io_num: sda.pin() as _,
             sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: scl.pin(),
+            scl_io_num: scl.pin() as _,
             scl_pullup_en: config.scl_pullup_enabled,
             __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
                 slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
                     slave_addr: slave_addr as u16,
                     addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
                     maximum_speed: 0,
-                },
-            },
-            ..Default::default()
-        };
-
-        #[cfg(esp_idf_version = "4.3")]
-        let sys_config = i2c_config_t {
-            mode: i2c_mode_t_I2C_MODE_SLAVE,
-            sda_io_num: pins.sda.pin(),
-            sda_pullup_en: config.sda_pullup_enabled,
-            scl_io_num: pins.scl.pin(),
-            scl_pullup_en: config.scl_pullup_enabled,
-            __bindgen_anon_1: i2c_config_t__bindgen_ty_1 {
-                slave: i2c_config_t__bindgen_ty_1__bindgen_ty_2 {
-                    slave_addr: slave_addr as u16,
-                    addr_10bit_en: 0, // For now; to become configurable with embedded-hal V1.0
                 },
             },
             ..Default::default()
@@ -479,7 +495,7 @@ impl<'d> I2cSlaveDriver<'d> {
                 i2c_mode_t_I2C_MODE_SLAVE,
                 config.rx_buf_len,
                 config.tx_buf_len,
-                IntrFlags::to_native(config.intr_flags) as _,
+                InterruptType::to_native(config.intr_flags) as _,
             )
         })?;
 
@@ -519,7 +535,7 @@ impl<'d> I2cSlaveDriver<'d> {
 }
 
 #[cfg(not(esp32c2))]
-impl<'d> Drop for I2cSlaveDriver<'d> {
+impl Drop for I2cSlaveDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_driver_delete(self.port()) }).unwrap();
     }
@@ -567,7 +583,7 @@ impl<'buffers> CommandLink<'buffers> {
     }
 }
 
-impl<'buffers> Drop for CommandLink<'buffers> {
+impl Drop for CommandLink<'_> {
     fn drop(&mut self) {
         unsafe {
             i2c_cmd_link_delete(self.0);
@@ -579,7 +595,7 @@ macro_rules! impl_i2c {
     ($i2c:ident: $port:expr) => {
         crate::impl_peripheral!($i2c);
 
-        impl I2c for $i2c {
+        impl I2c for $i2c<'_> {
             #[inline(always)]
             fn port() -> i2c_port_t {
                 $port

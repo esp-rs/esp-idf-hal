@@ -4,7 +4,7 @@
 //! - GPIO21 to GPIO18
 //! - GPIO22 to GPIO19
 //!
-//! ESP32-C2/C3 does not have two I2C peripherals, so this ecample will not work.
+//! ESP32-C2/C3 does not have two I2C peripherals, so this example will not work.
 //!
 //! Description:
 //! Consists of three parts:
@@ -13,22 +13,22 @@
 //! 3. Read/write register, write a value to a register addr and read it back.
 //!
 #![allow(unused)]
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
 
 use esp_idf_hal::delay::BLOCK;
 use esp_idf_hal::gpio::{AnyIOPin, InputPin, OutputPin};
 use esp_idf_hal::i2c::{I2c, I2cConfig, I2cDriver, I2cSlaveConfig, I2cSlaveDriver};
-use esp_idf_hal::peripheral::Peripheral;
 use esp_idf_hal::peripherals::Peripherals;
-use esp_idf_hal::prelude::*;
-use esp_idf_hal::units::Hertz;
+use esp_idf_hal::units::*;
 
 const SLAVE_ADDR: u8 = 0x22;
 const SLAVE_BUFFER_SIZE: usize = 128;
 
 fn i2c_master_init<'d>(
-    i2c: impl Peripheral<P = impl I2c> + 'd,
-    sda: AnyIOPin,
-    scl: AnyIOPin,
+    i2c: impl I2c + 'd,
+    sda: AnyIOPin<'d>,
+    scl: AnyIOPin<'d>,
     baudrate: Hertz,
 ) -> anyhow::Result<I2cDriver<'d>> {
     let config = I2cConfig::new().baudrate(baudrate);
@@ -37,9 +37,9 @@ fn i2c_master_init<'d>(
 }
 
 fn i2c_slave_init<'d>(
-    i2c: impl Peripheral<P = impl I2c> + 'd,
-    sda: AnyIOPin,
-    scl: AnyIOPin,
+    i2c: impl I2c + 'd,
+    sda: AnyIOPin<'d>,
+    scl: AnyIOPin<'d>,
     buflen: usize,
     slave_addr: u8,
 ) -> anyhow::Result<I2cSlaveDriver<'d>> {
@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
 
     println!("Starting I2C self test");
 
-    let peripherals = Peripherals::take().unwrap();
+    let peripherals = Peripherals::take()?;
 
     let mut i2c_master = i2c_master_init(
         peripherals.i2c0,
@@ -86,8 +86,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut rx_buf: [u8; 8] = [0; 8];
     match i2c_slave.read(&mut rx_buf, BLOCK) {
-        Ok(_) => println!("Master send {:?} Slave receives {:?}", tx_buf, rx_buf),
-        Err(e) => println!("Error: {:?}", e),
+        Ok(_) => println!("Master send {tx_buf:?} Slave receives {rx_buf:?}"),
+        Err(e) => println!("Error: {e:?}"),
     }
 
     println!("-------- TESTING SIMPLE MASTER READ --------");
@@ -95,8 +95,8 @@ fn main() -> anyhow::Result<()> {
 
     let mut rx_buf: [u8; 8] = [0; 8];
     match i2c_master.read(SLAVE_ADDR, &mut rx_buf, BLOCK) {
-        Ok(_) => println!("Slave send {:?} Master receives {:?}", tx_buf, rx_buf),
-        Err(e) => println!("Error: {:?}", e),
+        Ok(_) => println!("Slave send {tx_buf:?} Master receives {rx_buf:?}"),
+        Err(e) => println!("Error: {e:?}"),
     }
 
     println!("-------- TESTING READ/WRITE REGISTER --------");
@@ -108,11 +108,8 @@ fn main() -> anyhow::Result<()> {
             loop {
                 let mut reg_addr: [u8; 1] = [0];
                 let res = i2c_slave.read(&mut reg_addr, BLOCK);
-                if res.is_err() {
-                    println!(
-                        "SLAVE: failed to read register address from master: Error: {:?}",
-                        res
-                    );
+                if let Err(e) = res {
+                    println!("SLAVE: failed to read register address from master: Error: {e:?}");
                     continue;
                 }
                 let mut rx_data: [u8; 1] = [0];
@@ -142,7 +139,7 @@ fn main() -> anyhow::Result<()> {
     let reg_addr: u8 = 0x05;
     let new_value: u8 = 0x42;
 
-    println!("MASTER: read reg addr {:#04x}", reg_addr);
+    println!("MASTER: read reg addr {reg_addr:#04x}");
     let mut rx_buf: [u8; 1] = [0; 1];
     // TODO: make write_read work
     i2c_master.write(SLAVE_ADDR, &[reg_addr], BLOCK)?;
@@ -154,15 +151,12 @@ fn main() -> anyhow::Result<()> {
 
     println!("---------------------");
 
-    println!(
-        "MASTER: write {:#04x} to reg addr {:#04x}",
-        new_value, reg_addr
-    );
+    println!("MASTER: write {new_value:#04x} to reg addr {reg_addr:#04x}");
     i2c_master.write(SLAVE_ADDR, &[reg_addr, new_value], BLOCK)?;
 
     println!("---------------------");
 
-    println!("MASTER: read reg addr {:#04x}", reg_addr);
+    println!("MASTER: read reg addr {reg_addr:#04x}");
     let mut rx_buf: [u8; 1] = [0; 1];
     // TODO: make write_read work
     i2c_master.write(SLAVE_ADDR, &[reg_addr], BLOCK)?;

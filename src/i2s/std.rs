@@ -1,27 +1,44 @@
 //! Standard mode driver for the ESP32 I2S peripheral.
+//!
+//! # Microcontroller support for Standard mode
+//!
+//! | Microcontroller    | Standard Rx     | Standard Tx     |
+//! |--------------------|-----------------|-----------------|
+//! | ESP32              | I2S0, I2S1      | I2S0, I2S11     |
+//! | ESP32-S2           | I2S0            | I2S0            |
+//! | ESP32-S3           | I2S0, I2S1      | I2S0, I2S1      |
+//! | ESP32-C2 (ESP8684) | _not supported_ | _not supported_ |
+//! | ESP32-C3           | I2S0            | I2S0            |
+//! | ESP32-C6           | I2S0            | I2S0            |
+//! | ESP32-H2           | I2S0            | I2S0            |
+
 use super::*;
-use crate::{gpio::*, peripheral::*};
+use crate::gpio::*;
 
 use esp_idf_sys::*;
 
 pub(super) mod config {
     #[allow(unused)]
-    use crate::{gpio::*, i2s::config::*, peripheral::*};
+    use crate::{gpio::*, i2s::config::*};
     use esp_idf_sys::*;
 
-    /// The standard mode configuration for the I2S peripheral.
+    /// Standard mode configuration for the I2S peripheral.
     pub struct StdConfig {
         /// The base channel configuration.
+        #[allow(dead_code)]
         pub(super) channel_cfg: Config,
 
         /// Standard mode channel clock configuration.
+        #[allow(dead_code)]
         clk_cfg: StdClkConfig,
 
         /// Standard mode channel slot configuration.
+        #[allow(dead_code)]
         slot_cfg: StdSlotConfig,
 
         /// Standard mode channel GPIO configuration.
         #[cfg(not(esp_idf_version_major = "4"))]
+        #[allow(dead_code)]
         gpio_cfg: StdGpioConfig,
     }
 
@@ -87,11 +104,11 @@ pub(super) mod config {
         #[inline(always)]
         pub(crate) fn as_sdk<'d>(
             &self,
-            bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
-            din: Option<PeripheralRef<'d, impl InputPin>>,
-            dout: Option<PeripheralRef<'d, impl OutputPin>>,
-            mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
-            ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+            bclk: impl InputPin + OutputPin + 'd,
+            din: Option<impl InputPin + 'd>,
+            dout: Option<impl OutputPin + 'd>,
+            mclk: Option<impl InputPin + OutputPin + 'd>,
+            ws: impl InputPin + OutputPin + 'd,
         ) -> i2s_std_config_t {
             i2s_std_config_t {
                 clk_cfg: self.clk_cfg.as_sdk(),
@@ -124,8 +141,8 @@ pub(super) mod config {
                 channel_format: chan_fmt,
                 communication_format: self.slot_cfg.comm_fmt.as_sdk(),
                 intr_alloc_flags: 1 << 1, // ESP_INTR_FLAG_LEVEL1
-                dma_buf_count: self.channel_cfg.dma_desc as i32,
-                dma_buf_len: self.channel_cfg.frames as i32,
+                dma_buf_count: self.channel_cfg.dma_buffer_count as i32,
+                dma_buf_len: self.channel_cfg.frames_per_buffer as i32,
                 #[cfg(any(esp32, esp32s2))]
                 use_apll: matches!(self.clk_cfg.clk_src, ClockSource::Apll),
                 #[cfg(not(any(esp32, esp32s2)))]
@@ -154,7 +171,7 @@ pub(super) mod config {
     }
 
     /// Standard mode channel clock configuration.
-    #[derive(Clone)]
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct StdClkConfig {
         /// I2S sample rate.
         sample_rate_hz: u32,
@@ -222,10 +239,10 @@ pub(super) mod config {
     }
 
     /// The communication format used by the v4 driver.
-    #[cfg(esp_idf_version_major = "4")]
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum StdCommFormat {
         /// Standard I2S/Philips format.
+        #[default]
         Philips,
 
         /// MSB-aligned format (data present at first bit clock).
@@ -238,8 +255,8 @@ pub(super) mod config {
         PcmLong,
     }
 
-    #[cfg(esp_idf_version_major = "4")]
     impl StdCommFormat {
+        #[cfg(esp_idf_version_major = "4")]
         #[inline(always)]
         pub(in crate::i2s) fn as_sdk(&self) -> i2s_comm_format_t {
             match self {
@@ -252,8 +269,7 @@ pub(super) mod config {
     }
 
     /// Standard mode GPIO (general purpose input/output) configuration.
-    #[cfg(not(esp_idf_version_major = "4"))]
-    #[derive(Default)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub struct StdGpioConfig {
         /// Invert the BCLK signal.
         bclk_invert: bool,
@@ -265,7 +281,6 @@ pub(super) mod config {
         ws_invert: bool,
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
     impl StdGpioConfig {
         /// Create a new standard mode GPIO configuration with the specified inversion flags for BCLK, MCLK, and WS.
         pub fn new(bclk_invert: bool, mclk_invert: bool, ws_invert: bool) -> Self {
@@ -301,11 +316,11 @@ pub(super) mod config {
         #[cfg(not(esp_idf_version_major = "4"))]
         pub(crate) fn as_sdk<'d>(
             &self,
-            bclk: PeripheralRef<'d, impl InputPin + OutputPin>,
-            din: Option<PeripheralRef<'d, impl InputPin>>,
-            dout: Option<PeripheralRef<'d, impl OutputPin>>,
-            mclk: Option<PeripheralRef<'d, impl InputPin + OutputPin>>,
-            ws: PeripheralRef<'d, impl InputPin + OutputPin>,
+            bclk: impl InputPin + OutputPin + 'd,
+            din: Option<impl InputPin + 'd>,
+            dout: Option<impl OutputPin + 'd>,
+            mclk: Option<impl InputPin + OutputPin + 'd>,
+            ws: impl InputPin + OutputPin + 'd,
         ) -> i2s_std_gpio_config_t {
             let invert_flags = i2s_std_gpio_config_t__bindgen_ty_1 {
                 _bitfield_1: i2s_std_gpio_config_t__bindgen_ty_1::new_bitfield_1(
@@ -317,19 +332,23 @@ pub(super) mod config {
             };
 
             i2s_std_gpio_config_t {
-                bclk: bclk.pin(),
-                din: if let Some(din) = din { din.pin() } else { -1 },
+                bclk: bclk.pin() as _,
+                din: if let Some(din) = din {
+                    din.pin() as _
+                } else {
+                    -1
+                },
                 dout: if let Some(dout) = dout {
-                    dout.pin()
+                    dout.pin() as _
                 } else {
                     -1
                 },
                 mclk: if let Some(mclk) = mclk {
-                    mclk.pin()
+                    mclk.pin() as _
                 } else {
                     -1
                 },
-                ws: ws.pin(),
+                ws: ws.pin() as _,
                 invert_flags,
             }
         }
@@ -337,8 +356,72 @@ pub(super) mod config {
 
     /// Standard mode channel slot configuration.
     ///
-    /// To create a slot configuration, use [StdSlotConfig::philips_slot_default], [StdSlotConfig::pcm_slot_default], or
-    /// [StdSlotConfig::msb_slot_default], then customize it as needed.
+    /// To create a slot configuration, use [`StdSlotConfig::philips_slot_default`], [`StdSlotConfig::pcm_slot_default`], or
+    /// [`StdSlotConfig::msb_slot_default`], then customize it as needed.
+    ///
+    /// # Note
+    /// The `slot_mode` and `slot_mask` cause the data to be interpreted in different ways, as noted below.
+    /// WS is the "word select" signal, sometimes called LRCLK (left/right clock).
+    ///
+    /// ## Transmit
+    ///
+    /// Assuming the buffered data contains the following samples (where a sample may be 1, 2, 3, or 4 bytes, depending
+    /// on `data_bit_width`):
+    ///
+    /// | **`d[0]`** | **`d[1]`** | **`d[2]`** | **`d[3]`** | **`d[4]`** | **`d[5]`** | **`d[6]`** | **`d[7]`** |
+    /// |------------|------------|------------|------------|------------|------------|------------|------------|
+    /// |  11        | 12         | 13         | 14         | 15         | 16         | 17         | 18         |
+    ///
+    /// The actual data on the line will be:
+    ///
+    /// <table>
+    ///   <thead>
+    ///     <tr><th><code>slot_mode</code></th><th><code>slot_mask</code></th><th colspan=8>Transmitted Data</th></tr>
+    ///     <tr><th></th><th></th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th><th>WS Low</th><th>WS High</th></tr>
+    ///   </thead>
+    ///   <tbody>
+    ///     <tr><td rowspan=3><code>Mono</code></td><td><code>Left</code></td> <td>11</td><td><font color="red">0</font></td><td>12</td><td><font color="red">0</font></td><td>13</td><td><font color="red">0</font></td><td>14</td><td><font color="red">0</font></td></tr>
+    ///     <tr>                                    <td><code>Right</code></td><td><font color="red">0</font></td><td>11</td><td><font color="red">0</font></td><td>12</td><td><font color="red">0</font></td><td>13</td><td><font color="red">0</font></td><td>14</td></tr>
+    ///     <tr>                                    <td><code>Both</code></td> <td>11</td><td>11</td><td>12</td><td>12</td><td>13</td><td>13</td><td>14</td><td>14</td></tr>
+    ///     <tr><td rowspan=3><code>Stereo</code></td><td><code>Left</code></td> <td>11</td><td><font color="red">0</font></td><td>13</td><td><font color="red">0</font></td><td>15</td><td><font color="red">0</font></td><td>17</td><td><font color="red">0</font></td></tr>
+    ///     <tr>                                      <td><code>Right</code></td><td><font color="red">0</font></td><td>12</td><td><font color="red">0</font></td><td>14</td><td><font color="red">0</font></td><td>16</td><td><font color="red">0</font></td><td>18</td></tr>
+    ///     <tr>                                      <td><code>Both</code></td> <td>11</td><td>12</td><td>13</td><td>14</td><td>15</td><td>16</td><td>17</td><td>18</td></tr>
+    ///   </tbody>
+    /// </table>
+    ///
+    ///
+    /// ## Receive
+    ///
+    /// Assuming the received data contains the following samples (where a sample may be 8, 16, 24, or 32 bits, depending on `data_bit_width`):
+    ///
+    /// | **WS Low**  | **WS High** | **WS Low**  | **WS High** | **WS Low**  | **WS High** | **WS Low**  | **WS High** |     |
+    /// |-------------|-------------|-------------|-------------|-------------|-------------|-------------|-------------|-----|
+    /// | 11          | 12          | 13          | 14          | 15          | 16          | 17          | 18          | ... |
+    ///
+    /// The actual data in the buffer will be (1-4 bytes, depending on `data_bit_width`):
+    ///
+    /// <table>
+    ///   <thead>
+    ///     <tr><th><code>slot_mode</code></th><th><code>slot_mask</code></th><th colspan=8>Buffer Contents</th></tr>
+    ///     <tr><th></th><th></th><th><code>d[0]</code></th><th><code>d[1]</code></th><th><code>d[2]</code></th><th><code>d[3]</code></th><th><code>d[4]</code></th><th><code>d[5]</code></th><th><code>d[6]</code></th><th><code>d[7]</code></th></tr>
+    ///   </thead>
+    ///   <tbody>
+    ///     <tr><td rowspan=3><code>Mono</code></td>  <td><code>Left</code></td> <td>11</td><td>13</td><td>15</td><td>17</td><td>19</td><td>21</td><td>23</td><td>25</td></tr>
+    ///     <tr>                                      <td><code>Right</code></td><td>12</td><td>14</td><td>16</td><td>18</td><td>20</td><td>22</td><td>24</td><td>26</td></tr>
+    ///     <tr>                                      <td><code>Both</code></td> <td colspan=8><i>Unspecified behavior</i></td></tr>
+    ///     <tr><td rowspan=2><code>Stereo</code></td><td><i>Any</i></td>        <td>11</td><td>12</td><td>13</td><td>14</td><td>15</td><td>16</td><td>17</td><td>18</td></tr>
+    ///   </tbody>
+    /// </table>
+    ///
+    /// For details, refer to the
+    /// _ESP-IDF Programming Guide_ details for your specific microcontroller:
+    /// * ESP32: [STD Tx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html#std-tx-mode) / [STD Rx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/peripherals/i2s.html#std-rx-mode).
+    /// * ESP32-S2: [STD Tx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/i2s.html#std-tx-mode) / [STD Rx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/peripherals/i2s.html#std-tx-mode)
+    /// * ESP32-S3: [STD Tx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#std-tx-mode) / [STD Rx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32s3/api-reference/peripherals/i2s.html#std-tx-mode)
+    /// * ESP32-C3: [STD Tx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/i2s.html#std-tx-mode) / [STD Rx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c3/api-reference/peripherals/i2s.html#std-tx-mode).
+    /// * ESP32-C6: [STD Tx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/peripherals/i2s.html#std-tx-mode) / [STD Rx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32c6/api-reference/peripherals/i2s.html#std-tx-mode).
+    /// * ESP32-H2: [STD Tx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32h2/api-reference/peripherals/i2s.html#std-tx-mode) / [STD Rx Mode](https://docs.espressif.com/projects/esp-idf/en/latest/esp32h2/api-reference/peripherals/i2s.html#std-tx-mode).
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
     pub struct StdSlotConfig {
         /// I2S sample data bit width (valid data bits per sample).
         data_bit_width: DataBitWidth,
@@ -474,7 +557,7 @@ pub(super) mod config {
 
         /// Configure in Philips format in 2 slots.
         pub fn philips_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
-            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+            let slot_mask = if slot_mode == SlotMode::Mono {
                 StdSlotMask::Left
             } else {
                 StdSlotMask::Both
@@ -508,7 +591,7 @@ pub(super) mod config {
 
         /// Configure in PCM (short) format in 2 slots.
         pub fn pcm_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
-            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+            let slot_mask = if slot_mode == SlotMode::Mono {
                 StdSlotMask::Left
             } else {
                 StdSlotMask::Both
@@ -542,7 +625,7 @@ pub(super) mod config {
 
         /// Configure in MSB format in 2 slots.
         pub fn msb_slot_default(bits_per_sample: DataBitWidth, slot_mode: SlotMode) -> Self {
-            let slot_mask = if slot_mode == SlotMode::Mono && cfg!(any(esp32, esp32s2)) {
+            let slot_mask = if slot_mode == SlotMode::Mono {
                 StdSlotMask::Left
             } else {
                 StdSlotMask::Both
@@ -597,42 +680,10 @@ pub(super) mod config {
         }
     }
 
-    // The derived Clone appears to have problems with some of the cfg attributes in rust-analyzer.
-    impl Clone for StdSlotConfig {
-        fn clone(&self) -> Self {
-            Self {
-                data_bit_width: self.data_bit_width,
-                slot_bit_width: self.slot_bit_width,
-                slot_mode: self.slot_mode,
-                slot_mask: self.slot_mask,
-                #[cfg(not(esp_idf_version_major = "4"))]
-                ws_width: self.ws_width,
-                #[cfg(not(esp_idf_version_major = "4"))]
-                ws_polarity: self.ws_polarity,
-                #[cfg(not(esp_idf_version_major = "4"))]
-                bit_shift: self.bit_shift,
-                #[cfg(all(any(esp32, esp32s2), not(esp_idf_version_major = "4")))]
-                msb_right: self.msb_right,
-                #[cfg(esp_idf_version_major = "4")]
-                comm_fmt: self.comm_fmt,
-                #[cfg(not(any(esp32, esp32s2)))]
-                left_align: self.left_align,
-                #[cfg(not(any(esp32, esp32s2)))]
-                big_endian: self.big_endian,
-                #[cfg(not(any(esp32, esp32s2)))]
-                bit_order_lsb: self.bit_order_lsb,
-            }
-        }
-    }
-
     /// I2S slot selection in standard mode.
     ///
     /// The default is `StdSlotMask::Both`.
-    ///
-    /// # Note
-    /// This has different meanings in transmit vs receive mode, and stereo vs mono mode. This may have different
-    /// behaviors on different targets. For details, refer to the I2S API reference.
-    #[derive(Clone, Copy, Eq, PartialEq)]
+    #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
     pub enum StdSlotMask {
         /// I2S transmits or receives the left slot.
         Left,
@@ -641,14 +692,8 @@ pub(super) mod config {
         Right,
 
         /// I2S transmits or receives both slots.
+        #[default]
         Both,
-    }
-
-    impl Default for StdSlotMask {
-        #[inline(always)]
-        fn default() -> Self {
-            Self::Both
-        }
     }
 
     impl StdSlotMask {
@@ -668,29 +713,23 @@ pub(super) mod config {
 impl<'d, Dir> I2sDriver<'d, Dir> {
     #[cfg(not(esp_idf_version_major = "4"))]
     #[allow(clippy::too_many_arguments)]
-    fn internal_new_std<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    fn internal_new_std<I2S: I2s + 'd>(
+        _i2s: I2S,
         config: &config::StdConfig,
         rx: bool,
         tx: bool,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: Option<impl InputPin + 'd>,
+        dout: Option<impl OutputPin + 'd>,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let chan_cfg = config.channel_cfg.as_sdk(I2S::port());
 
         let this = Self::internal_new::<I2S>(&chan_cfg, rx, tx)?;
 
         // Create the channel configuration.
-        let std_config = config.as_sdk(
-            bclk.into_ref(),
-            din.map(|d_in| d_in.into_ref()),
-            dout.map(|d_out| d_out.into_ref()),
-            mclk.map(|m_clk| m_clk.into_ref()),
-            ws.into_ref(),
-        );
+        let std_config = config.as_sdk(bclk, din, dout, mclk, ws);
 
         if rx {
             unsafe {
@@ -711,16 +750,16 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
     #[cfg(esp_idf_version_major = "4")]
     #[allow(clippy::too_many_arguments)]
-    pub fn internal_new_std<I2S: I2s>(
-        _i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn internal_new_std<I2S: I2s + 'd>(
+        _i2s: I2S,
         config: &config::StdConfig,
         rx: bool,
         tx: bool,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: Option<impl Peripheral<P = impl InputPin> + 'd>,
-        dout: Option<impl Peripheral<P = impl OutputPin> + 'd>,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: Option<impl InputPin + 'd>,
+        dout: Option<impl OutputPin + 'd>,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         let mut driver_cfg = config.as_sdk();
 
@@ -736,11 +775,11 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 
         // Set the pin configuration.
         let pin_cfg = i2s_pin_config_t {
-            bck_io_num: bclk.into_ref().pin(),
-            data_in_num: din.map(|din| din.into_ref().pin()).unwrap_or(-1),
-            data_out_num: dout.map(|dout| dout.into_ref().pin()).unwrap_or(-1),
-            mck_io_num: mclk.map(|mclk| mclk.into_ref().pin()).unwrap_or(-1),
-            ws_io_num: ws.into_ref().pin(),
+            bck_io_num: bclk.pin() as _,
+            data_in_num: din.map(|din| din.pin() as _).unwrap_or(-1),
+            data_out_num: dout.map(|dout| dout.pin() as _).unwrap_or(-1),
+            mck_io_num: mclk.map(|mclk| mclk.pin() as _).unwrap_or(-1),
+            ws_io_num: ws.pin() as _,
         };
 
         // Safety: &pin_cfg is a valid pointer to an i2s_pin_config_t.
@@ -755,14 +794,14 @@ impl<'d, Dir> I2sDriver<'d, Dir> {
 impl<'d> I2sDriver<'d, I2sBiDir> {
     /// Create a new standard mode driver for the given I2S peripheral with both the receive and transmit channels open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_std_bidir<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_std_bidir<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::StdConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: impl InputPin + 'd,
+        dout: impl OutputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_std(
             i2s,
@@ -781,13 +820,13 @@ impl<'d> I2sDriver<'d, I2sBiDir> {
 impl<'d> I2sDriver<'d, I2sRx> {
     /// Create a new standard mode driver for the given I2S peripheral with only the receive channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_std_rx<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_std_rx<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::StdConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        din: impl Peripheral<P = impl InputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        din: impl InputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_std(
             i2s,
@@ -806,13 +845,13 @@ impl<'d> I2sDriver<'d, I2sRx> {
 impl<'d> I2sDriver<'d, I2sTx> {
     /// Create a new standard mode driver for the given I2S peripheral with only the transmit channel open.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_std_tx<I2S: I2s>(
-        i2s: impl Peripheral<P = I2S> + 'd,
+    pub fn new_std_tx<I2S: I2s + 'd>(
+        i2s: I2S,
         config: &config::StdConfig,
-        bclk: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
-        dout: impl Peripheral<P = impl OutputPin> + 'd,
-        mclk: Option<impl Peripheral<P = impl InputPin + OutputPin> + 'd>,
-        ws: impl Peripheral<P = impl InputPin + OutputPin> + 'd,
+        bclk: impl InputPin + OutputPin + 'd,
+        dout: impl OutputPin + 'd,
+        mclk: Option<impl InputPin + OutputPin + 'd>,
+        ws: impl InputPin + OutputPin + 'd,
     ) -> Result<Self, EspError> {
         Self::internal_new_std(
             i2s,

@@ -13,8 +13,6 @@
 //! let frequency_hz_1 = 1.Hz() + frequency_khz_3.into(),
 //! ```
 
-use core::convert::TryFrom;
-use core::convert::TryInto;
 use core::fmt;
 
 pub type ValueType = u32;
@@ -256,7 +254,7 @@ macro_rules! divide {
             type Output = $time;
             fn div(self, rhs: $freq) -> Self::Output {
                 ValueType::try_from(
-                    (LargeValueType::from(self.0) * $factor / LargeValueType::from(rhs.0))
+                    LargeValueType::from(self.0) * $factor / LargeValueType::from(rhs.0)
                 ).unwrap().into()
             }
         }
@@ -264,14 +262,14 @@ macro_rules! divide {
         impl core::ops::Div<$freq> for TicksU64 {
             type Output = $time_large;
             fn div(self, rhs: $freq) -> Self::Output {
-                (self.0 * $factor / LargeValueType::from(rhs.0) ).into()
+                (self.0 * $factor / LargeValueType::from(rhs.0)).into()
             }
         }
 
         impl core::ops::Div<$freq_large> for TicksU64 {
             type Output = $time_large;
             fn div(self, rhs: $freq_large) -> Self::Output {
-                (self.0 * $factor / rhs.0 ).into()
+                (self.0 * $factor / rhs.0).into()
             }
         }
 
