@@ -23,9 +23,9 @@ use core::fmt;
 use core::time::Duration;
 use esp_idf_sys::*;
 
-use crate::gpio::{GPIOMode, InputPin, Level, PinDriver};
+use crate::gpio::{GPIOMode, Level, PinDriver, PinId};
 #[cfg(any(esp32, esp32s2, esp32s3))]
-use crate::gpio::{RTCMode, RTCPin};
+use crate::gpio::{RTCMode};
 use crate::uart::UartDriver;
 use core::marker::PhantomData;
 
@@ -125,12 +125,12 @@ impl RtcWakeLevel {
 }
 
 pub trait RtcWakeupPinTrait {
-    fn pin(&self) -> i32;
+    fn pin(&self) -> PinId;
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub trait RtcWakeupPins {
-    type Iterator<'a>: Iterator<Item = i32>
+    type Iterator<'a>: Iterator<Item = PinId>
     where
         Self: 'a;
 
@@ -144,7 +144,7 @@ impl<P> RtcWakeupPins for P
 where
     P: RtcWakeupPinTrait,
 {
-    type Iterator<'a> = core::iter::Once<i32> where Self: 'a;
+    type Iterator<'a> = core::iter::Once<PinId> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::once(self.pin())
@@ -168,7 +168,7 @@ impl EmptyRtcWakeupPins {
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl RtcWakeupPins for EmptyRtcWakeupPins {
-    type Iterator<'a> = core::iter::Empty<i32> where Self: 'a;
+    type Iterator<'a> = core::iter::Empty<PinId> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::empty()
@@ -213,21 +213,19 @@ where
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-pub struct RtcWakeupPin<'d, P, M>
+pub struct RtcWakeupPin<'d, M>
 where
-    P: InputPin + RTCPin + 'd,
     M: RTCMode + 'd,
 {
-    pub pindriver: &'d PinDriver<'d, P, M>,
+    pub pindriver: &'d PinDriver<'d, M>,
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-impl<'d, P, M> RtcWakeupPinTrait for RtcWakeupPin<'d, P, M>
+impl<'d, M> RtcWakeupPinTrait for RtcWakeupPin<'d, M>
 where
-    P: InputPin + RTCPin + 'd,
     M: RTCMode + 'd,
 {
-    fn pin(&self) -> i32 {
+    fn pin(&self) -> PinId {
         self.pindriver.pin()
     }
 }
@@ -252,7 +250,7 @@ where
                 Level::Low => gpio_int_type_t_GPIO_INTR_LOW_LEVEL,
                 Level::High => gpio_int_type_t_GPIO_INTR_HIGH_LEVEL,
             };
-            esp!(unsafe { gpio_wakeup_enable(pin.0, intr_level) })?;
+            esp!(unsafe { gpio_wakeup_enable(pin.0 as _, intr_level) })?;
         }
         esp!(unsafe { esp_sleep_enable_gpio_wakeup() })?;
         Ok(())
@@ -331,12 +329,12 @@ where
 }
 
 pub trait GpioWakeupPinTrait {
-    fn pin(&self) -> i32;
+    fn pin(&self) -> PinId;
     fn wake_level(&self) -> Level;
 }
 
 pub trait GpioWakeupPins {
-    type Iterator<'a>: Iterator<Item = (i32, Level)>
+    type Iterator<'a>: Iterator<Item = (PinId, Level)>
     where
         Self: 'a;
 
@@ -347,7 +345,7 @@ impl<P> GpioWakeupPins for P
 where
     P: GpioWakeupPinTrait,
 {
-    type Iterator<'a> = core::iter::Once<(i32, Level)> where Self: 'a;
+    type Iterator<'a> = core::iter::Once<(PinId, Level)> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::once((self.pin(), self.wake_level()))
@@ -369,7 +367,7 @@ impl EmptyGpioWakeupPins {
 }
 
 impl GpioWakeupPins for EmptyGpioWakeupPins {
-    type Iterator<'a> = core::iter::Empty<(i32, Level)> where Self: 'a;
+    type Iterator<'a> = core::iter::Empty<(PinId, Level)> where Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::empty()
@@ -407,21 +405,19 @@ where
     }
 }
 
-pub struct GpioWakeupPin<'d, P, M>
+pub struct GpioWakeupPin<'d, M>
 where
-    P: InputPin + 'd,
     M: GPIOMode + 'd,
 {
-    pub pindriver: &'d PinDriver<'d, P, M>,
+    pub pindriver: &'d PinDriver<'d, M>,
     pub wake_level: Level,
 }
 
-impl<'d, P, M> GpioWakeupPinTrait for GpioWakeupPin<'d, P, M>
+impl<'d, M> GpioWakeupPinTrait for GpioWakeupPin<'d, M>
 where
-    P: InputPin + 'd,
     M: GPIOMode + 'd,
 {
-    fn pin(&self) -> i32 {
+    fn pin(&self) -> PinId {
         self.pindriver.pin()
     }
 
@@ -444,7 +440,7 @@ impl<'a> UartWakeup<'a> {
 
     fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe { uart_set_wakeup_threshold(self.uart.port(), self.threshold) })?;
-        esp!(unsafe { esp_sleep_enable_uart_wakeup(self.uart.port()) })?;
+        esp!(unsafe { esp_sleep_enable_uart_wakeup(self.uart.port() as _) })?;
         Ok(())
     }
 }
