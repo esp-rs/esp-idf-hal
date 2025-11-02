@@ -51,10 +51,9 @@ The following are flags passed to `rustc` that influence the build.
 
 - ### `libstart`
 
-  Defines the esp-idf entry-point for when the root crate is a [library
-  crate](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#library). the root
-  crate is expected to provide a
-  ```rust
+  Defines the esp-idf entry-point for when the root crate is a [library crate](https://doc.rust-lang.org/cargo/reference/cargo-targets.html#library).
+  The root crate is expected to provide a
+  ```ignore
   #[no_mangle]
   fn main() {}
   ```
