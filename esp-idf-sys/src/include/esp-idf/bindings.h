@@ -76,7 +76,11 @@
 #if ESP_IDF_VERSION_MAJOR > 4
 #ifdef ESP_IDF_COMP_SPI_FLASH_ENABLED
 #include "esp_flash.h"
+#if ESP_IDF_VERSION_MAJOR > 5
+#include "spi_flash_mmap.h"
+#else
 #include "esp_spi_flash.h"
+#endif
 #endif
 #ifdef ESP_IDF_COMP_ESP_PARTITION
 #include "esp_partition.h"
