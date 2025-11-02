@@ -11,7 +11,9 @@
 #include "esp_sleep.h"
 #include "esp_task.h"
 #include "esp_task_wdt.h"
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "esp_interface.h"
+#endif
 #include "esp_ipc.h"
 #include "esp_mac.h"
 #include "esp_freertos_hooks.h"
