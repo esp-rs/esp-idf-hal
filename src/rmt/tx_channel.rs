@@ -69,12 +69,13 @@ impl<'d> TxChannelDriver<'d> {
                     config.memory_access.is_direct() as u32,
                     config.io_loop_back as u32,
                     config.io_od_mode as u32,
-                    #[cfg(any(
-                        esp_idf_version_patch_at_least_5_4_3,
-                        esp_idf_version_at_least_5_4_0
-                    ))]
+                    #[cfg(esp_idf_version_at_least_5_4_0)]
                     {
                         config.allow_pd as u32
+                    },
+                    #[cfg(esp_idf_version_patch_at_least_5_4_3)]
+                    {
+                        0
                     },
                 ),
                 ..Default::default()

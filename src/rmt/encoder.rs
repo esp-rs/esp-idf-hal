@@ -82,7 +82,7 @@ impl From<rmt_encode_state_t> for EncoderState {
             rmt_encode_state_t_RMT_ENCODING_MEM_FULL => Self::EncodingMemoryFull,
             #[cfg(esp_idf_version_at_least_5_5_0)]
             rmt_encode_state_t_RMT_ENCODING_WITH_EOF => Self::EncodingWithEof,
-            _ => panic!("Unknown rmt_encode_state_t value: {}", value),
+            _ => panic!("Unknown rmt_encode_state_t value: {value}"),
         }
     }
 }

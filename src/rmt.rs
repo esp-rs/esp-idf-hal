@@ -131,10 +131,7 @@ impl Symbol {
 
         // Handle edge-case to prevent an infinite loop:
         if symbol_duration.is_zero() {
-            panic!(
-                "Cannot repeat a symbol with zero duration for {:?}",
-                duration
-            );
+            panic!("Cannot repeat a symbol with zero duration for {duration:?}");
         }
 
         let count = duration.as_nanos() / symbol_duration.as_nanos();
