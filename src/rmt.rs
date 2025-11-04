@@ -52,6 +52,10 @@ use esp_idf_sys::*;
 use crate::rmt::config::CarrierConfig;
 use crate::units::Hertz;
 
+#[cfg(esp_idf_version_at_least_6_0_0)]
+#[allow(non_camel_case_types)]
+type rmt_carrier_config_t__bindgen_ty_1 = rmt_carrier_config_t_extra_rmt_carrier_config_flags;
+
 /// A [`Symbol`] constists of two [`Pulse`]s, where each pulse defines a level of the pin (high or low)
 /// and a duration ([`PulseTicks`]).
 ///

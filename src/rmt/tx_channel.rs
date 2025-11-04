@@ -67,13 +67,22 @@ impl<'d> TxChannelDriver<'d> {
                 _bitfield_1: rmt_tx_channel_config_t__bindgen_ty_1::new_bitfield_1(
                     config.invert_out as u32,
                     config.memory_access.is_direct() as u32,
-                    config.io_loop_back as u32,
-                    config.io_od_mode as u32,
+                    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+                    {
+                        config.io_loop_back as u32
+                    },
+                    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+                    {
+                        config.io_od_mode as u32
+                    },
                     #[cfg(esp_idf_version_at_least_5_4_0)]
                     {
                         config.allow_pd as u32
                     },
-                    #[cfg(esp_idf_version_patch_at_least_5_4_3)]
+                    #[cfg(any(
+                        esp_idf_version_patch_at_least_5_4_3,
+                        esp_idf_version_at_least_6_0_0
+                    ))]
                     {
                         0
                     },
