@@ -209,14 +209,18 @@
 #include "esp_vfs_cdcacm.h"
 #include "esp_vfs_dev.h"
 #include "esp_vfs_semihost.h"
+#ifdef SOC_USB_SERIAL_JTAG_SUPPORTED
 #if ESP_IDF_VERSION_MAJOR > 5
-#include "usb_serial_jtag_vfs.h"
+#include "driver/usb_serial_jtag_vfs.h"
 #else
 #include "esp_vfs_usb_serial_jtag.h"
 #endif
+#endif
 
+#ifdef ESP_IDF_COMP_VFS_CONSOLE_ENABLED
 #if ((ESP_IDF_VERSION_MAJOR > 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)))
 #include "esp_vfs_console.h"
+#endif
 #endif
 
 #if ((ESP_IDF_VERSION_MAJOR > 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)))
@@ -457,8 +461,10 @@
 #endif
 
 // RMT
-#if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_RMT_ENABLED)
+#if (OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_RMT_ENABLED))
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/rmt.h"
+#endif
 #if ESP_IDF_VERSION_MAJOR >= 5
 #define rmt_channel_t rmt_drv_channel_t // Rename to avoid conflict with rmt_channel_t in rmt.h
 #include "driver/rmt_encoder.h"
@@ -487,6 +493,11 @@
 #include "driver/sdmmc_host.h"
 #include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
+#endif
+#if ESP_IDF_VERSION_MAJOR > 5
+#if defined(ESP_IDF_COMP_SDMMC_ENABLED)
+#include "sdmmc_cmd.h"
+#endif
 #endif
 
 // Sigma-delta
@@ -684,7 +695,9 @@
 #endif
 #if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 3
 #include "esp_lcd_panel_dev.h"
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "esp_lcd_panel_nt35510.h"
+#endif
 #include "esp_lcd_panel_ssd1306.h"
 #include "esp_lcd_panel_st7789.h"
 #endif
