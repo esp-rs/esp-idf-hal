@@ -209,7 +209,11 @@
 #include "esp_vfs_cdcacm.h"
 #include "esp_vfs_dev.h"
 #include "esp_vfs_semihost.h"
+#if ESP_IDF_VERSION_MAJOR > 5
+#include "usb_serial_jtag_vfs.h"
+#else
 #include "esp_vfs_usb_serial_jtag.h"
+#endif
 
 #if ((ESP_IDF_VERSION_MAJOR > 4) || ((ESP_IDF_VERSION_MAJOR == 4) && (ESP_IDF_VERSION_MINOR >= 4)))
 #include "esp_vfs_console.h"
