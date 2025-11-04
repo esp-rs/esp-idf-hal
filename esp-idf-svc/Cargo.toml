@@ -17,7 +17,7 @@ rust-version = "1.82"
 
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
-esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal", branch = "new-periph" }
+esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
 
 [lib]
 harness = false
