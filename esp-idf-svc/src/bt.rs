@@ -623,7 +623,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             enable_uart_hci: crate::sys::HCI_UART_EN as _,
             #[cfg(any(
@@ -632,7 +632,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             ble_hci_uart_port: crate::sys::DEFAULT_BT_LE_HCI_UART_PORT as _,
             #[cfg(any(
@@ -641,7 +641,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             ble_hci_uart_baud: crate::sys::DEFAULT_BT_LE_HCI_UART_BAUD,
             #[cfg(any(
@@ -650,7 +650,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             ble_hci_uart_data_bits: crate::sys::DEFAULT_BT_LE_HCI_UART_DATA_BITS as _,
             #[cfg(any(
@@ -659,7 +659,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             ble_hci_uart_stop_bits: crate::sys::DEFAULT_BT_LE_HCI_UART_STOP_BITS as _,
             #[cfg(any(
@@ -668,7 +668,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             ble_hci_uart_flow_ctrl: crate::sys::DEFAULT_BT_LE_HCI_UART_FLOW_CTRL as _,
             #[cfg(any(
@@ -677,7 +677,7 @@ where
                 all(esp_idf_version = "5.1", not(esp_idf_version_patch_at_least_5_1_5)),
                 all(esp_idf_version = "5.2", not(esp_idf_version_patch_at_least_5_2_3)),
                 all(esp_idf_version = "5.3", not(esp_idf_version_patch_at_least_5_3_1)),
-                not(any(esp32c6, esp32h2))
+                not(any(esp32c5, esp32c6, esp32c61, esp32h2))
             ))]
             ble_hci_uart_uart_parity: crate::sys::DEFAULT_BT_LE_HCI_UART_PARITY as _,
             enable_tx_cca: crate::sys::DEFAULT_BT_LE_TX_CCA_ENABLED as _,
