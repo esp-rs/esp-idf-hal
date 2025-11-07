@@ -22,12 +22,16 @@ crate::embedded_hal_error!(
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / APB_CLK_FREQ;
 
 #[cfg(esp_idf_xtal_freq_48)]
+#[allow(unused)]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 48_000_000;
 #[cfg(esp_idf_xtal_freq_40)]
+#[allow(unused)]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
 #[cfg(esp_idf_xtal_freq_32)]
+#[allow(unused)]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 32_000_000;
 #[cfg(esp_idf_xtal_freq_26)]
+#[allow(unused)]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 26_000_000;
 
 #[cfg(all(
