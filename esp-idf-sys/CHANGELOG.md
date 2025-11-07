@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `esp_idf_version_at_least_X_Y_Z`, `esp_idf_version_patch_at_least_X_Y_Z` and  `esp_idf_version_patch_at_most_X_Y_Z`
   `cfg` constants for easier conditional compilation against various ESP-IDF versions
 - Compatibility with ESP-IDF v5.4.X, v5.5.x
+- Support for `esp32c5` and `esp32c61`
 
 ### Fixed
 - Fix the `esp_app_desc!` macro so the reserv3 field is correct for ESP IDF v5.4

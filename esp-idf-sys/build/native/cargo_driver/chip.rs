@@ -32,6 +32,9 @@ pub enum Chip {
     /// RISC-V based single core with atomics support
     #[strum(serialize = "esp32c6")]
     ESP32C6,
+    /// RISC-V based single core with atomics support
+    #[strum(serialize = "esp32c61")]
+    ESP32C61,
     /// RISC-V based dual core
     #[strum(serialize = "esp32p4")]
     ESP32P4,
@@ -46,7 +49,9 @@ impl Chip {
             // Keep C3 as the first in the list, so it is picked up by default; as C2 does not work for older ESP IDFs
             "riscv32imc-esp-espidf" => &[Chip::ESP32C3, Chip::ESP32C2],
             // Keep C6 at the first in the list, so it is picked up by default; as H2 does not have a Wifi
-            "riscv32imac-esp-espidf" => &[Chip::ESP32C6, Chip::ESP32C5, Chip::ESP32H2],
+            "riscv32imac-esp-espidf" => {
+                &[Chip::ESP32C6, Chip::ESP32C61, Chip::ESP32C5, Chip::ESP32H2]
+            }
             "riscv32imafc-esp-espidf" => &[Chip::ESP32P4],
             _ => bail!("Unsupported target '{}'", rust_target_triple),
         };
@@ -91,6 +96,7 @@ impl Chip {
             | Self::ESP32H2
             | Self::ESP32C5
             | Self::ESP32C6
+            | Self::ESP32C61
             | Self::ESP32P4 => "riscv32-esp-elf",
         }
     }
@@ -128,7 +134,7 @@ impl Chip {
     pub fn ulp_gcc_toolchain(&self, version: Option<&EspIdfVersion>) -> Option<&'static str> {
         match self {
             Self::ESP32 => Some("esp32ulp-elf"),
-            Self::ESP32S2 | Self::ESP32S3 | Self::ESP32C6 | Self::ESP32P4 => Some(
+            Self::ESP32S2 | Self::ESP32S3 | Self::ESP32C5 | Self::ESP32C6 | Self::ESP32P4 => Some(
                 if version
                     .map(|version| {
                         version.major > 4
