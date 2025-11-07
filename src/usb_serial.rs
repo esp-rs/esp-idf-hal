@@ -29,10 +29,10 @@ pub type UsbDMinGpio<'d> = gpio::Gpio13<'d>;
 #[cfg(esp32c5)]
 pub type UsbDPlusGpio<'d> = gpio::Gpio14<'d>;
 /// USB D- GPIO pin
-#[cfg(esp32c6)]
+#[cfg(any(esp32c6, esp32c61))]
 pub type UsbDMinGpio<'d> = gpio::Gpio12<'d>;
 /// USB D+ GPIO pin
-#[cfg(esp32c6)]
+#[cfg(any(esp32c6, esp32c61))]
 pub type UsbDPlusGpio<'d> = gpio::Gpio13<'d>;
 /// USB D- GPIO pin
 #[cfg(esp32h2)]

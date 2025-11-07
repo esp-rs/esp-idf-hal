@@ -54,11 +54,14 @@ pub mod onewire;
 pub mod pcnt;
 
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
-#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
+#[cfg(all(
+    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32c61),
+    feature = "pcnt-legacy"
+))]
 #[cfg_attr(
     all(
         not(esp_idf_version_at_least_6_0_0),
-        any(esp32, esp32s2, esp32s3, esp32c6),
+        any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32c61),
         feature = "pcnt-legacy"
     ),
     deprecated(
@@ -69,7 +72,10 @@ pub mod pcnt;
 mod pcnt_legacy;
 
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
-#[cfg(all(any(esp32, esp32s2, esp32s3, esp32c6), feature = "pcnt-legacy"))]
+#[cfg(all(
+    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32c61),
+    feature = "pcnt-legacy"
+))]
 pub mod pcnt {
     pub use crate::pcnt_legacy::*;
 }
@@ -116,7 +122,7 @@ pub mod temp_sensor;
 pub mod timer;
 pub mod uart;
 #[cfg(all(
-    any(esp32, esp32s2, esp32s3, esp32c6, esp32p4),
+    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
     esp_idf_comp_ulp_enabled
 ))]
 pub mod ulp;
