@@ -23,9 +23,9 @@ use core::fmt;
 use core::time::Duration;
 use esp_idf_sys::*;
 
-use crate::gpio::{GPIOMode, Level, PinDriver, PinId};
 #[cfg(any(esp32, esp32s2, esp32s3))]
-use crate::gpio::{RTCMode};
+use crate::gpio::RTCMode;
+use crate::gpio::{GPIOMode, Level, PinDriver, PinId};
 use crate::uart::UartDriver;
 use core::marker::PhantomData;
 
@@ -132,7 +132,10 @@ pub trait RtcWakeupPins {
 
     fn iter(&self) -> Self::Iterator<'_>;
 
-    fn chain<P: RtcWakeupPins>(self, other: P) -> ChainedRtcWakeupPins<Self, P> where Self: Sized {
+    fn chain<P: RtcWakeupPins>(self, other: P) -> ChainedRtcWakeupPins<Self, P>
+    where
+        Self: Sized,
+    {
         ChainedRtcWakeupPins::new(self, other)
     }
 }
@@ -144,7 +147,10 @@ impl<P> RtcWakeupPins for &PinDriver<'_, P>
 where
     P: RTCMode,
 {
-    type Iterator<'a> = core::iter::Once<PinId> where Self: 'a;
+    type Iterator<'a>
+        = core::iter::Once<PinId>
+    where
+        Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::once(self.pin())
@@ -168,7 +174,10 @@ impl EmptyRtcWakeupPins {
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
 impl RtcWakeupPins for EmptyRtcWakeupPins {
-    type Iterator<'a> = core::iter::Empty<PinId> where Self: 'a;
+    type Iterator<'a>
+        = core::iter::Empty<PinId>
+    where
+        Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::empty()
@@ -209,13 +218,15 @@ where
     F: RtcWakeupPins,
     S: RtcWakeupPins,
 {
-    type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
+    type Iterator<'a>
+        = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
+    where
+        Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         self.first.iter().chain(self.second.iter())
     }
 }
-
 
 /// Will wake up the CPU based on changes in GPIO pins. Is only available for light sleep.
 /// It takes PinDriver as input, which means that any required configurations on the pin
@@ -332,7 +343,10 @@ impl<P> GpioWakeupPins for P
 where
     P: GpioWakeupPinTrait,
 {
-    type Iterator<'a> = core::iter::Once<(PinId, Level)> where Self: 'a;
+    type Iterator<'a>
+        = core::iter::Once<(PinId, Level)>
+    where
+        Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::once((self.pin(), self.wake_level()))
@@ -354,7 +368,10 @@ impl EmptyGpioWakeupPins {
 }
 
 impl GpioWakeupPins for EmptyGpioWakeupPins {
-    type Iterator<'a> = core::iter::Empty<(PinId, Level)> where Self: 'a;
+    type Iterator<'a>
+        = core::iter::Empty<(PinId, Level)>
+    where
+        Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         core::iter::empty()
@@ -385,7 +402,10 @@ where
     F: GpioWakeupPins,
     S: GpioWakeupPins,
 {
-    type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
+    type Iterator<'a>
+        = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
+    where
+        Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_> {
         self.first.iter().chain(self.second.iter())

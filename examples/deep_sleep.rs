@@ -9,10 +9,10 @@
 //! the previous run.
 
 use core::time::Duration;
-use esp_idf_hal::gpio::Pull;
 #[cfg(any(esp32c2, esp32c3))]
-use esp_idf_hal::gpio::{Level};
+use esp_idf_hal::gpio::Level;
 use esp_idf_hal::gpio::PinDriver;
+use esp_idf_hal::gpio::Pull;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::reset::{ResetReason, WakeupReason};
 use esp_idf_hal::sleep::*;

@@ -51,9 +51,9 @@ fn main() -> anyhow::Result<()> {
         let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio2, Pull::Down)?;
 
         #[cfg(any(esp32, esp32s2, esp32s3))]
-        let rtc_pin0 =  &rtc0;
+        let rtc_pin0 = &rtc0;
         #[cfg(any(esp32, esp32s2, esp32s3))]
-        let rtc_pin1 =  &rtc1;
+        let rtc_pin1 = &rtc1;
         #[cfg(any(esp32, esp32s2, esp32s3))]
         let rtc_wakeup = Some(RtcWakeup {
             pins: EmptyRtcWakeupPins::chain(rtc_pin0).chain(rtc_pin1),
@@ -72,9 +72,9 @@ fn main() -> anyhow::Result<()> {
         let gpio1 = PinDriver::input(peripherals.pins.gpio38, Pull::Down)?;
 
         #[cfg(esp32c3)]
-    let gpio0 = PinDriver::input(peripherals.pins.gpio0, Pull::Down)?;
+        let gpio0 = PinDriver::input(peripherals.pins.gpio0, Pull::Down)?;
         #[cfg(esp32c3)]
-    let gpio1 = PinDriver::input(peripherals.pins.gpio1, Pull::Down)?;
+        let gpio1 = PinDriver::input(peripherals.pins.gpio1, Pull::Down)?;
 
         #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
         let gpio_pin0 = GpioWakeupPin {
