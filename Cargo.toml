@@ -1,3 +1,6 @@
+[workspace]
+members = ["esp-idf-macros"]
+
 [package]
 name = "esp-idf-hal"
 version = "0.45.2"
@@ -25,7 +28,7 @@ harness = false
 default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
 alloc = []
-nightly = []
+nightly = ["esp-idf-macros/doc-cfg"]
 experimental = []
 wake-from-isr = [] # Only enable if you plan to use the `edge-executor` crate
 embassy-sync = [] # For now, the dependecy on the `embassy-sync` crate is non-optional, but this might change in future
@@ -66,6 +69,7 @@ enumset = { version = "1.1.4", default-features = false }
 log = { version = "0.4", default-features = false }
 atomic-waker = { version = "1.1.1", default-features = false }
 embassy-sync = "0.7"
+esp-idf-macros = { path = "esp-idf-macros" }
 
 [build-dependencies]
 embuild = "0.33"
