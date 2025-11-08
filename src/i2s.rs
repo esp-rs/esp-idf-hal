@@ -6,7 +6,10 @@ use core::mem::MaybeUninit;
 use core::ops::{Deref, DerefMut};
 use core::ptr::NonNull;
 
-use esp_idf_sys::{esp, i2s_port_t, EspError, TickType_t};
+use esp_idf_sys::{esp, EspError, TickType_t};
+
+#[cfg(esp_idf_version_major = "5")]
+use esp_idf_sys::i2s_port_t;
 
 #[cfg(not(esp_idf_version_major = "4"))]
 use {
@@ -47,6 +50,10 @@ mod std;
 ))]
 mod tdm;
 
+#[cfg(esp_idf_version_at_least_6_0_0)]
+#[allow(non_camel_case_types)]
+type i2s_port_t = i32;
+
 /// I2S channel base configuration.
 pub type I2sConfig = config::Config;
 
@@ -75,10 +82,12 @@ pub mod config {
         EspError, ESP_ERR_INVALID_ARG,
     };
 
+    #[cfg(esp_idf_version_major = "5")]
+    use esp_idf_sys::i2s_port_t;
     #[cfg(not(esp_idf_version_major = "4"))]
     use esp_idf_sys::{
         i2s_chan_config_t, i2s_clock_src_t, i2s_data_bit_width_t,
-        i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_512, i2s_port_t, i2s_role_t, i2s_slot_bit_width_t,
+        i2s_mclk_multiple_t_I2S_MCLK_MULTIPLE_512, i2s_role_t, i2s_slot_bit_width_t,
         i2s_slot_mode_t,
     };
 
@@ -95,6 +104,10 @@ pub mod config {
         all(esp_idf_version_major = "5", esp_idf_version_minor = "2"),
     )))] // ESP-IDF 5.3 and later
     use esp_idf_sys::i2s_chan_config_t__bindgen_ty_1; // introduces union type over auto_clear
+
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    #[allow(non_camel_case_types)]
+    type i2s_port_t = i32;
 
     /// The default number of DMA buffers to use.
     pub const DEFAULT_DMA_BUFFER_COUNT: u32 = 6;

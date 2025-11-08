@@ -172,6 +172,14 @@ pub mod config {
                 flags: pcnt_unit_config_t__bindgen_ty_1 {
                     _bitfield_1: pcnt_unit_config_t__bindgen_ty_1::new_bitfield_1(
                         value.accum_count as u32,
+                        #[cfg(esp_idf_soc_pcnt_support_step_notify)]
+                        {
+                            0
+                        },
+                        #[cfg(esp_idf_soc_pcnt_support_step_notify)]
+                        {
+                            0
+                        },
                     ),
                     ..Default::default()
                 },

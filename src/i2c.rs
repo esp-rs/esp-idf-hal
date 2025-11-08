@@ -18,19 +18,54 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
-#[cfg(any(esp32, esp32s2))]
-const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / 80_000_000;
+#[allow(unused)]
+const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / APB_CLK_FREQ;
 
-#[cfg(all(esp32c2, esp_idf_xtal_freq_40))]
+#[cfg(esp_idf_xtal_freq_48)]
+#[allow(unused)]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 48_000_000;
+#[cfg(esp_idf_xtal_freq_40)]
+#[allow(unused)]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
-#[cfg(all(esp32c2, esp_idf_xtal_freq_26))]
+#[cfg(esp_idf_xtal_freq_32)]
+#[allow(unused)]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 32_000_000;
+#[cfg(esp_idf_xtal_freq_26)]
+#[allow(unused)]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 26_000_000;
+
+#[cfg(all(
+    not(any(
+        esp_idf_xtal_freq_48,
+        esp_idf_xtal_freq_40,
+        esp_idf_xtal_freq_32,
+        esp_idf_xtal_freq_26
+    )),
+    any(esp32c5, esp32c61)
+))]
+const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 48_000_000;
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
-#[cfg(not(any(esp32, esp32s2, esp32c2)))]
+#[cfg(all(
+    not(any(
+        esp_idf_xtal_freq_48,
+        esp_idf_xtal_freq_40,
+        esp_idf_xtal_freq_32,
+        esp_idf_xtal_freq_26
+    )),
+    not(any(esp32, esp32s2, esp32c2, esp32c5, esp32c61))
+))]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / XTAL_CLK_FREQ;
 // TODO: Below is probably not correct
 #[cfg(esp_idf_version_at_least_6_0_0)]
-#[cfg(not(any(esp32, esp32s2, esp32c2)))]
+#[cfg(all(
+    not(any(
+        esp_idf_xtal_freq_48,
+        esp_idf_xtal_freq_40,
+        esp_idf_xtal_freq_32,
+        esp_idf_xtal_freq_26
+    )),
+    not(any(esp32, esp32s2, esp32c2, esp32c5, esp32c61))
+))]
 const XTAL_TICK_PERIOD_NS: u32 = 1_000_000_000 / 40_000_000;
 
 #[derive(Copy, Clone, Debug)]

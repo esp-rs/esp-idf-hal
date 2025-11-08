@@ -101,7 +101,7 @@ pub fn do_yield() {
                 vPortEvaluateYieldFromISR(0);
 
                 #[cfg(all(
-                    not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6)),
+                    not(any(esp32c3, esp32c2, esp32h2, esp32c5, esp32c6, esp32c61)),
                     not(esp_idf_version_major = "4")
                 ))]
                 _frxt_setup_switch();

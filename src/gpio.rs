@@ -1396,7 +1396,10 @@ fn gpio_reset_without_pull(pin: gpio_num_t) -> Result<(), EspError> {
         pull_up_en: esp_idf_sys::gpio_pullup_t_GPIO_PULLUP_DISABLE,
         pull_down_en: esp_idf_sys::gpio_pulldown_t_GPIO_PULLDOWN_DISABLE,
         intr_type: esp_idf_sys::gpio_int_type_t_GPIO_INTR_DISABLE,
-        #[cfg(all(esp32h2, not(esp_idf_version_major = "4")))]
+        #[cfg(all(
+            esp_idf_soc_gpio_support_pin_hys_filter,
+            not(esp_idf_version_major = "4")
+        ))]
         hys_ctrl_mode: esp_idf_sys::gpio_hys_ctrl_mode_t_GPIO_HYS_SOFT_DISABLE,
     };
 
@@ -2220,7 +2223,7 @@ mod chip {
 
 // TODO: Implement esp32c6 glitch filters
 
-#[cfg(any(esp32c5, esp32c6, esp32p4))] // TODO: Implement proper pin layout for esp32c5 and esp32p4
+#[cfg(any(esp32c5, esp32c6, esp32c61, esp32p4))] // TODO: Implement proper pin layout for esp32c5, esp32c61 and esp32p4
 mod chip {
     #[cfg(feature = "alloc")]
     extern crate alloc;
