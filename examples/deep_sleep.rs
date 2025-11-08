@@ -9,8 +9,9 @@
 //! the previous run.
 
 use core::time::Duration;
+use esp_idf_hal::gpio::Pull;
 #[cfg(any(esp32c2, esp32c3))]
-use esp_idf_hal::gpio::Level;
+use esp_idf_hal::gpio::{Level};
 use esp_idf_hal::gpio::PinDriver;
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::reset::{ResetReason, WakeupReason};
@@ -34,22 +35,22 @@ fn main() -> anyhow::Result<()> {
 
     // RTC wakeup definitions
     #[cfg(esp32)]
-    let rtc0 = PinDriver::rtc_input(peripherals.pins.gpio26)?;
+    let rtc0 = PinDriver::rtc_input(peripherals.pins.gpio26, Pull::Down)?;
     #[cfg(esp32)]
-    let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio27)?;
+    let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio27, Pull::Down)?;
 
     #[cfg(any(esp32s2, esp32s3))]
-    let rtc0 = PinDriver::rtc_input(peripherals.pins.gpio1)?;
+    let rtc0 = PinDriver::rtc_input(peripherals.pins.gpio1, Pull::Down)?;
     #[cfg(any(esp32s2, esp32s3))]
-    let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio2)?;
+    let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio2, Pull::Down)?;
 
     #[cfg(any(esp32, esp32s2, esp32s3))]
-    let rtc_pin0 = RtcWakeupPin { pindriver: &rtc0 };
+    let rtc_pin0 = &rtc0;
     #[cfg(any(esp32, esp32s2, esp32s3))]
-    let rtc_pin1 = RtcWakeupPin { pindriver: &rtc1 };
+    let rtc_pin1 = &rtc1;
     #[cfg(any(esp32, esp32s2, esp32s3))]
     let rtc_wakeup = Some(RtcWakeup {
-        pins: EmptyRtcWakeupPins::chain(rtc_pin0).chain(rtc_pin1),
+        pins: rtc_pin0.chain(rtc_pin1),
         wake_level: RtcWakeLevel::AnyHigh,
     });
 
@@ -63,9 +64,9 @@ fn main() -> anyhow::Result<()> {
 
     // GPIO wakeup definitions
     #[cfg(any(esp32c2, esp32c3))]
-    let gpio0 = PinDriver::input(peripherals.pins.gpio0)?;
+    let gpio0 = PinDriver::input(peripherals.pins.gpio0, Pull::Down)?;
     #[cfg(any(esp32c2, esp32c3))]
-    let gpio1 = PinDriver::input(peripherals.pins.gpio1)?;
+    let gpio1 = PinDriver::input(peripherals.pins.gpio1, Pull::Down)?;
 
     #[cfg(any(esp32c2, esp32c3))]
     let gpio_pin0 = GpioWakeupPin {

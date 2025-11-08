@@ -124,10 +124,6 @@ impl RtcWakeLevel {
     }
 }
 
-pub trait RtcWakeupPinTrait {
-    fn pin(&self) -> PinId;
-}
-
 #[cfg(any(esp32, esp32s2, esp32s3))]
 pub trait RtcWakeupPins {
     type Iterator<'a>: Iterator<Item = PinId>
@@ -135,14 +131,18 @@ pub trait RtcWakeupPins {
         Self: 'a;
 
     fn iter(&self) -> Self::Iterator<'_>;
+
+    fn chain<P: RtcWakeupPins>(self, other: P) -> ChainedRtcWakeupPins<Self, P> where Self: Sized {
+        ChainedRtcWakeupPins::new(self, other)
+    }
 }
 #[cfg(not(any(esp32, esp32s2, esp32s3)))]
 pub trait RtcWakeupPins {}
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
-impl<P> RtcWakeupPins for P
+impl<P> RtcWakeupPins for &PinDriver<'_, P>
 where
-    P: RtcWakeupPinTrait,
+    P: RTCMode,
 {
     type Iterator<'a> = core::iter::Once<PinId> where Self: 'a;
 
@@ -197,6 +197,10 @@ impl<F, S> ChainedRtcWakeupPins<F, S> {
             second: other,
         }
     }
+
+    pub fn new(first: F, second: S) -> Self {
+        Self { first, second }
+    }
 }
 
 #[cfg(any(esp32, esp32s2, esp32s3))]
@@ -212,23 +216,6 @@ where
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub struct RtcWakeupPin<'d, M>
-where
-    M: RTCMode + 'd,
-{
-    pub pindriver: &'d PinDriver<'d, M>,
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<'d, M> RtcWakeupPinTrait for RtcWakeupPin<'d, M>
-where
-    M: RTCMode + 'd,
-{
-    fn pin(&self) -> PinId {
-        self.pindriver.pin()
-    }
-}
 
 /// Will wake up the CPU based on changes in GPIO pins. Is only available for light sleep.
 /// It takes PinDriver as input, which means that any required configurations on the pin
