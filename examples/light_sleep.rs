@@ -7,7 +7,7 @@
 #![allow(unexpected_cfgs)]
 
 use core::time::Duration;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(esp32)]
 use esp_idf_hal::gpio::AnyIOPin;
 use esp_idf_hal::gpio::Pull;
 use esp_idf_hal::gpio::{self, PinDriver};
@@ -97,7 +97,7 @@ fn main() -> anyhow::Result<()> {
 
         // UART definitions
         let config = Config::new().baudrate(Hertz(115_200));
-        #[cfg(any(esp32))]
+        #[cfg(esp32)]
         let uart = UartDriver::new(
             peripherals.uart0,
             peripherals.pins.gpio4,
