@@ -17,12 +17,12 @@ use core::time::Duration;
 // use esp_idf_hal::gpio;
 #[cfg(any(esp32c2, esp32c3))]
 use esp_idf_hal::gpio::Level;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::gpio::{PinDriver, Pull};
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::reset::{ResetReason, WakeupReason};
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::sleep::*;
 
 fn print_wakeup_result() {

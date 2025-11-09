@@ -7,11 +7,11 @@
 #![allow(unexpected_cfgs)]
 
 use core::time::Duration;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::gpio;
 #[cfg(esp32)]
 use esp_idf_hal::gpio::AnyIOPin;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::gpio::{PinDriver, Pull};
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::peripherals::Peripherals;
@@ -19,14 +19,14 @@ use esp_idf_hal::reset::WakeupReason;
 use esp_idf_hal::sleep::*;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::uart::config::Config;
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::uart::UartDriver;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::units::Hertz;
 use std::thread;
 use std::time::Instant;
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use crate::gpio::Level;
 
 fn print_wakeup_result(time_before: Instant) {
