@@ -660,7 +660,7 @@ where
     #[cfg(not(any(esp32, esp32s2, esp32s3)))]
     pub _p: PhantomData<R>,
     #[cfg(not(any(esp32c2, esp32c3)))]
-    pub _p: PhantomData<P>,
+    pub _q: PhantomData<P>,
 }
 
 pub fn make_deep_sleep_no_pins(
@@ -678,7 +678,10 @@ pub fn make_deep_sleep_no_pins(
         touch,
         #[cfg(any(esp32, esp32s2, esp32s3))]
         ulp,
+        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
         _p: PhantomData,
+        #[cfg(not(any(esp32c2, esp32c3)))]
+        _q: PhantomData,
     }
 }
 
@@ -694,7 +697,10 @@ pub fn make_deep_sleep_rtc_pins<R: RtcWakeupPins>(
         rtc,
         touch,
         ulp,
+        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
         _p: PhantomData,
+        #[cfg(not(any(esp32c2, esp32c3)))]
+        _q: PhantomData,
     }
 }
 
@@ -706,7 +712,10 @@ pub fn make_deep_sleep_gpio_pins<P: GpioWakeupPins>(
     DeepSleep {
         timer,
         gpio,
+        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
         _p: PhantomData,
+        #[cfg(not(any(esp32c2, esp32c3)))]
+        _q: PhantomData,
     }
 }
 
