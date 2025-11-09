@@ -8,6 +8,9 @@
 //! sleep effectively ends the program, this is how we get information about
 //! the previous run.
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 use core::time::Duration;
 #[cfg(any(esp32c2, esp32c3))]
 use esp_idf_hal::gpio::Level;

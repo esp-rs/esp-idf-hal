@@ -3,10 +3,12 @@
 //! Enables multiple light sleep wakeup sources and do sleeps in a loop.
 //! Prints wakeup reason and sleep time on wakeup.
 
+#![allow(unknown_lints)]
+#![allow(unexpected_cfgs)]
+
 use core::time::Duration;
 #[cfg(any(esp32, esp32s2, esp32s3))]
 use esp_idf_hal::gpio::AnyIOPin;
-#[cfg(any(esp32, esp32s2, esp32s3))]
 use esp_idf_hal::gpio::Pull;
 use esp_idf_hal::gpio::{self, PinDriver};
 use esp_idf_hal::peripherals::Peripherals;
