@@ -11,13 +11,18 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use core::time::Duration;
+// #[cfg(any(esp32, esp32s2, esp32s3))]
+// use esp_idf_hal::gpio;
 #[cfg(any(esp32c2, esp32c3))]
 use esp_idf_hal::gpio::Level;
-use esp_idf_hal::gpio::PinDriver;
-use esp_idf_hal::gpio::Pull;
+#[cfg(any(esp32, esp32s2, esp32s3))]
+use esp_idf_hal::gpio::{PinDriver, Pull};
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::reset::{ResetReason, WakeupReason};
+#[cfg(any(esp32, esp32s2, esp32s3))]
 use esp_idf_hal::sleep::*;
 
 fn print_wakeup_result() {
@@ -34,6 +39,7 @@ fn main() -> anyhow::Result<()> {
 
     print_wakeup_result();
 
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
     let peripherals = Peripherals::take().unwrap();
 
     // RTC wakeup definitions
@@ -90,7 +96,12 @@ fn main() -> anyhow::Result<()> {
     let dsleep =
         make_deep_sleep_gpio_pins(Some(TimerWakeup::new(Duration::from_secs(5))), gpio_wakeup);
 
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
     println!("Deep sleep with: {:?}", dsleep);
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
     dsleep.prepare()?;
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
     dsleep.sleep();
+    #[cfg(not(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3)))]
+    Ok(())
 }

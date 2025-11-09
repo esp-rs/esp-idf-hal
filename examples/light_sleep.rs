@@ -7,19 +7,26 @@
 #![allow(unexpected_cfgs)]
 
 use core::time::Duration;
+#[cfg(any(esp32, esp32s2, esp32s3))]
+use esp_idf_hal::gpio;
 #[cfg(esp32)]
 use esp_idf_hal::gpio::AnyIOPin;
-use esp_idf_hal::gpio::Pull;
-use esp_idf_hal::gpio::{self, PinDriver};
+#[cfg(any(esp32, esp32s2, esp32s3))]
+use esp_idf_hal::gpio::{PinDriver, Pull};
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::reset::WakeupReason;
 use esp_idf_hal::sleep::*;
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::uart::config::Config;
+#[cfg(any(esp32, esp32s2, esp32s3))]
 use esp_idf_hal::uart::UartDriver;
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::units::Hertz;
 use std::thread;
 use std::time::Instant;
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 use crate::gpio::Level;
 
 fn print_wakeup_result(time_before: Instant) {
@@ -39,6 +46,7 @@ fn main() -> anyhow::Result<()> {
     // run in a thread with increased stack size to prevent overflow
     let builder = std::thread::Builder::new().stack_size(10 * 1024);
     let th = builder.spawn(move || -> anyhow::Result<()> {
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         let peripherals = Peripherals::take().unwrap();
 
         // RTC wakeup definitions
@@ -93,9 +101,10 @@ fn main() -> anyhow::Result<()> {
             pins: EmptyGpioWakeupPins::chain(gpio_pin0).chain(gpio_pin1),
         });
         #[cfg(not(any(esp32, esp32c3, esp32s2, esp32s3)))]
-        let gpio_wakeup = None::<GpioWakeup>;
+        let gpio_wakeup = None::<GpioWakeup<EmptyGpioWakeupPins>>;
 
         // UART definitions
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         let config = Config::new().baudrate(Hertz(115_200));
         #[cfg(esp32)]
         let uart = UartDriver::new(
