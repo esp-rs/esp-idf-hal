@@ -5,11 +5,11 @@
 //! peripherals keep their states and the CPU continues running from the same place in the
 //! code.
 //!
-//! Deep sleep is similar to light sleep, but the CPU is also powered down. Only RTC and
-//! possibly ULP coprocessor is running. When woking up, the CPU does not keep its state,
-//! and the program starts from the beginning.
+//! Deep sleep is similar to light sleep, but the CPU as well as the SRAM are also powered down.
+//! Only RTC and the ULP coprocessor (on chips where it is avalable) continue to be powered up.
+//! When woking up, the CPU does not keep its state and the program starts from the beginning.
 //!
-//! When entering either light or deep sleep, one or more wakeup sources must be enabled.
+//! When entering either light or deep sleep, one or more wakeup sources might be enabled.
 //! In this driver, the various wakeup sources are defined as different structs, which
 //! can be added to a light or deep sleep struct. This struct can then be used to perform
 //! a sleep operation with the given wakeup sources.
@@ -17,17 +17,201 @@
 //! The wakeup sources available depends on the ESP chip and type of sleep. The driver
 //! intends to enforce these constraints at compile time where possible, i.e. if it builds
 //! it should work.
-//!
 
 use core::fmt;
+use core::marker::PhantomData;
 use core::time::Duration;
+
 use esp_idf_sys::*;
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-use crate::gpio::RTCMode;
-use crate::gpio::{GPIOMode, Level, PinDriver, PinId};
+use crate::gpio::{GPIOMode, InputMode, Level, PinDriver, PinId};
 use crate::uart::UartDriver;
-use core::marker::PhantomData;
+
+#[cfg(not(any(esp32c2, esp32c3)))]
+pub use rtc::*;
+#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
+pub use touch::*;
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4))]
+pub use ulp::*;
+
+/// A wakeup source that can wakeup from light sleep
+pub trait LightSleepWakeup {
+    /// Apply the wakeup source
+    fn apply(&self) -> Result<(), EspError>;
+}
+
+impl<T> LightSleepWakeup for &T
+where
+    T: LightSleepWakeup,
+{
+    fn apply(&self) -> Result<(), EspError> {
+        (**self).apply()
+    }
+}
+
+impl LightSleepWakeup for &dyn LightSleepWakeup {
+    fn apply(&self) -> Result<(), EspError> {
+        (**self).apply()
+    }
+}
+
+/// A wakeup source that can wakeup from deep sleep
+pub trait DeepSleepWakeup {
+    /// Apply the wakeup source
+    fn apply(&self) -> Result<(), EspError>;
+}
+
+impl<T> DeepSleepWakeup for &T
+where
+    T: DeepSleepWakeup,
+{
+    fn apply(&self) -> Result<(), EspError> {
+        (**self).apply()
+    }
+}
+
+impl DeepSleepWakeup for &dyn DeepSleepWakeup {
+    fn apply(&self) -> Result<(), EspError> {
+        (**self).apply()
+    }
+}
+
+/// An empty item in a chain of wakeup sources or pins that does nothing
+#[derive(Debug)]
+pub struct Empty;
+
+impl Empty {
+    /// Chain another wakeup source or pin to this one
+    ///
+    /// # Arguments
+    /// - other: The other wakeup source or pin to chain
+    ///
+    /// # Returns
+    /// A Chain struct containing both wakeup sources or pins
+    pub const fn chain<O>(self, other: O) -> Chain<Self, O> {
+        Chain {
+            first: self,
+            second: other,
+        }
+    }
+}
+
+impl LightSleepWakeup for Empty {
+    fn apply(&self) -> Result<(), EspError> {
+        Ok(())
+    }
+}
+
+impl DeepSleepWakeup for Empty {
+    fn apply(&self) -> Result<(), EspError> {
+        Ok(())
+    }
+}
+
+/// A chain of two wakeup sources or pins
+#[derive(Debug)]
+pub struct Chain<F, S> {
+    first: F,
+    second: S,
+}
+
+impl<F, S> Chain<F, S> {
+    /// Create a new Chain struct
+    ///
+    /// # Arguments
+    /// - first: The first wakeup source or pin
+    /// - second: The second wakeup source or pin
+    ///
+    /// # Returns
+    /// A Chain struct containing both wakeup sources or pins
+    pub const fn new(first: F, second: S) -> Self {
+        Self { first, second }
+    }
+
+    /// Chain another wakeup source or pin to this one
+    ///
+    /// # Arguments
+    /// - other: The other wakeup source or pin to chain
+    ///
+    /// # Returns
+    /// A Chain struct containing the current and the other wakeup source or pin
+    pub const fn chain<O>(self, other: O) -> Chain<Self, O> {
+        Chain {
+            first: self,
+            second: other,
+        }
+    }
+}
+
+impl<F, S> LightSleepWakeup for Chain<F, S>
+where
+    F: LightSleepWakeup,
+    S: LightSleepWakeup,
+{
+    fn apply(&self) -> Result<(), EspError> {
+        self.first.apply()?;
+        self.second.apply()
+    }
+}
+
+impl<F, S> DeepSleepWakeup for Chain<F, S>
+where
+    F: DeepSleepWakeup,
+    S: DeepSleepWakeup,
+{
+    fn apply(&self) -> Result<(), EspError> {
+        self.first.apply()?;
+        self.second.apply()
+    }
+}
+
+/// Trait for types that can provide wakeup pins for a given mode
+pub trait WakeupPins<M> {
+    /// Iterator over the wakeup pins
+    type Iterator: Iterator<Item = (PinId, Level)>;
+
+    /// Get an iterator over the wakeup pins
+    fn iter(&self) -> Self::Iterator;
+}
+
+impl<M, T> WakeupPins<M> for &T
+where
+    T: WakeupPins<M>,
+{
+    type Iterator = T::Iterator;
+
+    fn iter(&self) -> Self::Iterator {
+        (**self).iter()
+    }
+}
+
+impl WakeupPins<Gpio> for Empty {
+    type Iterator = core::iter::Empty<(PinId, Level)>;
+
+    fn iter(&self) -> Self::Iterator {
+        core::iter::empty()
+    }
+}
+
+impl<F, S> WakeupPins<Gpio> for Chain<F, S>
+where
+    F: WakeupPins<Gpio>,
+    S: WakeupPins<Gpio>,
+{
+    type Iterator = core::iter::Chain<F::Iterator, S::Iterator>;
+
+    fn iter(&self) -> Self::Iterator {
+        self.first.iter().chain(self.second.iter())
+    }
+}
+
+impl<P: InputMode + GPIOMode> WakeupPins<Gpio> for (&PinDriver<'_, P>, Level) {
+    type Iterator = core::iter::Once<(PinId, Level)>;
+
+    fn iter(&self) -> Self::Iterator {
+        core::iter::once((self.0.pin(), self.1))
+    }
+}
 
 /// Will wake the CPU up after a given duration
 #[derive(Debug)]
@@ -36,262 +220,96 @@ pub struct TimerWakeup {
 }
 
 impl TimerWakeup {
+    /// Create a new TimerWakeup struct
+    ///
+    /// # Arguments
+    /// - duration: The duration after which to wake up
+    ///
+    /// # Returns
+    /// - A TimerWakeup struct
     pub const fn new(duration: Duration) -> Self {
         Self { duration }
     }
+}
 
+impl LightSleepWakeup for TimerWakeup {
     fn apply(&self) -> Result<(), EspError> {
-        esp!(unsafe { esp_sleep_enable_timer_wakeup(self.duration.as_micros() as u64) })?;
-        Ok(())
+        esp!(unsafe { esp_sleep_enable_timer_wakeup(self.duration.as_micros() as u64) })
     }
 }
 
-/// Will wake up the CPU based on changes in RTC GPIO pins. Is available for both light and
-/// deep sleep. However, for light sleep, the GpioWakeup struct offers more flexibility.
-/// Pullup and pulldown can be enabled for each pin. This settings will be applied when
-/// deep sleep is enabled.
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub struct RtcWakeup<P>
-where
-    P: RtcWakeupPins,
-{
-    pub pins: P,
-    pub wake_level: RtcWakeLevel,
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<P> RtcWakeup<P>
-where
-    P: RtcWakeupPins,
-{
-    fn mask(&self) -> u64 {
-        let mut m: u64 = 0;
-        for pin in self.pins.iter() {
-            m |= 1 << pin;
-        }
-        m
-    }
-
+impl DeepSleepWakeup for TimerWakeup {
     fn apply(&self) -> Result<(), EspError> {
-        #[cfg(any(esp32, esp32s3))]
-        esp!(unsafe {
-            esp_sleep_pd_config(
-                esp_sleep_pd_domain_t_ESP_PD_DOMAIN_RTC_PERIPH,
-                esp_sleep_pd_option_t_ESP_PD_OPTION_ON,
-            )
-        })?;
-
-        esp!(unsafe { esp_sleep_enable_ext1_wakeup(self.mask(), self.wake_level.mode()) })?;
-
-        Ok(())
+        esp!(unsafe { esp_sleep_enable_timer_wakeup(self.duration.as_micros() as u64) })
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<P> fmt::Debug for RtcWakeup<P>
+/// Marker type for GPIO wakeup
+pub struct Gpio;
+
+/// Will wake up the CPU based on changes in GPIO pins.
+/// It takes a `PinDriver` as input, which means that any required configurations on the pin
+/// can be done before adding it to the PinsWakeup struct.
+pub struct PinsWakeup<P, M>
 where
-    P: RtcWakeupPins,
+    P: WakeupPins<M>,
 {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "RtcWakeup {{ pins: [")?;
-
-        for pin in self.pins.iter() {
-            write!(f, "{:?} ", pin)?;
-        }
-        write!(
-            f,
-            "] mask: {:#x} wake_level: {:?} }}",
-            self.mask(),
-            self.wake_level
-        )
-    }
+    pins: P,
+    _t: PhantomData<M>,
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
-pub enum RtcWakeLevel {
-    AllLow,
-    AnyHigh,
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl RtcWakeLevel {
-    pub fn mode(&self) -> u32 {
-        match self {
-            RtcWakeLevel::AllLow => esp_sleep_ext1_wakeup_mode_t_ESP_EXT1_WAKEUP_ALL_LOW,
-            RtcWakeLevel::AnyHigh => esp_sleep_ext1_wakeup_mode_t_ESP_EXT1_WAKEUP_ANY_HIGH,
-        }
-    }
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub trait RtcWakeupPins {
-    type Iterator<'a>: Iterator<Item = PinId>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_>;
-
-    fn chain<P: RtcWakeupPins>(self, other: P) -> ChainedRtcWakeupPins<Self, P>
-    where
-        Self: Sized,
-    {
-        ChainedRtcWakeupPins::new(self, other)
-    }
-}
-#[cfg(not(any(esp32, esp32s2, esp32s3)))]
-pub trait RtcWakeupPins {}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<P> RtcWakeupPins for &PinDriver<'_, P>
+impl<P, M> PinsWakeup<P, M>
 where
-    P: RTCMode,
+    P: WakeupPins<M>,
 {
-    type Iterator<'a>
-        = core::iter::Once<PinId>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        core::iter::once(self.pin())
-    }
-}
-
-pub struct EmptyRtcWakeupPins;
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl EmptyRtcWakeupPins {
-    pub fn chain<O>(other: O) -> ChainedRtcWakeupPins<Self, O>
-    where
-        O: RtcWakeupPins,
-    {
-        ChainedRtcWakeupPins {
-            first: Self,
-            second: other,
-        }
-    }
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl RtcWakeupPins for EmptyRtcWakeupPins {
-    type Iterator<'a>
-        = core::iter::Empty<PinId>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        core::iter::empty()
-    }
-}
-
-#[cfg(not(any(esp32, esp32s2, esp32s3)))]
-impl RtcWakeupPins for EmptyRtcWakeupPins {}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub struct ChainedRtcWakeupPins<F, S> {
-    first: F,
-    second: S,
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<F, S> ChainedRtcWakeupPins<F, S> {
-    pub fn chain<O>(self, other: O) -> ChainedRtcWakeupPins<Self, O>
-    where
-        F: RtcWakeupPins,
-        S: RtcWakeupPins,
-        O: RtcWakeupPins,
-    {
-        ChainedRtcWakeupPins {
-            first: self,
-            second: other,
+    /// Create a new PinsWakeup struct
+    ///
+    /// # Arguments
+    /// - pins: The pins to use for wakeup
+    ///
+    /// # Returns
+    /// - A PinsWakeup struct
+    pub const fn new(pins: P) -> Self {
+        Self {
+            pins,
+            _t: PhantomData,
         }
     }
 
-    pub fn new(first: F, second: S) -> Self {
-        Self { first, second }
+    fn mask(&self, level: Level) -> u64 {
+        self.pins
+            .iter()
+            .filter(|(_, l)| *l == level)
+            .fold(0u64, |mut m, (pin, _)| {
+                m |= 1 << pin;
+                m
+            })
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl<F, S> RtcWakeupPins for ChainedRtcWakeupPins<F, S>
+impl<P> LightSleepWakeup for PinsWakeup<P, Gpio>
 where
-    F: RtcWakeupPins,
-    S: RtcWakeupPins,
-{
-    type Iterator<'a>
-        = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        self.first.iter().chain(self.second.iter())
-    }
-}
-
-/// Will wake up the CPU based on changes in GPIO pins. Is only available for light sleep.
-/// It takes PinDriver as input, which means that any required configurations on the pin
-/// can be done before adding it to the GpioWakeup struct.
-pub struct GpioWakeup<P>
-where
-    P: GpioWakeupPins,
-{
-    pub pins: P,
-}
-
-impl<P> GpioWakeup<P>
-where
-    P: GpioWakeupPins,
+    P: WakeupPins<Gpio>,
 {
     fn apply(&self) -> Result<(), EspError> {
-        for pin in self.pins.iter() {
-            let intr_level = match pin.1 {
+        for (pin, level) in self.pins.iter() {
+            let intr_level = match level {
                 Level::Low => gpio_int_type_t_GPIO_INTR_LOW_LEVEL,
                 Level::High => gpio_int_type_t_GPIO_INTR_HIGH_LEVEL,
             };
-            esp!(unsafe { gpio_wakeup_enable(pin.0 as _, intr_level) })?;
-        }
-        esp!(unsafe { esp_sleep_enable_gpio_wakeup() })?;
-        Ok(())
-    }
-}
 
-impl<P> fmt::Debug for GpioWakeup<P>
-where
-    P: GpioWakeupPins,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "GpioWakeup {{ pins: [")?;
-
-        for pin in self.pins.iter() {
-            write!(f, "({} {:?}), ", pin.0, pin.1)?;
+            esp!(unsafe { gpio_wakeup_enable(pin as _, intr_level) })?;
         }
-        write!(f, "")
+
+        esp!(unsafe { esp_sleep_enable_gpio_wakeup() })
     }
 }
 
 #[cfg(any(esp32c2, esp32c3))]
-pub struct GpioDeepWakeup<P>
+impl<P> DeepSleepWakeup for PinsWakeup<P, Gpio>
 where
-    P: GpioWakeupPins,
+    P: WakeupPins<Gpio>,
 {
-    pub pins: P,
-}
-
-#[cfg(any(esp32c2, esp32c3))]
-impl<P> GpioDeepWakeup<P>
-where
-    P: GpioWakeupPins,
-{
-    fn mask(&self, level: Level) -> u64 {
-        let mut m: u64 = 0;
-        for pin in self.pins.iter() {
-            if pin.1 == level {
-                m |= 1 << pin.0;
-            }
-        }
-        m
-    }
-
     fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe {
             esp_deep_sleep_enable_gpio_wakeup(
@@ -305,150 +323,49 @@ where
                 self.mask(Level::High),
                 esp_deepsleep_gpio_wake_up_mode_t_ESP_GPIO_WAKEUP_GPIO_HIGH,
             )
-        })?;
-
-        Ok(())
+        })
     }
 }
 
-#[cfg(any(esp32c2, esp32c3))]
-impl<P> fmt::Debug for GpioDeepWakeup<P>
+impl<P> fmt::Debug for PinsWakeup<P, Gpio>
 where
-    P: GpioWakeupPins,
+    P: WakeupPins<Gpio>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "GpioDeepWakeup {{ pins: [")?;
+        write!(f, "PinsWakeup<GPIO> {{ pins: [")?;
 
-        for pin in self.pins.iter() {
-            write!(f, "({} {:?}), ", pin.0, pin.1)?;
+        for (pin, level) in self.pins.iter() {
+            write!(f, "({pin} {level:?}), ")?;
         }
         write!(f, "")
-    }
-}
-
-pub trait GpioWakeupPinTrait {
-    fn pin(&self) -> PinId;
-    fn wake_level(&self) -> Level;
-}
-
-pub trait GpioWakeupPins {
-    type Iterator<'a>: Iterator<Item = (PinId, Level)>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_>;
-}
-
-impl<P> GpioWakeupPins for P
-where
-    P: GpioWakeupPinTrait,
-{
-    type Iterator<'a>
-        = core::iter::Once<(PinId, Level)>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        core::iter::once((self.pin(), self.wake_level()))
-    }
-}
-
-pub struct EmptyGpioWakeupPins;
-
-impl EmptyGpioWakeupPins {
-    pub fn chain<O>(other: O) -> ChainedGpioWakeupPins<Self, O>
-    where
-        O: GpioWakeupPins,
-    {
-        ChainedGpioWakeupPins {
-            first: Self,
-            second: other,
-        }
-    }
-}
-
-impl GpioWakeupPins for EmptyGpioWakeupPins {
-    type Iterator<'a>
-        = core::iter::Empty<(PinId, Level)>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        core::iter::empty()
-    }
-}
-
-pub struct ChainedGpioWakeupPins<F, S> {
-    first: F,
-    second: S,
-}
-
-impl<F, S> ChainedGpioWakeupPins<F, S> {
-    pub fn chain<O>(self, other: O) -> ChainedGpioWakeupPins<Self, O>
-    where
-        F: GpioWakeupPins,
-        S: GpioWakeupPins,
-        O: GpioWakeupPins,
-    {
-        ChainedGpioWakeupPins {
-            first: self,
-            second: other,
-        }
-    }
-}
-
-impl<F, S> GpioWakeupPins for ChainedGpioWakeupPins<F, S>
-where
-    F: GpioWakeupPins,
-    S: GpioWakeupPins,
-{
-    type Iterator<'a>
-        = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
-    where
-        Self: 'a;
-
-    fn iter(&self) -> Self::Iterator<'_> {
-        self.first.iter().chain(self.second.iter())
-    }
-}
-
-pub struct GpioWakeupPin<'d, M>
-where
-    M: GPIOMode + 'd,
-{
-    pub pindriver: &'d PinDriver<'d, M>,
-    pub wake_level: Level,
-}
-
-impl<'d, M> GpioWakeupPinTrait for GpioWakeupPin<'d, M>
-where
-    M: GPIOMode + 'd,
-{
-    fn pin(&self) -> PinId {
-        self.pindriver.pin()
-    }
-
-    fn wake_level(&self) -> Level {
-        self.wake_level
     }
 }
 
 /// Will wake up the CPU when the number of positive edges higher than a threshold
 /// is detected on the UART RX pin. Is only available for light sleep.
 pub struct UartWakeup<'a> {
-    pub uart: &'a UartDriver<'a>,
+    pub driver: &'a UartDriver<'a>,
     pub threshold: i32,
 }
 
 impl<'a> UartWakeup<'a> {
-    pub const fn new(uart: &'a UartDriver<'a>, threshold: i32) -> Self {
-        Self { uart, threshold }
+    /// Create a new UartWakeup struct
+    ///
+    /// # Arguments
+    /// - driver: The UART driver to use for wakeup
+    /// - threshold: The number of positive edges to detect before waking up
+    ///
+    /// # Returns
+    /// - A UartWakeup struct
+    pub const fn new(driver: &'a UartDriver<'a>, threshold: i32) -> Self {
+        Self { driver, threshold }
     }
+}
 
+impl LightSleepWakeup for UartWakeup<'_> {
     fn apply(&self) -> Result<(), EspError> {
-        esp!(unsafe { uart_set_wakeup_threshold(self.uart.port(), self.threshold) })?;
-        esp!(unsafe { esp_sleep_enable_uart_wakeup(self.uart.port() as _) })?;
-        Ok(())
+        esp!(unsafe { uart_set_wakeup_threshold(self.driver.port(), self.threshold) })?;
+        esp!(unsafe { esp_sleep_enable_uart_wakeup(self.driver.port() as _) })
     }
 }
 
@@ -458,335 +375,192 @@ impl<'a> fmt::Debug for UartWakeup<'a> {
     }
 }
 
-/// Will wake up the CPU when a touchpad is touched.
-#[cfg(any(esp32, esp32s2, esp32s3))]
-#[derive(Debug)]
-pub struct TouchWakeup;
+#[cfg(not(any(esp32c2, esp32c3)))]
+mod rtc {
+    use core::fmt;
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl TouchWakeup {
-    fn apply(&self) -> Result<(), EspError> {
-        esp!(unsafe { esp_sleep_enable_touchpad_wakeup() })?;
-        Ok(())
+    use esp_idf_sys::*;
+
+    use crate::gpio::{InputMode, Level, PinDriver, PinId, RTCMode};
+
+    use super::{Chain, DeepSleepWakeup, Empty, LightSleepWakeup, PinsWakeup, WakeupPins};
+
+    /// Marker type for RTC wakeup
+    pub struct Rtc;
+
+    impl WakeupPins<Rtc> for Empty {
+        type Iterator = core::iter::Empty<(PinId, Level)>;
+
+        fn iter(&self) -> Self::Iterator {
+            core::iter::empty()
+        }
+    }
+
+    impl<F, S> WakeupPins<Rtc> for Chain<F, S>
+    where
+        F: WakeupPins<Rtc>,
+        S: WakeupPins<Rtc>,
+    {
+        type Iterator = core::iter::Chain<F::Iterator, S::Iterator>;
+
+        fn iter(&self) -> Self::Iterator {
+            self.first.iter().chain(self.second.iter())
+        }
+    }
+
+    impl<P: InputMode + RTCMode> WakeupPins<Rtc> for (&PinDriver<'_, P>, Level) {
+        type Iterator = core::iter::Once<(PinId, Level)>;
+
+        fn iter(&self) -> Self::Iterator {
+            core::iter::once((self.0.pin(), self.1))
+        }
+    }
+
+    impl<P> PinsWakeup<P, Rtc>
+    where
+        P: WakeupPins<Rtc>,
+    {
+        fn rtc_apply(&self) -> Result<(), EspError> {
+            #[cfg(any(esp32, esp32s3))]
+            esp!(unsafe {
+                esp_sleep_pd_config(
+                    esp_sleep_pd_domain_t_ESP_PD_DOMAIN_RTC_PERIPH,
+                    esp_sleep_pd_option_t_ESP_PD_OPTION_ON,
+                )
+            })?;
+
+            esp!(unsafe {
+                esp_sleep_enable_ext1_wakeup(
+                    self.mask(Level::Low),
+                    esp_sleep_ext1_wakeup_mode_t_ESP_EXT1_WAKEUP_ALL_LOW,
+                )
+            })?;
+            esp!(unsafe {
+                esp_sleep_enable_ext1_wakeup(
+                    self.mask(Level::High),
+                    esp_sleep_ext1_wakeup_mode_t_ESP_EXT1_WAKEUP_ANY_HIGH,
+                )
+            })
+        }
+    }
+
+    impl<P> LightSleepWakeup for PinsWakeup<P, Rtc>
+    where
+        P: WakeupPins<Rtc>,
+    {
+        fn apply(&self) -> Result<(), EspError> {
+            self.rtc_apply()
+        }
+    }
+
+    impl<P> DeepSleepWakeup for PinsWakeup<P, Rtc>
+    where
+        P: WakeupPins<Rtc>,
+    {
+        fn apply(&self) -> Result<(), EspError> {
+            self.rtc_apply()
+        }
+    }
+
+    impl<P> fmt::Debug for PinsWakeup<P, Rtc>
+    where
+        P: WakeupPins<Rtc>,
+    {
+        fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+            write!(f, "PinsWakeup<Rtc> {{ pins: [")?;
+
+            for (pin, level) in self.pins.iter() {
+                write!(f, "({pin} {level:?}), ")?;
+            }
+            write!(f, "")
+        }
     }
 }
 
-/// Will let the ULP co-processor wake up the CPU. Requires that the ULP is started.
-#[cfg(any(esp32, esp32s2, esp32s3))]
-#[derive(Debug)]
-pub struct UlpWakeup;
+#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
+mod touch {
+    use esp_idf_sys::*;
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl UlpWakeup {
-    fn apply(&self) -> Result<(), EspError> {
-        esp!(unsafe { esp_sleep_enable_ulp_wakeup() })?;
-        Ok(())
+    /// Will wake up the CPU when a touchpad is touched.
+    #[derive(Debug)]
+    pub struct TouchWakeup;
+
+    impl super::LightSleepWakeup for TouchWakeup {
+        fn apply(&self) -> Result<(), EspError> {
+            esp!(unsafe { esp_sleep_enable_touchpad_wakeup() })
+        }
+    }
+
+    impl super::DeepSleepWakeup for TouchWakeup {
+        fn apply(&self) -> Result<(), EspError> {
+            esp!(unsafe { esp_sleep_enable_touchpad_wakeup() })
+        }
     }
 }
 
-/// Struct for light sleep. Add wakeup sources to this struct, and then call sleep().
-pub struct LightSleep<'a, R, G>
-where
-    R: RtcWakeupPins,
-    G: GpioWakeupPins,
-{
-    timer: Option<TimerWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    rtc: Option<RtcWakeup<R>>,
-    gpio: Option<GpioWakeup<G>>,
-    uart: Option<UartWakeup<'a>>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    touch: Option<TouchWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    ulp: Option<UlpWakeup>,
-    #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-    _p: PhantomData<R>,
-}
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4))]
+mod ulp {
+    use esp_idf_sys::*;
 
-pub fn make_light_sleep_no_pins(
-    timer: Option<TimerWakeup>,
-    uart: Option<UartWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))] touch: Option<TouchWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))] ulp: Option<UlpWakeup>,
-) -> LightSleep<EmptyRtcWakeupPins, EmptyGpioWakeupPins> {
-    LightSleep {
-        timer,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        rtc: None,
-        gpio: None,
-        uart,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        touch,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        ulp,
-        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-        _p: PhantomData,
+    /// Will let the ULP co-processor wake up the CPU. Requires that the ULP is started.
+    #[derive(Debug)]
+    pub struct UlpWakeup;
+
+    impl super::LightSleepWakeup for UlpWakeup {
+        fn apply(&self) -> Result<(), EspError> {
+            esp!(unsafe { esp_sleep_enable_ulp_wakeup() })
+        }
+    }
+
+    impl super::DeepSleepWakeup for UlpWakeup {
+        fn apply(&self) -> Result<(), EspError> {
+            esp!(unsafe { esp_sleep_enable_ulp_wakeup() })
+        }
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub fn make_light_sleep_rtc_pins<R: RtcWakeupPins>(
-    timer: Option<TimerWakeup>,
-    rtc: Option<RtcWakeup<R>>,
-    uart: Option<UartWakeup>,
-    touch: Option<TouchWakeup>,
-    ulp: Option<UlpWakeup>,
-) -> LightSleep<R, EmptyGpioWakeupPins> {
-    LightSleep {
-        timer,
-        rtc,
-        gpio: None,
-        uart,
-        touch,
-        ulp,
+/// Put the CPU into light sleep mode with the given wakeup sources
+///
+/// # Arguments
+/// - wakeup: The wakeup sources to use
+///   Note that the API does not enforce that each wakeup source is used
+///   at most once in the wakeup chain. Thus, if a wakeup source is used
+///   more than once, only the last one will take effect.
+///
+/// # Returns
+/// - Ok(()) if the CPU was put into light sleep mode successfully
+/// - Err(EspError) if there was an error
+pub fn light_sleep<W: LightSleepWakeup>(wakeup: W) -> Result<(), EspError> {
+    esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })?;
+
+    wakeup.apply()?;
+
+    esp!(unsafe { esp_light_sleep_start() })
+}
+
+/// Put the CPU into deep sleep mode with the given wakeup sources.
+/// This function will _not_ return if entering deep sleep was successful.
+///
+/// # Arguments
+/// - wakeup: The wakeup sources to use
+///   Note that the API does not enforce that each wakeup source is used
+///   at most once in the wakeup chain. Thus, if a wakeup source is used
+///   more than once, only the last one will take effect.
+///
+/// # Returns
+/// - EspError if there was an error
+pub fn deep_sleep<W: DeepSleepWakeup>(wakeup: W) -> EspError {
+    if let Err(e) =
+        esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })
+    {
+        return e;
     }
-}
 
-pub fn make_light_sleep_gpio_pins<G: GpioWakeupPins>(
-    timer: Option<TimerWakeup>,
-    gpio: Option<GpioWakeup<G>>,
-    uart: Option<UartWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))] touch: Option<TouchWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))] ulp: Option<UlpWakeup>,
-) -> LightSleep<EmptyRtcWakeupPins, G> {
-    LightSleep {
-        timer,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        rtc: None,
-        gpio,
-        uart,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        touch,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        ulp,
-        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-        _p: PhantomData,
-    }
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub fn make_light_sleep_rtc_gpio_pins<R: RtcWakeupPins, G: GpioWakeupPins>(
-    timer: Option<TimerWakeup>,
-    rtc: Option<RtcWakeup<R>>,
-    gpio: Option<GpioWakeup<G>>,
-    uart: Option<UartWakeup>,
-    touch: Option<TouchWakeup>,
-    ulp: Option<UlpWakeup>,
-) -> LightSleep<R, G> {
-    LightSleep {
-        timer,
-        rtc,
-        gpio,
-        uart,
-        touch,
-        ulp,
-    }
-}
-
-impl<'a, R, P> LightSleep<'a, R, P>
-where
-    R: RtcWakeupPins,
-    P: GpioWakeupPins,
-{
-    pub fn sleep(&self) -> Result<(), EspError> {
-        esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })?;
-
-        if let Some(timer) = &self.timer {
-            timer.apply()?;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        if let Some(rtc) = &self.rtc {
-            rtc.apply()?;
-        }
-
-        if let Some(gpio) = &self.gpio {
-            gpio.apply()?;
-        }
-
-        if let Some(uart) = &self.uart {
-            uart.apply()?;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        if let Some(touch) = &self.touch {
-            touch.apply()?;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        if let Some(ulp) = &self.ulp {
-            ulp.apply()?;
-        }
-
-        esp!(unsafe { esp_light_sleep_start() })?;
-        Ok(())
-    }
-}
-
-impl<'a, R, P> fmt::Debug for LightSleep<'a, R, P>
-where
-    R: RtcWakeupPins,
-    P: GpioWakeupPins,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "LightSleep: {{timer: {:?}, ", self.timer)?;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        write!(f, "rtc: {:?}, ", self.rtc)?;
-        write!(f, "gpio: {:?}, ", self.gpio)?;
-        write!(f, "uart: {:?}, ", self.uart)?;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        write!(f, "touch: {:?}, ", self.touch)?;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        write!(f, "ulp: {:?}, ", self.ulp)?;
-        write!(f, "}}")
-    }
-}
-
-/// Struct for deep sleep. Add wakeup sources to this struct, and then call sleep().
-pub struct DeepSleep<R, P>
-where
-    R: RtcWakeupPins,
-    P: GpioWakeupPins,
-{
-    pub timer: Option<TimerWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    pub rtc: Option<RtcWakeup<R>>,
-    #[cfg(any(esp32c2, esp32c3))]
-    pub gpio: Option<GpioDeepWakeup<P>>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    pub touch: Option<TouchWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
-    pub ulp: Option<UlpWakeup>,
-    #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-    pub _p: PhantomData<R>,
-    #[cfg(not(any(esp32c2, esp32c3)))]
-    pub _q: PhantomData<P>,
-}
-
-pub fn make_deep_sleep_no_pins(
-    timer: Option<TimerWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))] touch: Option<TouchWakeup>,
-    #[cfg(any(esp32, esp32s2, esp32s3))] ulp: Option<UlpWakeup>,
-) -> DeepSleep<EmptyRtcWakeupPins, EmptyGpioWakeupPins> {
-    DeepSleep {
-        timer,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        rtc: None,
-        #[cfg(any(esp32c2, esp32c3))]
-        gpio: None,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        touch,
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        ulp,
-        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-        _p: PhantomData,
-        #[cfg(not(any(esp32c2, esp32c3)))]
-        _q: PhantomData,
-    }
-}
-
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub fn make_deep_sleep_rtc_pins<R: RtcWakeupPins>(
-    timer: Option<TimerWakeup>,
-    rtc: Option<RtcWakeup<R>>,
-    touch: Option<TouchWakeup>,
-    ulp: Option<UlpWakeup>,
-) -> DeepSleep<R, EmptyGpioWakeupPins> {
-    DeepSleep {
-        timer,
-        rtc,
-        touch,
-        ulp,
-        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-        _p: PhantomData,
-        #[cfg(not(any(esp32c2, esp32c3)))]
-        _q: PhantomData,
-    }
-}
-
-#[cfg(any(esp32c2, esp32c3))]
-pub fn make_deep_sleep_gpio_pins<P: GpioWakeupPins>(
-    timer: Option<TimerWakeup>,
-    gpio: Option<GpioDeepWakeup<P>>,
-) -> DeepSleep<EmptyRtcWakeupPins, P> {
-    DeepSleep {
-        timer,
-        gpio,
-        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-        _p: PhantomData,
-        #[cfg(not(any(esp32c2, esp32c3)))]
-        _q: PhantomData,
-    }
-}
-
-impl<R, P> DeepSleep<R, P>
-where
-    R: RtcWakeupPins,
-    P: GpioWakeupPins,
-{
-    pub fn prepare(&self) -> Result<(), EspError> {
-        esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })?;
-
-        if let Some(timer) = &self.timer {
-            timer.apply()?;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        if let Some(rtc) = &self.rtc {
-            rtc.apply()?;
-        }
-
-        #[cfg(any(esp32c2, esp32c3))]
-        if let Some(gpio) = &self.gpio {
-            gpio.apply()?;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        if let Some(touch) = &self.touch {
-            touch.apply()?;
-        }
-
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        if let Some(ulp) = &self.ulp {
-            ulp.apply()?;
-        }
-        Ok(())
+    if let Err(e) = wakeup.apply() {
+        return e;
     }
 
     // In esp idf version 5.x the esp_deep_sleep_start() function CAN return
-    // if deep sleep was rejected. So in order for this function to return !
-    // it needs to panic. This cause unreachable code for v4.4 and earlier,
-    // thus the warning is disabled.
-    #[allow(unreachable_code)]
-    pub fn sleep(&self) -> ! {
-        unsafe { esp_deep_sleep_start() }
-        // Normally not reached, but if it is, then panic will restart the
-        // chip, which is similar to what would happen with a very short deep
-        // sleep.
-        panic!("Failed to deep sleep, will panic instead");
-    }
-
-    pub fn prepare_and_sleep(&self) -> Result<(), EspError> {
-        self.prepare()?;
-        self.sleep();
-    }
-}
-
-impl<R, P> fmt::Debug for DeepSleep<R, P>
-where
-    R: RtcWakeupPins,
-    P: GpioWakeupPins,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "DeepSleep: {{timer: {:?}, ", self.timer)?;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        write!(f, "rtc: {:?}, ", self.rtc)?;
-        #[cfg(any(esp32c2, esp32c3))]
-        write!(f, "gpio: {:?}, ", self.gpio)?;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        write!(f, "touch: {:?}, ", self.touch)?;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        write!(f, "ulp: {:?}, ", self.ulp)?;
-        write!(f, "}}")
-    }
+    // if deep sleep was rejected.
+    unsafe { esp_deep_sleep_start() }
 }
