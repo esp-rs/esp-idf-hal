@@ -49,36 +49,26 @@ fn main() -> anyhow::Result<()> {
 
     // Assemble the wakeup sources now
 
-    let wakeup = Empty
+    let wakeups: &[&dyn LightSleepWakeup] = &[
         // Add GPIO wakeup
-        .chain(PinsWakeup::<_, Gpio>::new(
-            Empty
-                .chain((&gpio0, Level::High))
-                .chain((&gpio1, Level::High)),
-        ))
+        &PinsWakeup::<_, Gpio>::new([(&gpio0, Level::High), (&gpio1, Level::High)]),
         // Add UART wakeup
-        .chain(UartWakeup::new(&uart, 3))
+        &UartWakeup::new(&uart, 3),
         // Add timer wakeup
-        .chain(TimerWakeup::new(Duration::from_secs(5)));
-
-    #[cfg(not(esp32c3))]
-    let wakeup = wakeup
-        // Add RTC wakeup
-        .chain(PinsWakeup::<_, Rtc>::new(
-            Empty
-                .chain((&rtc0, Level::High))
-                .chain((&rtc1, Level::High)),
-        ));
+        &TimerWakeup::new(Duration::from_secs(5)),
+        #[cfg(not(esp32c3))]
+        &PinsWakeup::<_, Rtc>::new([(&rtc0, Level::High), (&rtc1, Level::High)]),
+    ];
 
     loop {
-        println!("Light sleep with wakeup: {wakeup:?}");
+        // println!("Light sleep with wakeup: {wakeup:?}");
 
         // short sleep to flush stdout
         thread::sleep(Duration::from_millis(60));
 
         let time_before = Instant::now();
 
-        match light_sleep(&wakeup) {
+        match light_sleep(wakeups) {
             Ok(_) => {
                 let time_after = Instant::now();
 

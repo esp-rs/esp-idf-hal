@@ -76,140 +76,45 @@ impl DeepSleepWakeup for &dyn DeepSleepWakeup {
     }
 }
 
-/// An empty item in a chain of wakeup sources or pins that does nothing
-#[derive(Debug)]
-pub struct Empty;
+/// Trait for types that can provide a wakeup pin for a given mode
+pub trait WakeupPin<M> {
+    /// Get the pin for wakeup
+    fn pin(&self) -> PinId;
 
-impl Empty {
-    /// Chain another wakeup source or pin to this one
-    ///
-    /// # Arguments
-    /// - other: The other wakeup source or pin to chain
-    ///
-    /// # Returns
-    /// A Chain struct containing both wakeup sources or pins
-    pub const fn chain<O>(self, other: O) -> Chain<Self, O> {
-        Chain {
-            first: self,
-            second: other,
-        }
-    }
+    /// Get the level for wakeup
+    fn level(&self) -> Level;
 }
 
-impl LightSleepWakeup for Empty {
-    fn apply(&self) -> Result<(), EspError> {
-        Ok(())
-    }
-}
-
-impl DeepSleepWakeup for Empty {
-    fn apply(&self) -> Result<(), EspError> {
-        Ok(())
-    }
-}
-
-/// A chain of two wakeup sources or pins
-#[derive(Debug)]
-pub struct Chain<F, S> {
-    first: F,
-    second: S,
-}
-
-impl<F, S> Chain<F, S> {
-    /// Create a new Chain struct
-    ///
-    /// # Arguments
-    /// - first: The first wakeup source or pin
-    /// - second: The second wakeup source or pin
-    ///
-    /// # Returns
-    /// A Chain struct containing both wakeup sources or pins
-    pub const fn new(first: F, second: S) -> Self {
-        Self { first, second }
-    }
-
-    /// Chain another wakeup source or pin to this one
-    ///
-    /// # Arguments
-    /// - other: The other wakeup source or pin to chain
-    ///
-    /// # Returns
-    /// A Chain struct containing the current and the other wakeup source or pin
-    pub const fn chain<O>(self, other: O) -> Chain<Self, O> {
-        Chain {
-            first: self,
-            second: other,
-        }
-    }
-}
-
-impl<F, S> LightSleepWakeup for Chain<F, S>
+impl<M, T> WakeupPin<M> for &T
 where
-    F: LightSleepWakeup,
-    S: LightSleepWakeup,
+    T: WakeupPin<M>,
 {
-    fn apply(&self) -> Result<(), EspError> {
-        self.first.apply()?;
-        self.second.apply()
+    fn pin(&self) -> PinId {
+        (**self).pin()
+    }
+
+    fn level(&self) -> Level {
+        (**self).level()
     }
 }
 
-impl<F, S> DeepSleepWakeup for Chain<F, S>
-where
-    F: DeepSleepWakeup,
-    S: DeepSleepWakeup,
-{
-    fn apply(&self) -> Result<(), EspError> {
-        self.first.apply()?;
-        self.second.apply()
+impl<M> WakeupPin<M> for &dyn WakeupPin<M> {
+    fn pin(&self) -> PinId {
+        (**self).pin()
+    }
+
+    fn level(&self) -> Level {
+        (**self).level()
     }
 }
 
-/// Trait for types that can provide wakeup pins for a given mode
-pub trait WakeupPins<M> {
-    /// Iterator over the wakeup pins
-    type Iterator: Iterator<Item = (PinId, Level)>;
-
-    /// Get an iterator over the wakeup pins
-    fn iter(&self) -> Self::Iterator;
-}
-
-impl<M, T> WakeupPins<M> for &T
-where
-    T: WakeupPins<M>,
-{
-    type Iterator = T::Iterator;
-
-    fn iter(&self) -> Self::Iterator {
-        (**self).iter()
+impl<P: InputMode + GPIOMode> WakeupPin<Gpio> for (&PinDriver<'_, P>, Level) {
+    fn pin(&self) -> PinId {
+        self.0.pin()
     }
-}
 
-impl WakeupPins<Gpio> for Empty {
-    type Iterator = core::iter::Empty<(PinId, Level)>;
-
-    fn iter(&self) -> Self::Iterator {
-        core::iter::empty()
-    }
-}
-
-impl<F, S> WakeupPins<Gpio> for Chain<F, S>
-where
-    F: WakeupPins<Gpio>,
-    S: WakeupPins<Gpio>,
-{
-    type Iterator = core::iter::Chain<F::Iterator, S::Iterator>;
-
-    fn iter(&self) -> Self::Iterator {
-        self.first.iter().chain(self.second.iter())
-    }
-}
-
-impl<P: InputMode + GPIOMode> WakeupPins<Gpio> for (&PinDriver<'_, P>, Level) {
-    type Iterator = core::iter::Once<(PinId, Level)>;
-
-    fn iter(&self) -> Self::Iterator {
-        core::iter::once((self.0.pin(), self.1))
+    fn level(&self) -> Level {
+        self.1
     }
 }
 
@@ -252,7 +157,8 @@ pub struct Gpio;
 /// can be done before adding it to the PinsWakeup struct.
 pub struct PinsWakeup<P, M>
 where
-    P: WakeupPins<M>,
+    P: IntoIterator + Clone,
+    P::Item: WakeupPin<M>,
 {
     pins: P,
     _t: PhantomData<M>,
@@ -260,7 +166,8 @@ where
 
 impl<P, M> PinsWakeup<P, M>
 where
-    P: WakeupPins<M>,
+    P: IntoIterator + Clone,
+    P::Item: WakeupPin<M>,
 {
     /// Create a new PinsWakeup struct
     ///
@@ -278,10 +185,11 @@ where
 
     fn mask(&self, level: Level) -> u64 {
         self.pins
-            .iter()
-            .filter(|(_, l)| *l == level)
-            .fold(0u64, |mut m, (pin, _)| {
-                m |= 1 << pin;
+            .clone()
+            .into_iter()
+            .filter(|wp| wp.level() == level)
+            .fold(0u64, |mut m, wp| {
+                m |= 1 << wp.pin();
                 m
             })
     }
@@ -289,16 +197,17 @@ where
 
 impl<P> LightSleepWakeup for PinsWakeup<P, Gpio>
 where
-    P: WakeupPins<Gpio>,
+    P: IntoIterator + Clone,
+    P::Item: WakeupPin<Gpio>,
 {
     fn apply(&self) -> Result<(), EspError> {
-        for (pin, level) in self.pins.iter() {
-            let intr_level = match level {
+        for wp in self.pins.clone().into_iter() {
+            let intr_level = match wp.level() {
                 Level::Low => gpio_int_type_t_GPIO_INTR_LOW_LEVEL,
                 Level::High => gpio_int_type_t_GPIO_INTR_HIGH_LEVEL,
             };
 
-            esp!(unsafe { gpio_wakeup_enable(pin as _, intr_level) })?;
+            esp!(unsafe { gpio_wakeup_enable(wp.pin() as _, intr_level) })?;
         }
 
         esp!(unsafe { esp_sleep_enable_gpio_wakeup() })
@@ -308,7 +217,8 @@ where
 #[cfg(any(esp32c2, esp32c3))]
 impl<P> DeepSleepWakeup for PinsWakeup<P, Gpio>
 where
-    P: WakeupPins<Gpio>,
+    P: IntoIterator + Clone,
+    P::Item: WakeupPin<Gpio>,
 {
     fn apply(&self) -> Result<(), EspError> {
         esp!(unsafe {
@@ -329,13 +239,14 @@ where
 
 impl<P> fmt::Debug for PinsWakeup<P, Gpio>
 where
-    P: WakeupPins<Gpio>,
+    P: IntoIterator + Clone,
+    P::Item: WakeupPin<Gpio>,
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "PinsWakeup<GPIO> {{ pins: [")?;
 
-        for (pin, level) in self.pins.iter() {
-            write!(f, "({pin} {level:?}), ")?;
+        for wp in self.pins.clone().into_iter() {
+            write!(f, "({} {:?}), ", wp.pin(), wp.level())?;
         }
         write!(f, "")
     }
@@ -383,42 +294,25 @@ mod rtc {
 
     use crate::gpio::{InputMode, Level, PinDriver, PinId, RTCMode};
 
-    use super::{Chain, DeepSleepWakeup, Empty, LightSleepWakeup, PinsWakeup, WakeupPins};
+    use super::{DeepSleepWakeup, LightSleepWakeup, PinsWakeup, WakeupPin};
 
     /// Marker type for RTC wakeup
     pub struct Rtc;
 
-    impl WakeupPins<Rtc> for Empty {
-        type Iterator = core::iter::Empty<(PinId, Level)>;
-
-        fn iter(&self) -> Self::Iterator {
-            core::iter::empty()
+    impl<P: InputMode + RTCMode> WakeupPin<Rtc> for (&PinDriver<'_, P>, Level) {
+        fn pin(&self) -> PinId {
+            self.0.pin()
         }
-    }
 
-    impl<F, S> WakeupPins<Rtc> for Chain<F, S>
-    where
-        F: WakeupPins<Rtc>,
-        S: WakeupPins<Rtc>,
-    {
-        type Iterator = core::iter::Chain<F::Iterator, S::Iterator>;
-
-        fn iter(&self) -> Self::Iterator {
-            self.first.iter().chain(self.second.iter())
-        }
-    }
-
-    impl<P: InputMode + RTCMode> WakeupPins<Rtc> for (&PinDriver<'_, P>, Level) {
-        type Iterator = core::iter::Once<(PinId, Level)>;
-
-        fn iter(&self) -> Self::Iterator {
-            core::iter::once((self.0.pin(), self.1))
+        fn level(&self) -> Level {
+            self.1
         }
     }
 
     impl<P> PinsWakeup<P, Rtc>
     where
-        P: WakeupPins<Rtc>,
+        P: IntoIterator + Clone,
+        P::Item: WakeupPin<Rtc>,
     {
         fn rtc_apply(&self) -> Result<(), EspError> {
             #[cfg(any(esp32, esp32s3))]
@@ -446,7 +340,8 @@ mod rtc {
 
     impl<P> LightSleepWakeup for PinsWakeup<P, Rtc>
     where
-        P: WakeupPins<Rtc>,
+        P: IntoIterator + Clone,
+        P::Item: WakeupPin<Rtc>,
     {
         fn apply(&self) -> Result<(), EspError> {
             self.rtc_apply()
@@ -455,7 +350,8 @@ mod rtc {
 
     impl<P> DeepSleepWakeup for PinsWakeup<P, Rtc>
     where
-        P: WakeupPins<Rtc>,
+        P: IntoIterator + Clone,
+        P::Item: WakeupPin<Rtc>,
     {
         fn apply(&self) -> Result<(), EspError> {
             self.rtc_apply()
@@ -464,13 +360,14 @@ mod rtc {
 
     impl<P> fmt::Debug for PinsWakeup<P, Rtc>
     where
-        P: WakeupPins<Rtc>,
+        P: IntoIterator + Clone,
+        P::Item: WakeupPin<Rtc>,
     {
         fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
             write!(f, "PinsWakeup<Rtc> {{ pins: [")?;
 
-            for (pin, level) in self.pins.iter() {
-                write!(f, "({pin} {level:?}), ")?;
+            for wp in self.pins.clone().into_iter() {
+                write!(f, "({} {:?}), ", wp.pin(), wp.level())?;
             }
             write!(f, "")
         }
@@ -522,7 +419,7 @@ mod ulp {
 /// Put the CPU into light sleep mode with the given wakeup sources
 ///
 /// # Arguments
-/// - wakeup: The wakeup sources to use
+/// - wakeups: The wakeup sources to use
 ///   Note that the API does not enforce that each wakeup source is used
 ///   at most once in the wakeup chain. Thus, if a wakeup source is used
 ///   more than once, only the last one will take effect.
@@ -530,10 +427,16 @@ mod ulp {
 /// # Returns
 /// - Ok(()) if the CPU was put into light sleep mode successfully
 /// - Err(EspError) if there was an error
-pub fn light_sleep<W: LightSleepWakeup>(wakeup: W) -> Result<(), EspError> {
+pub fn light_sleep<W>(wakeups: W) -> Result<(), EspError>
+where
+    W: IntoIterator,
+    W::Item: LightSleepWakeup,
+{
     esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })?;
 
-    wakeup.apply()?;
+    for wakeup in wakeups {
+        wakeup.apply()?;
+    }
 
     esp!(unsafe { esp_light_sleep_start() })
 }
@@ -542,22 +445,28 @@ pub fn light_sleep<W: LightSleepWakeup>(wakeup: W) -> Result<(), EspError> {
 /// This function will _not_ return if entering deep sleep was successful.
 ///
 /// # Arguments
-/// - wakeup: The wakeup sources to use
+/// - wakeups: The wakeup sources to use
 ///   Note that the API does not enforce that each wakeup source is used
 ///   at most once in the wakeup chain. Thus, if a wakeup source is used
 ///   more than once, only the last one will take effect.
 ///
 /// # Returns
 /// - EspError if there was an error
-pub fn deep_sleep<W: DeepSleepWakeup>(wakeup: W) -> EspError {
+pub fn deep_sleep<W>(wakeups: W) -> EspError
+where
+    W: IntoIterator,
+    W::Item: DeepSleepWakeup,
+{
     if let Err(e) =
         esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })
     {
         return e;
     }
 
-    if let Err(e) = wakeup.apply() {
-        return e;
+    for wakeup in wakeups {
+        if let Err(e) = wakeup.apply() {
+            return e;
+        }
     }
 
     // In esp idf version 5.x the esp_deep_sleep_start() function CAN return

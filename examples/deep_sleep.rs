@@ -48,31 +48,18 @@ fn main() -> anyhow::Result<()> {
 
     // Assemble the wakeup sources now
 
-    let wakeup = Empty
+    let wakeups: &[&dyn DeepSleepWakeup] = &[
         // Add timer wakeup
-        .chain(TimerWakeup::new(Duration::from_secs(5)));
+        &TimerWakeup::new(Duration::from_secs(5)),
+        #[cfg(any(esp32c2, esp32c3))]
+        &PinsWakeup::<_, Gpio>::new([(&gpio0, Level::High), (&gpio1, Level::High)]),
+        #[cfg(not(any(esp32c2, esp32c3)))]
+        &PinsWakeup::<_, Rtc>::new([(&rtc0, Level::High), (&rtc1, Level::High)]),
+    ];
 
-    #[cfg(any(esp32c2, esp32c3))]
-    let wakeup = wakeup
-        // Add GPIO wakeup
-        .chain(PinsWakeup::<_, Gpio>::new(
-            Empty
-                .chain((&gpio0, Level::High))
-                .chain((&gpio1, Level::High)),
-        ));
+    // println!("Deep sleep with wakeup: {wakeup:?}");
 
-    #[cfg(not(any(esp32c2, esp32c3)))]
-    let wakeup = wakeup
-        // Add RTC wakeup
-        .chain(PinsWakeup::<_, Rtc>::new(
-            Empty
-                .chain((&rtc0, Level::High))
-                .chain((&rtc1, Level::High)),
-        ));
-
-    println!("Deep sleep with wakeup: {wakeup:?}");
-
-    let e = deep_sleep(wakeup);
+    let e = deep_sleep(wakeups);
 
     println!("Failed to enter deep sleep: {e:?}");
 
