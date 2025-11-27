@@ -49,6 +49,10 @@ libstart = ["esp-idf-sys/libstart"]
 # - When enabled, the code for the legacy driver will be compiled.
 # - When disabled the code for the new driver will be compiled.
 pcnt-legacy = []
+# Similar to pcnt-legacy
+# - When enabled, the code for the legacy driver will be compiled.
+# - When disabled the code for the new driver will be compiled.
+timer-legacy = []
 
 [dependencies]
 nb = "1"

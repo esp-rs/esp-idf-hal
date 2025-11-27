@@ -118,8 +118,35 @@ pub mod sys;
 pub mod task;
 #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
 pub mod temp_sensor;
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+
+#[cfg(all(
+    esp_idf_soc_gptimer_supported,
+    not(feature = "timer-legacy"),
+    feature = "alloc"
+))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(
+        esp_idf_soc_gptimer_supported,
+        not(feature = "timer-legacy"),
+        feature = "alloc"
+    )))
+)]
 pub mod timer;
+#[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
+#[cfg_attr(
+    all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)),
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `timer` api by disabling the `timer-legacy` feature"
+    )
+)]
+mod timer_legacy;
+#[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
+pub mod timer {
+    pub use crate::timer_legacy::*;
+}
+
 pub mod uart;
 #[cfg(all(
     any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
