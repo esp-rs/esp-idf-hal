@@ -1,4 +1,4 @@
-//! GPTimer is a dedicated driver for the ESP32 [Timer Group peripheral].
+//! Timer driver for the [Timer Group peripheral].
 //!
 //! This timer can select different clock sources and prescalers to meet the requirements
 //! of nanosecond-level resolution. Additionally, it has flexible timeout alarm functions
@@ -14,6 +14,8 @@
 //! - Working with the GPIO module to achieve PWM signal output and input capture
 //! - ...
 //!
+//! [Timer Group peripheral]: https://documentation.espressif.com/esp32_technical_reference_manual_en.pdf#timg
+//!
 //! # Driver redesign in ESP-IDF 5.0
 //!
 //! In ESP-IDF 5.0, the [timer API was redesigned] to simplify and unify the usage of
@@ -23,13 +25,13 @@
 //! the `timer-legacy` feature. The ESP-IDF 6.0 release will remove support for the legacy API.
 //!
 //! [timer API was redesigned]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/migration-guides/release-5.x/5.0/peripherals.html#timer-group-driver
-///
-/// # Force enabling debug logs
-///
-/// The `CONFIG_GPTIMER_ENABLE_DEBUG_LOG` option in the `sdkconfig` forces the
-/// GPTimer driver to enable all debug logs, regardless of the global log level settings.
-/// Enabling this option helps developers obtain more detailed log information during
-/// debugging, making it easier to locate and solve problems.
+//!
+//! # Force enabling debug logs
+//!
+//! The `CONFIG_GPTIMER_ENABLE_DEBUG_LOG` option in the `sdkconfig` forces the
+//! GPTimer driver to enable all debug logs, regardless of the global log level settings.
+//! Enabling this option helps developers obtain more detailed log information during
+//! debugging, making it easier to locate and solve problems.
 use core::ffi::c_void;
 use core::time::Duration;
 use core::{fmt, ptr};
@@ -42,6 +44,10 @@ use crate::interrupt;
 use crate::interrupt::asynch::HalIsrNotification;
 use crate::units::{FromValueType, Hertz};
 use config::*;
+
+/// This might not always be available in the generated `esp-idf-sys` bindings,
+/// which is why it is defined here.
+pub const ERR_EOVERFLOW: esp_err_t = 139;
 
 /// GPTimer alarm event data.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -151,12 +157,16 @@ pub mod config {
         pub resolution: Hertz,
         /// GPTimer interrupt priority, if set to 0, the driver will try to allocate an interrupt
         /// with a relative low priority (1,2,3)
+        #[cfg(esp_idf_version_at_least_5_1_2)]
+        #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_2)))]
         pub intr_priority: i32,
         /// If set true, the timer interrupt number can be shared with other peripherals
         pub intr_shared: bool,
         /// If set, driver allows the power domain to be powered off when system enters
         /// sleep mode. This can save power, but at the expense of more RAM being consumed
         /// to save register context.
+        #[cfg(esp_idf_version_at_least_5_4_0)]
+        #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
         pub allow_pd: bool,
         // This field is intentionally hidden to prevent non-exhaustive pattern matching.
         // You should only construct this struct using the `..Default::default()` pattern.
@@ -172,8 +182,10 @@ pub mod config {
                 clock_source: Default::default(),
                 direction: Default::default(),
                 resolution: 1_000_000.Hz(), // 1 MHz
+                #[cfg(esp_idf_version_at_least_5_1_2)]
                 intr_priority: 0,
                 intr_shared: false,
+                #[cfg(esp_idf_version_at_least_5_4_0)]
                 allow_pd: false,
                 __internal: (),
             }
@@ -183,7 +195,7 @@ pub mod config {
     /// General Purpose Timer alarm configuration.
     #[derive(Debug, Clone)]
     pub struct AlarmConfig {
-        /// Alarm reload count value, effect only when [`auto_reload_on_alarm`] is set to true
+        /// Alarm reload count value, effect only when [`Self::auto_reload_on_alarm`] is set to true
         pub reload_count: u64,
         /// Alarm target count value
         pub alarm_count: u64,
@@ -230,6 +242,16 @@ struct AlarmUserData<'d> {
 }
 
 /// General Purpose Timer driver.
+///
+/// You can use this driver to get notified when a certain amount of time has passed
+/// ([`TimerDriver::subscribe`]), or to measure time intervals ([`TimerDriver::get_raw_count`]).
+///
+/// The driver has the following states:
+/// - "init" state: After creation of the driver, or after calling [`TimerDriver::disable`].
+/// - "enable" state: After calling [`TimerDriver::enable`]. In this state, the timer is ready to be started,
+///   but the internal counter is not running yet.
+/// - "run" state: After calling [`TimerDriver::start`]. In this state, the internal counter is running.
+///   To stop the counter, call [`TimerDriver::stop`], which would transition back to "enable" state.
 pub struct TimerDriver<'d> {
     handle: gptimer_handle_t,
     on_alarm: Option<Box<AlarmUserData<'d>>>,
@@ -251,13 +273,23 @@ impl<'d> TimerDriver<'d> {
             clk_src: config.clock_source.into(),
             direction: config.direction.clone().into(),
             resolution_hz: config.resolution.into(),
+            #[cfg(esp_idf_version_at_least_5_1_2)]
             intr_priority: config.intr_priority,
             flags: gptimer_config_t__bindgen_ty_1 {
                 _bitfield_1: gptimer_config_t__bindgen_ty_1::new_bitfield_1(
                     config.intr_shared as _,
-                    config.allow_pd as _,
-                    // The `backup_before_sleep` field is deprecated
-                    false as _,
+                    #[cfg(esp_idf_version_at_least_5_4_0)]
+                    {
+                        config.allow_pd as _
+                    },
+                    // The `backup_before_sleep` field is deprecated, and will be removed in 6.1
+                    #[cfg(all(
+                        esp_idf_version_at_least_5_3_0,
+                        not(esp_idf_version_at_least_6_1_0)
+                    ))]
+                    {
+                        false as _
+                    },
                 ),
                 ..Default::default()
             },
@@ -282,11 +314,42 @@ impl<'d> TimerDriver<'d> {
     /// # Errors
     ///
     /// If [`Self::get_resolution`] fails, this function will return the same error.
+    ///
+    /// This function might overflow if the duration is too long to be represented
+    /// as ticks with the current timer resolution.
+    /// In that case an error with the code [`ERR_EOVERFLOW`] will be returned.
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
     pub fn duration_to_count(&self, duration: Duration) -> Result<u64, EspError> {
         // 1 / resolution = how many seconds per tick
-        // -> duration / (1 / resolution) = duration * resolution = how many ticks in duration
+        // -> duration / (1 / resolution) = duration * resolution = how many ticks in duration (where duration is in seconds)
+        //
+        // The below calculation splits the duration into full seconds and the remainder in nanoseconds.
+        // The full seconds can simply be multiplied by the ticks per second (resolution).
+        //
+        // The remainder in nanoseconds would have to be converted to seconds to multiply with the resolution,
+        // but with whole numbers that would round down to zero (remainder is less than a full second).
+        // Therefore instead of:
+        // ticks += resolution * (duration_rem_in_nanos / 1_000_000_000)
+        // we do:
+        // ticks += (resolution * duration_rem_in_nanos) / 1_000_000_000
+        //
+        // The 1_000_000_000 is one second in nanoseconds.
 
-        Ok((duration.as_secs_f64() * self.get_resolution()?.0 as f64).round() as u64)
+        let ticks_per_second = self.get_resolution()?.0 as u64;
+        let duration_in_seconds = duration.as_secs();
+        let duration_rem_in_nanos = duration.subsec_nanos() as u64;
+
+        let Some(ticks) = ticks_per_second.checked_mul(duration_in_seconds) else {
+            return Err(EspError::from_infallible::<ERR_EOVERFLOW>());
+        };
+
+        ticks
+            .checked_add(
+                (ticks_per_second * duration_rem_in_nanos)
+                    / Duration::from_secs(1).as_nanos() as u64,
+            )
+            .ok_or(EspError::from_infallible::<ERR_EOVERFLOW>())
     }
 
     /// Asynchronously delay for the specified duration.
@@ -301,6 +364,8 @@ impl<'d> TimerDriver<'d> {
     /// If there is no interrupt service registered, it will return an `ESP_ERR_INVALID_STATE`.
     /// To enable interrupts, either register your own callback through
     /// [`Self::subscribe`]/[`Self::subscribe_nonstatic`], or call [`Self::subscribe_default`].
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
     pub async fn delay(&self, duration: Duration) -> Result<(), EspError> {
         let alarm_count = self.duration_to_count(duration)?;
 
@@ -366,7 +431,7 @@ impl<'d> TimerDriver<'d> {
     ///
     /// This function will trigger a software capture event and then return the captured count value.
     ///
-    /// With the raw count value and the resolution returned from gptimer_get_resolution, you can
+    /// With the raw count value and the resolution returned from [`Self::get_resolution`], you can
     /// convert the count value into seconds.
     ///
     /// # Errors
@@ -389,6 +454,8 @@ impl<'d> TimerDriver<'d> {
     ///
     /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
     /// - `ESP_FAIL`: Failed because of other error
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
     pub fn get_resolution(&self) -> Result<Hertz, EspError> {
         let mut value: u32 = 0;
         esp!(unsafe { gptimer_get_resolution(self.handle, &raw mut value) })?;
@@ -405,6 +472,8 @@ impl<'d> TimerDriver<'d> {
     ///
     /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
     /// - `ESP_FAIL`: Failed because of other error
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
     pub fn get_captured_count(&self) -> Result<u64, EspError> {
         let mut value: u64 = 0;
         esp!(unsafe { gptimer_get_captured_count(self.handle, &raw mut value) })?;
@@ -442,7 +511,7 @@ impl<'d> TimerDriver<'d> {
     ///
     /// # Safety
     ///
-    /// You must not forget the driver (for example through [`mem::forget`]), while the callback
+    /// You must not forget the driver (for example through [`core::mem::forget`]), while the callback
     /// is still subscribed, otherwise this would lead to undefined behavior.
     ///
     /// To unsubscribe the callback, call [`Self::unsubscribe`].
