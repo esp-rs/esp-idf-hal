@@ -23,7 +23,7 @@
 > this process run cargo with the `-vv` (very verbose) flag, so that build script output
 > is also displayed. This is especially useful since the initial build will take a while.
 
-## Commuity Effort
+## Community Effort
 
 Please note that **all `esp-idf-*` crates are a community effort**, in that Espressif puts little to no paid developer time in these.
 So while ESP-IDF itself is very popular and well tested, the `esp-idf-*` crates:
