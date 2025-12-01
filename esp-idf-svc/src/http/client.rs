@@ -76,6 +76,7 @@ pub struct Configuration {
     pub timeout: Option<core::time::Duration>,
     pub follow_redirects_policy: FollowRedirectsPolicy,
     pub client_certificate: Option<X509<'static>>,
+    pub server_certificate: Option<X509<'static>>,
     pub private_key: Option<X509<'static>>,
     pub use_global_ca_store: bool,
     pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut core::ffi::c_void) -> esp_err_t>,
@@ -130,6 +131,18 @@ impl EspHttpConnection {
 
         if let Some(timeout) = configuration.timeout {
             native_config.timeout_ms = timeout.as_millis() as _;
+        }
+
+        if let Some(cert) = configuration.server_certificate {
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            {
+                native_config.__bindgen_anon_1.cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            }
+            #[cfg(not(esp_idf_version_at_least_5_5_0))]
+            {
+                native_config.cert_pem = cert.as_esp_idf_raw_ptr() as _;
+            }
+            native_config.cert_len = cert.as_esp_idf_raw_len();
         }
 
         if let (Some(cert), Some(private_key)) =

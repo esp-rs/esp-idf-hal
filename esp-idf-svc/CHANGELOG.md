@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking
+- Added custom server certificate to `http::client::Configuration`
 - BT: `BtDriver::set_device_name` deprecated and not available with ESP-IDF 6.0+. Use the new `EspGap::set_device_name` instead
   or the existing `EspBleGap::set_device_name`
 - Implement MQTT outbox limit and get_outbox_size()
