@@ -677,7 +677,7 @@ where
     }
 
     unsafe extern "C" fn event_handler(
-        event: esp_gap_ble_cb_event_t,
+        event: esp_gatts_cb_event_t,
         gatts_if: esp_gatt_if_t,
         param: *mut esp_ble_gatts_cb_param_t,
     ) {

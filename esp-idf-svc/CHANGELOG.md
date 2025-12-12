@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added custom server certificate to `http::client::Configuration`
 - BT: `BtDriver::set_device_name` deprecated and not available with ESP-IDF 6.0+. Use the new `EspGap::set_device_name` instead
   or the existing `EspBleGap::set_device_name`
+- BT: `BleGapEvent::ScanResult` is now a struct instead of a wrapper around esp_ble_gap_cb_param_t_ble_scan_result_evt_param  
 - Implement MQTT outbox limit and get_outbox_size()
 - Added argument `subprotocol_list` to `ws_handler` to allow subprotocols to be supported by WebSockets
 - Thread enhancements (#592). Specifically:
@@ -30,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `WifiDriver::get_ap_info` not takes `&self` instead of `&mut self`. Convenience method `EspWifi::get_ap_info` that delegates
   to `WifiDriver::get_ap_info`
 - BT: Fix BLE not working on the s3 and with ESP-IDF 5.3+
+- BT: Fix `bt_gatt_server` example not allowing reconnect after client connect (#553) and handle sububscribe/unsubscribe to indications
+- BT: Fix `EspBleGap::set_security_conf` not setting auth_req_mode, and returning ESP_ERR_INVALID_ARG when setting key sizes
 - Fix wrong conversion from `ScanType` to `u32` in Wi-Fi configuration
 - Fix wrong BT configuration version on the c6 (issue #556)
 - Fix inconsistent mutability in NVS (#567)
@@ -47,10 +50,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - OTA: New method - `EspFirmwareInfoLoad::fetch_native` - returning the full native ESP-IDF image descriptor structures
 - Added `use_serde` feature, which enables the `use_serde` feature of `embedded-svc` crate, allowing to deserialize configuration structs.
 - OTA: Allow specifying image size to speed up erase
-- Bluetooth: New methods `EspBleGap::start_scanning` and `EspBleGap::stop_scanning`
+- Bluetooth: New methods `EspBleGap::set_scan_params`, `EspBleGap::start_scanning`, `EspBleGap::stop_scanning`,
+  `EspBleGap::resolve_adv_data_by_type`, `EspBleGap::disconnect` and `gatt::set_local_mtu`
+- Bluetooth: New BLE Gatt Client `EspGattc`
 - Bluetooth Classic: Added Serial Port Profile, `spp`
 - New example, `bt_spp_acceptor` to demonstrate usage of bt classic spp profile
 - New example, `bt_ble_gap_scanner` to demonstrate usage of added ble scanning methods
+- New example, `bt_gatt_client` to demonstrate usage of added ble gatt client
 - New example, `mdns_advertise` to demonstrate mDNS service advertisement
 - NVS: Implemented `RawHandle` for `EspNvs<NvsDefault>`
 - NVS: Added `EspNvs::erase_all` to remove all data stored in an nvs namespace

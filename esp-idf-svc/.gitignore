@@ -1,4 +1,5 @@
 /.vscode
+/.zed
 /.espressif
 /.embuild
 /target

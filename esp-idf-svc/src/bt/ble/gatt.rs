@@ -4,6 +4,7 @@ use num_enum::TryFromPrimitive;
 use crate::bt::BtUuid;
 use crate::sys::*;
 
+pub mod client;
 pub mod server;
 
 pub type GattInterface = u8;
@@ -342,4 +343,9 @@ impl Default for GattResponse {
     fn default() -> Self {
         Self::new()
     }
+}
+
+/// This function is called to set local MTU, the function is called before BLE connection.
+pub fn set_local_mtu(mtu: u16) -> Result<(), EspError> {
+    esp!(unsafe { esp_ble_gatt_set_local_mtu(mtu) })
 }
