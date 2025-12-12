@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `cfg` constants for easier conditional compilation against various ESP-IDF versions
 - Compatibility with ESP-IDF v5.4.X, v5.5.x
 - Support for `esp32c5` and `esp32c61`
+- Add raw bindings for `esp_lcd_mipi_dsi.h` and `esp_ldo_regulator.h` (#398)
 
 ### Fixed
 - Fix the `esp_app_desc!` macro so the reserv3 field is correct for ESP IDF v5.4

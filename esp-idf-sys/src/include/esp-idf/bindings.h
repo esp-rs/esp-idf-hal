@@ -679,6 +679,11 @@
 
 #endif // CONFIG_IDF_TARGET_ESP32S2
 
+// LDO is used by MIPI DSI PHY
+#ifdef SOC_GP_LDO_SUPPORTED
+#include "esp_ldo_regulator.h"
+#endif
+
 // LCD support
 #ifdef ESP_IDF_COMP_ESP_LCD_ENABLED
 #include "esp_lcd_panel_commands.h"
@@ -700,6 +705,9 @@
 #endif
 #include "esp_lcd_panel_ssd1306.h"
 #include "esp_lcd_panel_st7789.h"
+#ifdef SOC_MIPI_DSI_SUPPORTED
+#include "esp_lcd_mipi_dsi.h"
+#endif
 #endif
 #endif // ESP_IDF_COMP_LCD_ENABLED
 
