@@ -19,11 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ThreadSpawnConfiguration::name` changed from `&'static [u8]` to `&'static core::ffi::CStr` as it is actually a `CStr`
 - The `rmt` module is now only exposed on chips that support the rmt feature
 - The `onewire` code has been updated for 1.0.4 and the new rmt API
+- Implement new gptimer API. The old API will be available through the `timer-legacy` feature.
 
 ### Deprecated
 - `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+
 - The old pcnt API (only available with the `pcnt-legacy` feature).
 - The old rmt API (only available with the `rmt-legacy` feature)
+- The old gptimer API (only available with the `timer-legacy` feature)
 
 ### Added
 - `Send` for `AsyncCanDriver`
@@ -31,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fade_with_time`, `fade_with_step`, `fade_stop` for `LedcDriver`
 - `write_with_break` for `UartDriver` and `UartTxDriver`
 - New RMT API
+- New GPTimer API
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32

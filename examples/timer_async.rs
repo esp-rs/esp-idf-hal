@@ -1,11 +1,38 @@
 #![allow(unexpected_cfgs)]
 
-#[cfg(esp_idf_version_at_least_6_0_0)]
-fn main() {
-    panic!("Timer not yet available when building against ESP-IDF 6.0+")
+#[cfg(all(not(feature = "timer-legacy"), esp_idf_soc_gptimer_supported))]
+mod example {
+    use std::time::Duration;
+
+    use esp_idf_hal::task::block_on;
+    use esp_idf_hal::timer::config::TimerConfig;
+    use esp_idf_hal::timer::TimerDriver;
+
+    pub fn run() -> anyhow::Result<()> {
+        esp_idf_hal::sys::link_patches();
+
+        let mut timer = TimerDriver::new(&TimerConfig::default())?;
+        timer.subscribe_default()?;
+        timer.enable()?;
+
+        block_on(async {
+            timer.start()?;
+
+            loop {
+                timer.delay(Duration::from_secs(1)).await?;
+
+                println!("Tick");
+            }
+        })
+    }
 }
 
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(not(feature = "timer-legacy"), esp_idf_soc_gptimer_supported))]
+fn main() -> anyhow::Result<()> {
+    example::run()
+}
+
+#[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
 fn main() -> Result<(), esp_idf_hal::sys::EspError> {
     use esp_idf_hal::peripherals::*;
     use esp_idf_hal::task::*;

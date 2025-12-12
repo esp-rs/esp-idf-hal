@@ -1,637 +1,687 @@
-use core::marker::PhantomData;
+//! Timer driver for the [Timer Group peripheral].
+//!
+//! This timer can select different clock sources and prescalers to meet the requirements
+//! of nanosecond-level resolution. Additionally, it has flexible timeout alarm functions
+//! and allows automatic updating of the count value at the alarm moment,
+//! achieving very precise timing cycles.
+//!
+//! Based on the high resolution, high count range, and high response capabilities of the
+//! hardware timer, the main application scenarios of this driver include:
+//! - Running freely as a calendar clock to provide timestamp services for other modules
+//! - Generating periodic alarms to complete periodic tasks
+//! - Generating one-shot alarms, which can be used to implement a monotonic software timer list
+//!   with asynchronous updates of alarm values
+//! - Working with the GPIO module to achieve PWM signal output and input capture
+//! - ...
+//!
+//! [Timer Group peripheral]: https://documentation.espressif.com/esp32_technical_reference_manual_en.pdf#timg
+//!
+//! # Driver redesign in ESP-IDF 5.0
+//!
+//! In ESP-IDF 5.0, the [timer API was redesigned] to simplify and unify the usage of
+//! general purpose timer.
+//!
+//! It is recommended to use the new API, but for now the old API is available through
+//! the `timer-legacy` feature. The ESP-IDF 6.0 release will remove support for the legacy API.
+//!
+//! [timer API was redesigned]: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/migration-guides/release-5.x/5.0/peripherals.html#timer-group-driver
+//!
+//! # Force enabling debug logs
+//!
+//! The `CONFIG_GPTIMER_ENABLE_DEBUG_LOG` option in the `sdkconfig` forces the
+//! GPTimer driver to enable all debug logs, regardless of the global log level settings.
+//! Enabling this option helps developers obtain more detailed log information during
+//! debugging, making it easier to locate and solve problems.
+use core::ffi::c_void;
+use core::time::Duration;
+use core::{fmt, ptr};
+
+use alloc::boxed::Box;
 
 use esp_idf_sys::*;
 
-#[cfg(feature = "alloc")]
-extern crate alloc;
+use crate::interrupt;
+use crate::interrupt::asynch::HalIsrNotification;
+use crate::units::{FromValueType, Hertz};
+use config::*;
 
-#[cfg(feature = "alloc")]
-use alloc::boxed::Box;
+/// This might not always be available in the generated `esp-idf-sys` bindings,
+/// which is why it is defined here.
+pub const ERR_EOVERFLOW: esp_err_t = 139;
 
-pub type TimerConfig = config::Config;
+/// GPTimer alarm event data.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct AlarmEventData {
+    /// Current count value
+    pub count_value: u64,
+    /// Current alarm value
+    pub alarm_value: u64,
+}
+
+impl From<gptimer_alarm_event_data_t> for AlarmEventData {
+    fn from(value: gptimer_alarm_event_data_t) -> Self {
+        Self {
+            count_value: value.count_value,
+            alarm_value: value.alarm_value,
+        }
+    }
+}
 
 /// Timer configuration
 pub mod config {
+    use esp_idf_sys::*;
 
-    #[derive(Copy, Clone)]
-    pub struct Config {
-        pub divider: u32,
-        #[cfg(not(esp32))]
-        pub xtal: bool,
+    use crate::units::{FromValueType, Hertz};
 
-        /// Enable or disable counter reload function when alarm event occurs.
-        ///
-        /// Enabling this makes the hardware automatically reset the counter
-        /// to the value set by [`TimerDriver::set_counter`](super::TimerDriver::set_counter) when the alarm is fired.
-        /// This allows creating timers that automatically fire at a given interval
-        /// without the software having to do anything after the timer setup.
-        pub auto_reload: bool,
+    /// GPTimer count direction
+    #[derive(Debug, Clone, Default)]
+    #[non_exhaustive]
+    pub enum CountDirection {
+        /// Decrease count value
+        #[default]
+        Up,
+        /// Increase count value
+        Down,
     }
 
-    impl Config {
-        pub fn new() -> Self {
-            Default::default()
-        }
-
-        #[must_use]
-        pub fn divider(mut self, divider: u32) -> Self {
-            self.divider = divider;
-            self
-        }
-
-        #[must_use]
-        #[cfg(not(esp32))]
-        pub fn xtal(mut self, xtal: bool) -> Self {
-            self.xtal = xtal;
-            self
-        }
-
-        #[must_use]
-        pub fn auto_reload(mut self, auto_reload: bool) -> Self {
-            self.auto_reload = auto_reload;
-            self
+    impl From<CountDirection> for gptimer_count_direction_t {
+        fn from(value: CountDirection) -> Self {
+            match value {
+                CountDirection::Up => gptimer_count_direction_t_GPTIMER_COUNT_UP,
+                CountDirection::Down => gptimer_count_direction_t_GPTIMER_COUNT_DOWN,
+            }
         }
     }
 
-    impl Default for Config {
+    /// Type of GPTimer clock source.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+    pub enum ClockSource {
+        /// Use the default clock source.
+        #[default]
+        Default,
+        /// Select `APB` as the source clock
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+        APB,
+        /// Select `RC_FAST` as the source clock
+        #[cfg(any(esp32c5, esp32c6, esp32c61, esp32h2, esp32p4))]
+        RcFast,
+        /// Select `XTAL` as the source clock
+        #[cfg(any(
+            esp32s2, esp32s3, esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2, esp32p4
+        ))]
+        XTAL,
+        /// Select `PLL_F40M` as the source clock
+        #[cfg(esp32c2)]
+        PLLF40M,
+        /// Select `PLL_F48M` as the source clock
+        #[cfg(esp32h2)]
+        PLLF48M,
+        /// Select `PLL_F80M` as the source clock
+        #[cfg(any(esp32c5, esp32c6, esp32c61, esp32p4))]
+        PLLF80M,
+    }
+
+    impl From<ClockSource> for soc_periph_gptimer_clk_src_t {
+        fn from(clock: ClockSource) -> Self {
+            match clock {
+                ClockSource::Default => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_DEFAULT,
+                #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
+                ClockSource::APB => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_APB,
+                #[cfg(any(esp32c5, esp32c6, esp32c61, esp32h2, esp32p4))]
+                ClockSource::RcFast => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_RC_FAST,
+                #[cfg(any(
+                    esp32s2, esp32s3, esp32c2, esp32c3, esp32c5, esp32c6, esp32c61, esp32h2,
+                    esp32p4
+                ))]
+                ClockSource::XTAL => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_XTAL,
+                #[cfg(esp32c2)]
+                ClockSource::PLLF40M => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_PLL_F40M,
+                #[cfg(esp32h2)]
+                ClockSource::PLLF48M => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_PLL_F48M,
+                #[cfg(any(esp32c5, esp32c6, esp32c61, esp32p4))]
+                ClockSource::PLLF80M => soc_periph_gptimer_clk_src_t_GPTIMER_CLK_SRC_PLL_F80M,
+            }
+        }
+    }
+
+    /// Configuration for [`TimerDriver`](super::TimerDriver)
+    #[derive(Debug, Clone)]
+    pub struct TimerConfig {
+        /// GPTimer clock source
+        pub clock_source: ClockSource,
+        /// Count direction
+        pub direction: CountDirection,
+        /// Counter resolution (working frequency) in Hz, hence,
+        /// the step size of each count tick equals to (1 / resolution_hz) seconds
+        pub resolution: Hertz,
+        /// GPTimer interrupt priority, if set to 0, the driver will try to allocate an interrupt
+        /// with a relative low priority (1,2,3)
+        #[cfg(esp_idf_version_at_least_5_1_2)]
+        #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_2)))]
+        pub intr_priority: i32,
+        /// If set true, the timer interrupt number can be shared with other peripherals
+        pub intr_shared: bool,
+        /// If set, driver allows the power domain to be powered off when system enters
+        /// sleep mode. This can save power, but at the expense of more RAM being consumed
+        /// to save register context.
+        #[cfg(esp_idf_version_at_least_5_4_0)]
+        #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_4_0)))]
+        pub allow_pd: bool,
+        // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+        // You should only construct this struct using the `..Default::default()` pattern.
+        // If you use this field directly, your code might break in future versions.
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub __internal: (),
+    }
+
+    impl Default for TimerConfig {
         fn default() -> Self {
             Self {
-                divider: 80,
-                #[cfg(not(esp32))]
-                xtal: false,
-                auto_reload: false,
+                clock_source: Default::default(),
+                direction: Default::default(),
+                resolution: 1_000_000.Hz(), // 1 MHz
+                #[cfg(esp_idf_version_at_least_5_1_2)]
+                intr_priority: 0,
+                intr_shared: false,
+                #[cfg(esp_idf_version_at_least_5_4_0)]
+                allow_pd: false,
+                __internal: (),
             }
         }
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
-    #[allow(clippy::upper_case_acronyms)]
-    #[derive(Default)]
-    pub(crate) enum ClockSource {
-        #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
-        #[default]
-        APB,
-        #[cfg(esp32c2)]
-        #[default]
-        PLL40,
-        #[cfg(esp32h2)]
-        #[default]
-        PLL48,
-        #[cfg(any(esp32c5, esp32c6, esp32c61))]
-        #[default]
-        PLL80,
-        #[cfg(not(esp32))]
-        XTAL,
+    /// General Purpose Timer alarm configuration.
+    #[derive(Debug, Clone)]
+    pub struct AlarmConfig {
+        /// Alarm reload count value, effect only when [`Self::auto_reload_on_alarm`] is set to true
+        pub reload_count: u64,
+        /// Alarm target count value
+        pub alarm_count: u64,
+        /// Reload the count value by hardware, immediately at the alarm event
+        pub auto_reload_on_alarm: bool,
+        // This field is intentionally hidden to prevent non-exhaustive pattern matching.
+        // You should only construct this struct using the `..Default::default()` pattern.
+        // If you use this field directly, your code might break in future versions.
+        #[doc(hidden)]
+        #[allow(dead_code)]
+        pub __internal: (),
     }
 
-    #[cfg(not(esp_idf_version_major = "4"))]
-    #[allow(clippy::from_over_into)]
-    impl Into<esp_idf_sys::soc_periph_tg_clk_src_legacy_t> for ClockSource {
-        fn into(self) -> esp_idf_sys::soc_periph_tg_clk_src_legacy_t {
-            match self {
-                #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
-                ClockSource::APB => esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_APB,
-                #[cfg(esp32c2)]
-                ClockSource::PLL40 => {
-                    esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F40M
-                }
-                #[cfg(esp32h2)]
-                ClockSource::PLL48 => {
-                    esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F48M
-                }
-                #[cfg(any(esp32c5, esp32c6, esp32c61))]
-                ClockSource::PLL80 => {
-                    esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_PLL_F80M
-                }
-                #[cfg(not(esp32))]
-                ClockSource::XTAL => esp_idf_sys::soc_periph_tg_clk_src_legacy_t_TIMER_SRC_CLK_XTAL,
+    impl Default for AlarmConfig {
+        fn default() -> Self {
+            Self {
+                reload_count: 0,
+                alarm_count: 1_000_000,
+                auto_reload_on_alarm: false,
+                __internal: (),
+            }
+        }
+    }
+
+    impl From<&AlarmConfig> for gptimer_alarm_config_t {
+        fn from(config: &AlarmConfig) -> Self {
+            gptimer_alarm_config_t {
+                alarm_count: config.alarm_count,
+                reload_count: config.reload_count,
+                flags: gptimer_alarm_config_t__bindgen_ty_1 {
+                    _bitfield_1: gptimer_alarm_config_t__bindgen_ty_1::new_bitfield_1(
+                        config.auto_reload_on_alarm as _,
+                    ),
+                    ..Default::default()
+                },
             }
         }
     }
 }
 
-pub trait Timer: Send {
-    fn group() -> timer_group_t;
-    fn index() -> timer_idx_t;
+struct AlarmUserData<'d> {
+    on_alarm: Box<dyn FnMut(AlarmEventData) + Send + 'd>,
+    notif: HalIsrNotification,
 }
 
+/// General Purpose Timer driver.
+///
+/// You can use this driver to get notified when a certain amount of time has passed
+/// ([`TimerDriver::subscribe`]), or to measure time intervals ([`TimerDriver::get_raw_count`]).
+///
+/// The driver has the following states:
+/// - "init" state: After creation of the driver, or after calling [`TimerDriver::disable`].
+/// - "enable" state: After calling [`TimerDriver::enable`]. In this state, the timer is ready to be started,
+///   but the internal counter is not running yet.
+/// - "run" state: After calling [`TimerDriver::start`]. In this state, the internal counter is running.
+///   To stop the counter, call [`TimerDriver::stop`], which would transition back to "enable" state.
 pub struct TimerDriver<'d> {
-    timer: u8,
-    divider: u32,
-    #[cfg(all(not(esp32), not(esp_idf_version_major = "4")))]
-    xtal: bool,
-    isr_registered: bool,
-    _p: PhantomData<&'d mut ()>,
+    handle: gptimer_handle_t,
+    on_alarm: Option<Box<AlarmUserData<'d>>>,
 }
 
 impl<'d> TimerDriver<'d> {
-    pub fn new<TIMER: Timer + 'd>(
-        _timer: TIMER,
-        config: &config::Config,
-    ) -> Result<Self, EspError> {
-        esp!(unsafe {
-            timer_init(
-                TIMER::group(),
-                TIMER::index(),
-                &timer_config_t {
-                    alarm_en: timer_alarm_t_TIMER_ALARM_DIS,
-                    counter_en: timer_start_t_TIMER_PAUSE,
-                    counter_dir: timer_count_dir_t_TIMER_COUNT_UP,
-                    auto_reload: if config.auto_reload {
-                        timer_autoreload_t_TIMER_AUTORELOAD_EN
-                    } else {
-                        timer_autoreload_t_TIMER_AUTORELOAD_DIS
+    /// Create a new General Purpose Timer, and return the handle.
+    ///
+    /// The state of the returned timer will be "init" state.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument
+    /// - `ESP_ERR_NO_MEM`: Failed because out of memory
+    /// - `ESP_ERR_NOT_FOUND`: Failed because all hardware timers are used up and no more free one
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn new(config: &TimerConfig) -> Result<Self, EspError> {
+        let sys_config = gptimer_config_t {
+            clk_src: config.clock_source.into(),
+            direction: config.direction.clone().into(),
+            resolution_hz: config.resolution.into(),
+            #[cfg(esp_idf_version_at_least_5_1_2)]
+            intr_priority: config.intr_priority,
+            flags: gptimer_config_t__bindgen_ty_1 {
+                _bitfield_1: gptimer_config_t__bindgen_ty_1::new_bitfield_1(
+                    config.intr_shared as _,
+                    #[cfg(esp_idf_version_at_least_5_4_0)]
+                    {
+                        config.allow_pd as _
                     },
-                    intr_type: timer_intr_mode_t_TIMER_INTR_LEVEL,
-                    divider: config.divider,
-                    #[cfg(all(not(esp32), esp_idf_version_major = "4"))]
-                    clk_src: if config.xtal {
-                        timer_src_clk_t_TIMER_SRC_CLK_XTAL
-                    } else {
-                        timer_src_clk_t_TIMER_SRC_CLK_APB
+                    // The `backup_before_sleep` field is deprecated, and will be removed in 6.1
+                    #[cfg(all(
+                        esp_idf_version_at_least_5_3_0,
+                        not(esp_idf_version_at_least_6_1_0)
+                    ))]
+                    {
+                        false as _
                     },
-                    #[cfg(all(not(esp32), not(esp_idf_version_major = "4")))]
-                    clk_src: if config.xtal {
-                        config::ClockSource::XTAL.into()
-                    } else {
-                        config::ClockSource::default().into()
-                    },
-                    #[cfg(all(esp32, not(esp_idf_version_major = "4")))]
-                    clk_src: config::ClockSource::default().into(),
-                },
-            )
-        })?;
+                ),
+                ..Default::default()
+            },
+        };
+        let mut handle = ptr::null_mut();
+
+        esp!(unsafe { gptimer_new_timer(&sys_config, &raw mut handle) })?;
 
         Ok(Self {
-            timer: ((TIMER::group() as u8) << 4) | (TIMER::index() as u8),
-            divider: config.divider,
-            #[cfg(all(not(esp32), not(esp_idf_version_major = "4")))]
-            xtal: config.xtal,
-            isr_registered: false,
-            _p: PhantomData,
+            handle,
+            on_alarm: None,
         })
     }
 
-    ///
-    /// Returns the tick rate of the timer.
-    ///
-    pub fn tick_hz(&self) -> u64 {
-        let hz;
-
-        #[cfg(esp_idf_version_major = "4")]
-        {
-            hz = TIMER_BASE_CLK / self.divider;
-        }
-
-        #[cfg(not(esp_idf_version_major = "4"))]
-        {
-            #[cfg(not(esp32))]
-            if self.xtal {
-                #[cfg(esp_idf_xtal_freq_24)]
-                {
-                    hz = 24_000_000 / self.divider;
-                }
-                #[cfg(esp_idf_xtal_freq_26)]
-                {
-                    hz = 26_000_000 / self.divider;
-                }
-                #[cfg(esp_idf_xtal_freq_32)]
-                {
-                    hz = 32_000_000 / self.divider;
-                }
-                #[cfg(esp_idf_xtal_freq_40)]
-                {
-                    hz = 40_000_000 / self.divider;
-                }
-                #[cfg(esp_idf_xtal_freq_48)]
-                {
-                    hz = 48_000_000 / self.divider;
-                }
-                #[cfg(esp_idf_xtal_freq_auto)] // c5
-                {
-                    hz = 48_000_000 / self.divider;
-                }
-            } else {
-                #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
-                {
-                    hz = APB_CLK_FREQ / self.divider;
-                }
-                #[cfg(esp32c2)] //PLL40
-                {
-                    hz = 40_000_000 / self.divider;
-                }
-                #[cfg(esp32h2)] //PLL48
-                {
-                    hz = 48_000_000 / self.divider;
-                }
-                #[cfg(any(esp32c5, esp32c6, esp32c61))] //PLL80
-                {
-                    hz = 80_000_000 / self.divider;
-                }
-            }
-            #[cfg(esp32)]
-            {
-                hz = APB_CLK_FREQ / self.divider;
-            }
-        }
-
-        hz as _
+    /// Returns the underlying GPTimer handle.
+    pub fn handle(&self) -> gptimer_handle_t {
+        self.handle
     }
 
+    /// Converts the given duration to the corresponding timer count value.
     ///
-    /// Enable or disable the timer.
+    /// # Errors
     ///
-    /// Enabling the timer causes it to begin counting
-    /// up from the current counter.
+    /// If [`Self::get_resolution`] fails, this function will return the same error.
     ///
-    /// Disabling the timer effectively pauses the counter.
-    ///
-    pub fn enable(&mut self, enable: bool) -> Result<(), EspError> {
-        self.check();
+    /// This function might overflow if the duration is too long to be represented
+    /// as ticks with the current timer resolution.
+    /// In that case an error with the code [`ERR_EOVERFLOW`] will be returned.
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
+    pub fn duration_to_count(&self, duration: Duration) -> Result<u64, EspError> {
+        // 1 / resolution = how many seconds per tick
+        // -> duration / (1 / resolution) = duration * resolution = how many ticks in duration (where duration is in seconds)
+        //
+        // The below calculation splits the duration into full seconds and the remainder in nanoseconds.
+        // The full seconds can simply be multiplied by the ticks per second (resolution).
+        //
+        // The remainder in nanoseconds would have to be converted to seconds to multiply with the resolution,
+        // but with whole numbers that would round down to zero (remainder is less than a full second).
+        // Therefore instead of:
+        // ticks += resolution * (duration_rem_in_nanos / 1_000_000_000)
+        // we do:
+        // ticks += (resolution * duration_rem_in_nanos) / 1_000_000_000
+        //
+        // The 1_000_000_000 is one second in nanoseconds.
 
-        if enable {
-            esp!(unsafe { timer_start(self.group(), self.index()) })?;
-        } else {
-            esp!(unsafe { timer_pause(self.group(), self.index()) })?;
-        }
+        let ticks_per_second = self.get_resolution()?.0 as u64;
+        let duration_in_seconds = duration.as_secs();
+        let duration_rem_in_nanos = duration.subsec_nanos() as u64;
 
-        Ok(())
-    }
-
-    ///
-    /// Returns the current counter value of the timer
-    ///
-    pub fn counter(&self) -> Result<u64, EspError> {
-        let value = if crate::interrupt::active() {
-            unsafe { timer_group_get_counter_value_in_isr(self.group(), self.index()) }
-        } else {
-            let mut value = 0_u64;
-
-            esp!(unsafe { timer_get_counter_value(self.group(), self.index(), &mut value) })?;
-
-            value
+        let Some(ticks) = ticks_per_second.checked_mul(duration_in_seconds) else {
+            return Err(EspError::from_infallible::<ERR_EOVERFLOW>());
         };
 
+        ticks
+            .checked_add(
+                (ticks_per_second * duration_rem_in_nanos)
+                    / Duration::from_secs(1).as_nanos() as u64,
+            )
+            .ok_or(EspError::from_infallible::<ERR_EOVERFLOW>())
+    }
+
+    /// Asynchronously delay for the specified duration.
+    ///
+    /// This function will reset the timer count to 0, and set a one-shot alarm.
+    /// Any existing count or alarm configuration will be overwritten.
+    /// This function does **not** [`Self::start`] or [`Self::enable`] the timer,
+    /// this must be done beforehand.
+    ///
+    /// # Errors
+    ///
+    /// If there is no interrupt service registered, it will return an `ESP_ERR_INVALID_STATE`.
+    /// To enable interrupts, either register your own callback through
+    /// [`Self::subscribe`]/[`Self::subscribe_nonstatic`], or call [`Self::subscribe_default`].
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
+    pub async fn delay(&self, duration: Duration) -> Result<(), EspError> {
+        let alarm_count = self.duration_to_count(duration)?;
+
+        // Set alarm and reset the current count to 0
+        self.set_raw_count(0)?;
+        self.set_alarm_action(Some(&AlarmConfig {
+            alarm_count,
+            ..Default::default()
+        }))?;
+
+        let res = self.wait().await;
+
+        // Unset the previous alarm
+        self.set_alarm_action(None)?;
+
+        res
+    }
+
+    fn notif(&self) -> Result<&HalIsrNotification, EspError> {
+        self.on_alarm
+            .as_ref()
+            .map(|data| &data.notif)
+            .ok_or(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
+    }
+
+    /// Wait for the timer alarm event interrupt.
+    ///
+    /// # Errors
+    ///
+    /// If this function is called without a registered ISR, it will
+    /// return an `ESP_ERR_INVALID_STATE`.
+    /// To enable interrupts, either register your own callback through
+    /// [`Self::subscribe`]/[`Self::subscribe_nonstatic`], or call [`Self::subscribe_default`].
+    pub async fn wait(&self) -> Result<(), EspError> {
+        self.notif()?.wait().await;
+
+        Ok(())
+    }
+
+    /// Resets the internal wait notification.
+    ///
+    /// If no callback is registered, this function does nothing.
+    pub fn reset_wait(&self) {
+        if let Ok(notif) = self.notif() {
+            notif.reset();
+        }
+    }
+
+    /// Set GPTimer raw count value.
+    ///
+    /// When updating the raw count of an active timer, the timer will
+    /// immediately start counting from the new value.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn set_raw_count(&self, value: u64) -> Result<(), EspError> {
+        esp!(unsafe { gptimer_set_raw_count(self.handle, value) })
+    }
+
+    /// Get GPTimer raw count value.
+    ///
+    /// This function will trigger a software capture event and then return the captured count value.
+    ///
+    /// With the raw count value and the resolution returned from [`Self::get_resolution`], you can
+    /// convert the count value into seconds.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn get_raw_count(&self) -> Result<u64, EspError> {
+        let mut value: u64 = 0;
+        esp!(unsafe { gptimer_get_raw_count(self.handle, &raw mut value) })?;
         Ok(value)
     }
 
+    /// Return the real resolution of the timer.
     ///
-    /// Manually set the current counter value of the timer.
+    /// Usually the timer resolution is same as what you configured in the [`TimerConfig::resolution`],
+    /// but some unstable clock source (e.g. `RC_FAST`) will do a calibration, the real resolution can
+    /// be different from the configured one.
     ///
-    /// This does not enable or disable the timer.
+    /// # Errors
     ///
-    pub fn set_counter(&mut self, value: u64) -> Result<(), EspError> {
-        self.check();
-
-        esp!(unsafe { timer_set_counter_value(self.group(), self.index(), value) })?;
-
-        Ok(())
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_FAIL`: Failed because of other error
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
+    pub fn get_resolution(&self) -> Result<Hertz, EspError> {
+        let mut value: u32 = 0;
+        esp!(unsafe { gptimer_get_resolution(self.handle, &raw mut value) })?;
+        Ok(value.Hz())
     }
 
+    /// Get GPTimer captured count value.
     ///
-    /// Enable or disable the alarm.
+    /// Different from [`Self::get_raw_count`], this function won't trigger a software capture event.
+    /// It just returns the last captured count value. It's especially useful when the capture has
+    /// already been triggered by an external event and you want to read the captured value.
     ///
-    /// Enabling the alarm activates the following behaviors once it is triggered:
-    /// - The counter will reset to 0, if auto-reload is set
-    /// - An interrupt will be triggered, if configured
+    /// # Errors
     ///
-    pub fn enable_alarm(&mut self, enable: bool) -> Result<(), EspError> {
-        if crate::interrupt::active() {
-            if enable {
-                unsafe {
-                    timer_group_enable_alarm_in_isr(self.group(), self.index());
-                }
-            } else {
-                panic!("Disabling alarm from an ISR is not supported");
-            }
-        } else {
-            esp!(unsafe {
-                timer_set_alarm(
-                    self.group(),
-                    self.index(),
-                    if enable {
-                        timer_alarm_t_TIMER_ALARM_EN
-                    } else {
-                        timer_alarm_t_TIMER_ALARM_DIS
-                    },
-                )
-            })?;
-        }
-
-        Ok(())
-    }
-
-    ///
-    /// Returns the configured alarm value
-    ///
-    pub fn alarm(&self) -> Result<u64, EspError> {
-        self.check();
-
-        let mut value = 0_u64;
-
-        esp!(unsafe { timer_get_alarm_value(self.group(), self.index(), &mut value) })?;
-
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_FAIL`: Failed because of other error
+    #[cfg(esp_idf_version_at_least_5_1_0)]
+    #[cfg_attr(feature = "nightly", doc(cfg(esp_idf_version_at_least_5_1_0)))]
+    pub fn get_captured_count(&self) -> Result<u64, EspError> {
+        let mut value: u64 = 0;
+        esp!(unsafe { gptimer_get_captured_count(self.handle, &raw mut value) })?;
         Ok(value)
     }
 
+    /// Define the ISR handler for when the alarm event occurs.
     ///
-    /// Set the alarm value of the timer.
+    /// The callbacks are expected to run in ISR context.
+    /// The first call to this function should happen before the timer is enabled
+    /// through [`Self::enable`].
     ///
-    /// NOTE: The alarm must be activated with enable_alarm for this value to take effect
+    /// There is only one callback possible, you can not subscribe multiple callbacks.
     ///
-    /// Once the counter exceeds this value:
-    /// - The counter will reset to 0, if auto-reload is set
-    /// - An interrupt will be triggered, if configured
+    /// # ISR Safety
     ///
-    pub fn set_alarm(&mut self, value: u64) -> Result<(), EspError> {
-        if crate::interrupt::active() {
-            unsafe {
-                timer_group_set_alarm_value_in_isr(self.group(), self.index(), value);
-            }
-        } else {
-            esp!(unsafe { timer_set_alarm_value(self.group(), self.index(), value) })?;
-        }
-
-        Ok(())
+    /// Care should be taken not to call std, libc or FreeRTOS APIs (except for a few allowed ones)
+    /// in the callback passed to this function, as it is executed in an ISR context.
+    ///
+    /// You are not allowed to block, but you are allowed to call FreeRTOS APIs with the FromISR suffix.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument
+    /// - `ESP_ERR_INVALID_STATE`: Failed because the timer is not in init state
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn subscribe(
+        &mut self,
+        on_alarm: impl FnMut(AlarmEventData) + Send + 'static,
+    ) -> Result<(), EspError> {
+        unsafe { self.subscribe_nonstatic(on_alarm) }
     }
 
-    pub fn enable_interrupt(&mut self) -> Result<(), EspError> {
-        self.check();
-
-        if !self.isr_registered {
-            // Driver will complain if we try to register when ISR CB is already registered
-            esp!(unsafe {
-                timer_isr_callback_add(
-                    self.group(),
-                    self.index(),
-                    Some(Self::handle_isr),
-                    (self.group() * timer_idx_t_TIMER_MAX + self.index()) as *mut core::ffi::c_void,
-                    0,
-                )
-            })?;
-
-            self.isr_registered = true;
-        }
-
-        Ok(())
-    }
-
-    pub fn disable_interrupt(&mut self) -> Result<(), EspError> {
-        self.check();
-
-        if self.isr_registered {
-            // Driver will complain if we try to deregister when ISR callback is not registered
-            esp!(unsafe { timer_isr_callback_remove(self.group(), self.index()) })?;
-
-            self.isr_registered = false;
-        }
-
-        Ok(())
-    }
-
-    ///
-    /// Delays for `counter` ticks
-    ///
-    /// NOTE: This function resets the counter
-    ///
-    ///
-    pub async fn delay(&mut self, counter: u64) -> Result<(), EspError> {
-        self.enable(false)?;
-        self.enable_alarm(false)?;
-        self.set_counter(0)?;
-        self.set_alarm(counter)?;
-
-        self.reset_wait();
-
-        self.enable_interrupt()?;
-        self.enable_alarm(true)?;
-        self.enable(true)?;
-
-        self.wait().await
-    }
-
-    ///
-    /// Resets the internal wait notification
-    ///
-    pub fn reset_wait(&mut self) {
-        let notif = &PIN_NOTIF[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize];
-        notif.reset();
-    }
-
-    ///
-    /// Wait for an alarm interrupt to occur
-    ///
-    ///
-    /// NOTE: This requires interrupts to be enabled to work
-    ///
-    pub async fn wait(&mut self) -> Result<(), EspError> {
-        let notif = &PIN_NOTIF[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize];
-
-        notif.wait().await;
-
-        Ok(())
-    }
-
-    /// Subscribes the provided callback for ISR notifications.
-    /// As a side effect, interrupts will be disabled, so to receive a notification, one has
-    /// to also call `TimerDriver::enable_interrupt` after calling this method.
+    /// Subscribe a non-'static callback for when a transmission is done.
     ///
     /// # Safety
     ///
-    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
-    /// in the callback passed to this function, as it is executed in an ISR context.
-    #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe<F>(&mut self, callback: F) -> Result<(), EspError>
-    where
-        F: FnMut() + Send + 'static,
-    {
-        self.internal_subscribe(callback)
-    }
+    /// You must not forget the driver (for example through [`core::mem::forget`]), while the callback
+    /// is still subscribed, otherwise this would lead to undefined behavior.
+    ///
+    /// To unsubscribe the callback, call [`Self::unsubscribe`].
+    pub unsafe fn subscribe_nonstatic(
+        &mut self,
+        on_alarm: impl FnMut(AlarmEventData) + Send + 'd,
+    ) -> Result<(), EspError> {
+        let mut user_data = Box::new(AlarmUserData {
+            on_alarm: Box::new(on_alarm),
+            notif: HalIsrNotification::new(),
+        });
+        let cbs = gptimer_event_callbacks_t {
+            on_alarm: Some(Self::handle_isr),
+        };
 
-    /// Subscribes the provided callback for ISR notifications.
-    /// As a side effect, interrupts will be disabled, so to receive a notification, one has
-    /// to also call `TimerDriver::enable_interrupt` after calling this method.
-    ///
-    /// # Safety
-    ///
-    /// Care should be taken not to call STD, libc or FreeRTOS APIs (except for a few allowed ones)
-    /// in the callback passed to this function, as it is executed in an ISR context.
-    ///
-    /// Additionally, this method - in contrast to method `subscribe` - allows
-    /// the passed-in callback/closure to be non-`'static`. This enables users to borrow
-    /// - in the closure - variables that live on the stack - or more generally - in the same
-    ///   scope where the driver is created.
-    ///
-    /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the driver,
-    /// as that would immediately lead to an UB (crash).
-    /// Also note that forgetting the driver might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
-    ///
-    /// The reason is that the closure is actually sent and owned by an ISR routine,
-    /// which means that if the driver is forgotten, Rust is free to e.g. unwind the stack
-    /// and the ISR routine will end up with references to variables that no longer exist.
-    ///
-    /// The destructor of the driver takes care - prior to the driver being dropped and e.g.
-    /// the stack being unwind - to unsubscribe the ISR routine.
-    /// Unfortunately, when the driver is forgotten, the un-subscription does not happen
-    /// and invalid references are left dangling.
-    ///
-    /// This "local borrowing" will only be possible to express in a safe way once/if `!Leak` types
-    /// are introduced to Rust (i.e. the impossibility to "forget" a type and thus not call its destructor).
-    #[cfg(feature = "alloc")]
-    pub unsafe fn subscribe_nonstatic<F>(&mut self, callback: F) -> Result<(), EspError>
-    where
-        F: FnMut() + Send + 'd,
-    {
-        self.internal_subscribe(callback)
-    }
+        esp!(unsafe {
+            gptimer_register_event_callbacks(self.handle, &cbs, (&raw mut *user_data) as *mut _)
+        })?;
 
-    #[cfg(feature = "alloc")]
-    fn internal_subscribe<F>(&mut self, callback: F) -> Result<(), EspError>
-    where
-        F: FnMut() + Send + 'd,
-    {
-        self.check();
-
-        self.disable_interrupt()?;
-
-        let callback: Box<dyn FnMut() + Send + 'd> = Box::new(callback);
-
-        unsafe {
-            ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] =
-                Some(core::mem::transmute::<
-                    Box<dyn FnMut() + Send>,
-                    Box<dyn FnMut() + Send>,
-                >(callback));
-        }
+        // Store the user data in the struct to prevent it from being freed too early
+        self.on_alarm = Some(user_data);
 
         Ok(())
     }
 
-    #[cfg(feature = "alloc")]
+    /// Register the default callback.
+    ///
+    /// This function will overwrite any previously registered callbacks.
+    /// This is useful if you want to asynchronously wait for an alarm event
+    /// through [`Self::wait`] or [`Self::delay`].
+    pub fn subscribe_default(&mut self) -> Result<(), EspError> {
+        self.subscribe(|_| {})
+    }
+
+    /// Unregister the previously registered callback.
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
-        self.check();
-
-        self.disable_interrupt()?;
-
-        unsafe {
-            ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] = None;
-        }
+        esp!(unsafe {
+            gptimer_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
+        })?;
+        self.on_alarm = None;
 
         Ok(())
     }
 
-    fn check(&self) {
-        if crate::interrupt::active() {
-            panic!("This function cannot be called from an ISR");
-        }
-    }
+    /// Set alarm event actions for GPTimer.
+    ///
+    /// If the config is `None`, the alarm will be disabled.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn set_alarm_action(&self, config: Option<&AlarmConfig>) -> Result<(), EspError> {
+        let sys_config = config.map(|c| c.into());
 
-    unsafe extern "C" fn handle_isr(index: *mut core::ffi::c_void) -> bool {
-        use core::num::NonZeroU32;
-
-        let index = index as usize;
-
-        crate::interrupt::with_isr_yield_signal(move || {
-            #[cfg(feature = "alloc")]
-            {
-                if let Some(handler) = ISR_HANDLERS[index].as_mut() {
-                    handler();
-                }
-            }
-
-            PIN_NOTIF[index].notify(NonZeroU32::new(1).unwrap());
+        esp!(unsafe {
+            gptimer_set_alarm_action(self.handle, sys_config.as_ref().map_or(ptr::null(), |c| c))
         })
     }
 
-    pub fn group(&self) -> timer_group_t {
-        (self.timer >> 4) as _
+    /// Enable the timer.
+    ///
+    /// This function will transition the timer from the "init" state to "enable" state.
+    ///
+    /// # Note
+    ///
+    /// This function will enable the interrupt service, if a callback has been registered
+    /// through [`Self::subscribe`].
+    ///
+    /// It will acquire a power management lock, if a specific source clock (e.g. APB) is selected
+    /// in the timer configuration, while `CONFIG_PM_ENABLE` is set in the project configuration.
+    ///
+    /// To make the timer start counting, call [`Self::start`].
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_ERR_INVALID_STATE`: Failed because the timer is not in "init" state (e.g. already enabled)
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn enable(&self) -> Result<(), EspError> {
+        esp!(unsafe { gptimer_enable(self.handle) })
     }
 
-    pub fn index(&self) -> timer_idx_t {
-        (self.timer & 0xf) as _
+    /// Disable the timer.
+    ///
+    /// This function will transition the timer from the "enable" state to "init" state.
+    ///
+    /// # Note
+    ///
+    /// This function will disable the interrupt service, if a callback has been registered
+    /// through [`Self::subscribe`].
+    ///
+    /// It will release the power management lock, if it acquired one in [`Self::enable`].
+    ///
+    /// Disabling the timer will not make it stop counting.
+    /// To make the timer stop counting, call [`Self::stop`].
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_ERR_INVALID_STATE`: Failed because the timer is not in "enable" state (e.g. already disabled)
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn disable(&self) -> Result<(), EspError> {
+        esp!(unsafe { gptimer_disable(self.handle) })
+    }
+
+    /// Start GPTimer (internal counter starts counting)
+    ///
+    /// This function will transition the timer from the "enable" state to "run" state.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_ERR_INVALID_STATE`: Failed because the timer is not enabled or already in running
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn start(&self) -> Result<(), EspError> {
+        esp!(unsafe { gptimer_start(self.handle) })
+    }
+
+    /// Stop GPTimer (internal counter stops counting)
+    ///
+    /// This function will transition the timer from the "run" state to "enable" state.
+    ///
+    /// # Errors
+    ///
+    /// - `ESP_ERR_INVALID_ARG`: Failed because of invalid argument (should not happen)
+    /// - `ESP_ERR_INVALID_STATE`: Failed because the timer is not in running.
+    /// - `ESP_FAIL`: Failed because of other error
+    pub fn stop(&self) -> Result<(), EspError> {
+        esp!(unsafe { gptimer_stop(self.handle) })
+    }
+
+    unsafe extern "C" fn handle_isr(
+        _handle: gptimer_handle_t,
+        event_data: *const gptimer_alarm_event_data_t,
+        arg: *mut c_void,
+    ) -> bool {
+        let user_data = &mut *(arg as *mut AlarmUserData);
+        let event = AlarmEventData::from(*event_data);
+
+        interrupt::with_isr_yield_signal(|| {
+            (user_data.on_alarm)(event);
+
+            user_data.notif.notify_lsb();
+        })
     }
 }
 
-impl Drop for TimerDriver<'_> {
+// SAFETY: According to the ESP-IDF docs, the driver can be used in a multi-threaded context
+//         without extra locking.
+unsafe impl<'d> Send for TimerDriver<'d> {}
+unsafe impl<'d> Sync for TimerDriver<'d> {}
+
+impl<'d> Drop for TimerDriver<'d> {
     fn drop(&mut self) {
-        self.disable_interrupt().unwrap();
+        // Timer must be from run -> enable state first before it is disabled
+        let _ = self.stop();
+        // Timer must be in "init" state before deletion (= disable state)
+        let _ = self.disable();
 
-        #[cfg(feature = "alloc")]
         unsafe {
-            ISR_HANDLERS[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize] = None;
+            gptimer_del_timer(self.handle);
         }
-
-        PIN_NOTIF[(self.group() * timer_idx_t_TIMER_MAX + self.index()) as usize].reset();
-
-        esp!(unsafe { timer_deinit(self.group(), self.index()) }).unwrap();
     }
 }
 
-unsafe impl Send for TimerDriver<'_> {}
-
-impl embedded_hal_async::delay::DelayNs for TimerDriver<'_> {
-    async fn delay_ns(&mut self, ns: u32) {
-        let counter = core::cmp::max((self.tick_hz() * ns as u64) / 1000000, 1);
-
-        self.delay(counter).await.unwrap();
-    }
-
-    async fn delay_ms(&mut self, ms: u32) {
-        let counter = core::cmp::max((self.tick_hz() * ms as u64) / 1000, 1);
-
-        self.delay(counter).await.unwrap();
+impl<'d> fmt::Debug for TimerDriver<'d> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TimerDriver")
+            .field("handle", &self.handle)
+            .finish()
     }
 }
-
-macro_rules! impl_timer {
-    ($timer:ident: $group:expr, $index:expr) => {
-        crate::impl_peripheral!($timer);
-
-        impl Timer for $timer<'_> {
-            #[inline(always)]
-            fn group() -> timer_group_t {
-                $group
-            }
-
-            #[inline(always)]
-            fn index() -> timer_idx_t {
-                $index
-            }
-        }
-    };
-}
-
-#[allow(clippy::type_complexity)]
-#[cfg(not(any(esp32, esp32s2, esp32s3)))]
-#[cfg(feature = "alloc")]
-static mut ISR_HANDLERS: [Option<Box<dyn FnMut() + Send + 'static>>; 2] = [None, None];
-
-#[allow(clippy::type_complexity)]
-#[cfg(not(any(esp32, esp32s2, esp32s3)))]
-pub(crate) static PIN_NOTIF: [crate::interrupt::asynch::HalIsrNotification; 2] = [
-    crate::interrupt::asynch::HalIsrNotification::new(),
-    crate::interrupt::asynch::HalIsrNotification::new(),
-];
-
-#[allow(clippy::type_complexity)]
-#[cfg(any(esp32, esp32s2, esp32s3))]
-#[cfg(feature = "alloc")]
-static mut ISR_HANDLERS: [Option<Box<dyn FnMut() + Send + 'static>>; 4] = [None, None, None, None];
-
-#[allow(clippy::type_complexity)]
-#[cfg(any(esp32, esp32s2, esp32s3))]
-pub(crate) static PIN_NOTIF: [crate::interrupt::asynch::HalIsrNotification; 4] = [
-    crate::interrupt::asynch::HalIsrNotification::new(),
-    crate::interrupt::asynch::HalIsrNotification::new(),
-    crate::interrupt::asynch::HalIsrNotification::new(),
-    crate::interrupt::asynch::HalIsrNotification::new(),
-];
-
-impl_timer!(TIMER00: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_0);
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl_timer!(TIMER01: timer_group_t_TIMER_GROUP_0, timer_idx_t_TIMER_1);
-#[cfg(not(esp32c2))]
-impl_timer!(TIMER10: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_0);
-#[cfg(any(esp32, esp32s2, esp32s3))]
-impl_timer!(TIMER11: timer_group_t_TIMER_GROUP_1, timer_idx_t_TIMER_1);
