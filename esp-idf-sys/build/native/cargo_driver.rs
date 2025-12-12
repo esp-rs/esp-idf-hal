@@ -445,27 +445,6 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         chip.cmake_toolchain_file()
     ];
 
-    // Get the asm, C and C++ flags from the toolchain file, these would otherwise get
-    // overwritten because `cmake::Config` also sets these (see
-    // https://github.com/espressif/esp-idf/issues/7507).
-    let (asm_flags, c_flags, cxx_flags) = {
-        let extractor_script = cmake::script_variables_extractor(&cmake_toolchain_file)?;
-
-        let output = embuild::cmd!(
-            cmake::cmake(),
-            "-P",
-            extractor_script.as_ref().as_os_str();
-            env=("IDF_PATH", idf.esp_idf_dir.path()))
-        .stdout()?;
-
-        let mut vars = cmake::process_script_variables_extractor_output(output)?;
-        (
-            vars.remove("CMAKE_ASM_FLAGS").unwrap_or_default(),
-            vars.remove("CMAKE_C_FLAGS").unwrap_or_default(),
-            vars.remove("CMAKE_CXX_FLAGS").unwrap_or_default(),
-        )
-    };
-
     // Get the directories of all extra components to build.
     let extra_component_dirs = to_cmake_path_list(config.native.extra_component_dirs()?)?;
 
@@ -491,9 +470,6 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         .define("PYTHON", to_cmake_path_list([&idf.venv_python])?)
         .always_configure(true)
         .pic(false)
-        .asmflag(asm_flags)
-        .cflag(c_flags)
-        .cxxflag(cxx_flags)
         .env("IDF_COMPONENT_MANAGER", idf_comp_manager)
         .env("EXTRA_COMPONENT_DIRS", extra_component_dirs)
         .env("IDF_PATH", idf.esp_idf_dir.path())
