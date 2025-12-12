@@ -150,7 +150,7 @@ impl<'d> SpiEventSource<'d> {
     /// Instead of getting informed by an interrupt pin about updates/changes from the emac, the
     /// MCU polls the emac periodically for updates.
     ///
-    /// In most cases, [`Self::polling`] should be used as it is more efficient.
+    /// In most cases, [`Self::interrupt`] should be used as it is more efficient.
     /// But this source makes e.g. sense if the interrupt pin of the emac is not connected to the MCU.
     #[cfg(not(any(
         esp_idf_version_major = "4",
