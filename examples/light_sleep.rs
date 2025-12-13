@@ -10,8 +10,6 @@ use core::time::Duration;
 use std::thread;
 use std::time::Instant;
 
-// #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
-// use esp_idf_hal::gpio;
 #[cfg(esp32)]
 use esp_idf_hal::gpio::AnyIOPin;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
@@ -43,26 +41,21 @@ fn print_wakeup_result(time_before: Instant) {
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
 
-    // run in a thread with increased stack size to prevent overflow
     let builder = std::thread::Builder::new().stack_size(10 * 1024);
     let th = builder.spawn(move || -> anyhow::Result<()> {
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         let peripherals = Peripherals::take().unwrap();
 
-        // 1. Initialize Driver
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         let mut sleep = LightSleep::new()?;
 
-        // 2. Configure Timer
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         {
             sleep = sleep.wakeup_on_timer(Duration::from_secs(5))?;
         }
 
-        // 3. Configure RTC Wakeup (ESP32/S2/S3)
         #[cfg(any(esp32, esp32s2, esp32s3))]
         {
-            // Define pins based on chip
             #[cfg(esp32)]
             let (p_rtc0, p_rtc1) = (peripherals.pins.gpio26, peripherals.pins.gpio27);
             #[cfg(any(esp32s2, esp32s3))]
@@ -71,13 +64,10 @@ fn main() -> anyhow::Result<()> {
             let rtc0 = PinDriver::rtc_input(p_rtc0, Pull::Down)?;
             let rtc1 = PinDriver::rtc_input(p_rtc1, Pull::Down)?;
 
-            // Chain them and configure wakeup
             let rtc_pins = rtc0.chain(&rtc1);
             sleep = sleep.wakeup_on_rtc(&rtc_pins, RtcWakeLevel::AnyHigh)?;
         }
 
-        // 4. Configure GPIO Wakeup
-        // Define pins based on chip
         #[cfg(esp32)]
         let (p_gpio0, p_gpio1) = (peripherals.pins.gpio12, peripherals.pins.gpio14);
         #[cfg(any(esp32s2, esp32s3))]
@@ -90,7 +80,6 @@ fn main() -> anyhow::Result<()> {
             let gpio0 = PinDriver::input(p_gpio0, Pull::Down)?;
             let gpio1 = PinDriver::input(p_gpio1, Pull::Down)?;
 
-            // Apply sequentially
             sleep = sleep.wakeup_on_gpio(&gpio0, Level::High)?;
             sleep = sleep.wakeup_on_gpio(&gpio1, Level::High)?;
         }
@@ -132,15 +121,12 @@ fn main() -> anyhow::Result<()> {
             sleep = sleep.wakeup_on_uart(&uart, 3)?;
         }
 
-        // 6. Loop
         loop {
             println!("Entering light sleep...");
-            // short sleep to flush stdout
             thread::sleep(Duration::from_millis(60));
 
             let time_before = Instant::now();
 
-            // Enter sleep using the configured handle
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
             let err = sleep.enter();
 

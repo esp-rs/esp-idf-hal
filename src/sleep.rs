@@ -1,26 +1,7 @@
-//! Driver for Light and Deep Sleep.
-//!
-//! # Example
-//!
-//! ```rust
-//! // Light Sleep with RTC wakeup (Legacy/Specific use case)
-//! LightSleep::new()
-//!     .unwrap()
-//!     .wakeup_on_rtc(&pin, RtcWakeLevel::AnyHigh) // Now available!
-//!     .unwrap()
-//!     .enter()
-//!     .unwrap();
-//! ```
-
 use core::time::Duration;
 use esp_idf_sys::*;
 
-// Re-export specific types for user convenience
 pub use self::source::rtc::{ChainedRtcWakeupPins, RtcWakeLevel, RtcWakeupPins};
-
-// =============================================================================
-// Module: Wakeup Sources
-// =============================================================================
 
 mod source {
     pub mod timer {
@@ -37,7 +18,6 @@ mod source {
         use crate::gpio::{PinDriver, PinId, RTCMode};
         use esp_idf_sys::*;
 
-        // --- RTC Wakeup Levels ---
         #[derive(Debug, Copy, Clone, PartialEq, Eq)]
         pub enum RtcWakeLevel {
             AllLow,
@@ -53,9 +33,6 @@ mod source {
             }
         }
 
-        // --- Chaining Trait & Implementation ---
-
-        /// Trait for items that can produce a sequence of RTC Pin IDs.
         pub trait RtcWakeupPins {
             type Iterator<'a>: Iterator<Item = PinId>
             where
@@ -74,7 +51,6 @@ mod source {
             }
         }
 
-        /// Base Case: A single PinDriver implements the trait.
         impl<P> RtcWakeupPins for &PinDriver<'_, P>
         where
             P: RTCMode,
@@ -86,7 +62,6 @@ mod source {
             }
         }
 
-        /// Recursive Case: A chain of two RtcWakeupPins.
         pub struct ChainedRtcWakeupPins<F, S> {
             first: F,
             second: S,
@@ -104,7 +79,6 @@ mod source {
             }
         }
 
-        // Support passing references to chains
         impl<F, S> RtcWakeupPins for &ChainedRtcWakeupPins<F, S>
         where
             F: RtcWakeupPins,
@@ -116,8 +90,6 @@ mod source {
                 self.first.iter().chain(self.second.iter())
             }
         }
-
-        // --- Configuration Logic ---
 
         pub fn configure<P: RtcWakeupPins>(pins: P, level: RtcWakeLevel) -> Result<(), EspError> {
             let mut mask: u64 = 0;
@@ -188,25 +160,13 @@ mod source {
     }
 }
 
-// =============================================================================
-// Module: Drivers
-// =============================================================================
-
 use crate::gpio::{GPIOMode, Level, PinDriver};
 use crate::uart::UartDriver;
 
-/// Helper to clear previous wakeup configuration
 fn reset_wakeup_sources() -> Result<(), EspError> {
     esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })
 }
 
-// -----------------------------------------------------------------------------
-// Light Sleep
-// -----------------------------------------------------------------------------
-
-/// Light Sleep Driver.
-///
-/// Stateless handle. Configuration is applied immediately.
 pub struct LightSleep;
 
 impl LightSleep {
@@ -225,9 +185,6 @@ impl LightSleep {
         Ok(self)
     }
 
-    /// Wake up on standard GPIO (digital controller).
-    ///
-    /// This is the preferred method for light sleep as it allows per-pin logic.
     pub fn wakeup_on_gpio<M: GPIOMode>(
         self,
         pin: &PinDriver<M>,
@@ -237,10 +194,6 @@ impl LightSleep {
         Ok(self)
     }
 
-    /// Wake up on RTC Pins (EXT1 controller).
-    ///
-    /// Available on ESP32, S2, S3. Uses the low-power RTC controller.
-    /// Note: All pins in the chain must trigger on the same logic level.
     #[cfg(any(esp32, esp32s2, esp32s3))]
     pub fn wakeup_on_rtc<P>(self, pins: P, level: source::rtc::RtcWakeLevel) -> Result<Self, EspError>
     where
@@ -267,13 +220,6 @@ impl LightSleep {
     }
 }
 
-// -----------------------------------------------------------------------------
-// Deep Sleep
-// -----------------------------------------------------------------------------
-
-/// Deep Sleep Driver.
-///
-/// Stateless handle. Configuration is applied immediately.
 pub struct DeepSleep;
 
 impl DeepSleep {
@@ -287,10 +233,6 @@ impl DeepSleep {
         Ok(self)
     }
 
-    /// Wake up on RTC Pins (ESP32/S2/S3).
-    ///
-    /// Accepts a chain of pins (or a single pin) and a single wakeup level.
-    /// The bitmask is calculated and applied immediately.
     #[cfg(any(esp32, esp32s2, esp32s3))]
     pub fn wakeup_on_rtc<P>(self, pins: P, level: source::rtc::RtcWakeLevel) -> Result<Self, EspError>
     where
@@ -300,7 +242,6 @@ impl DeepSleep {
         Ok(self)
     }
 
-    /// Wake up on GPIO (ESP32C2/C3 only).
     #[cfg(any(esp32c2, esp32c3))]
     pub fn wakeup_on_gpio<M: GPIOMode>(
         self,
