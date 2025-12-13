@@ -55,7 +55,10 @@ mod source {
         where
             P: RTCMode,
         {
-            type Iterator<'a> = core::iter::Once<PinId> where Self: 'a;
+            type Iterator<'a>
+                = core::iter::Once<PinId>
+            where
+                Self: 'a;
 
             fn iter(&self) -> Self::Iterator<'_> {
                 core::iter::once(self.pin())
@@ -72,7 +75,10 @@ mod source {
             F: RtcWakeupPins,
             S: RtcWakeupPins,
         {
-            type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
+            type Iterator<'a>
+                = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
+            where
+                Self: 'a;
 
             fn iter(&self) -> Self::Iterator<'_> {
                 self.first.iter().chain(self.second.iter())
@@ -84,7 +90,10 @@ mod source {
             F: RtcWakeupPins,
             S: RtcWakeupPins,
         {
-            type Iterator<'a> = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>> where Self: 'a;
+            type Iterator<'a>
+                = core::iter::Chain<F::Iterator<'a>, S::Iterator<'a>>
+            where
+                Self: 'a;
 
             fn iter(&self) -> Self::Iterator<'_> {
                 self.first.iter().chain(self.second.iter())
@@ -195,7 +204,11 @@ impl LightSleep {
     }
 
     #[cfg(any(esp32, esp32s2, esp32s3))]
-    pub fn wakeup_on_rtc<P>(self, pins: P, level: source::rtc::RtcWakeLevel) -> Result<Self, EspError>
+    pub fn wakeup_on_rtc<P>(
+        self,
+        pins: P,
+        level: source::rtc::RtcWakeLevel,
+    ) -> Result<Self, EspError>
     where
         P: source::rtc::RtcWakeupPins,
     {
@@ -234,7 +247,11 @@ impl DeepSleep {
     }
 
     #[cfg(any(esp32, esp32s2, esp32s3))]
-    pub fn wakeup_on_rtc<P>(self, pins: P, level: source::rtc::RtcWakeLevel) -> Result<Self, EspError>
+    pub fn wakeup_on_rtc<P>(
+        self,
+        pins: P,
+        level: source::rtc::RtcWakeLevel,
+    ) -> Result<Self, EspError>
     where
         P: source::rtc::RtcWakeupPins,
     {
