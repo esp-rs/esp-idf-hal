@@ -1,6 +1,7 @@
 use core::time::Duration;
 use esp_idf_sys::*;
 
+#[cfg(any(esp32, esp32s2, esp32s3))]
 pub use self::source::rtc::{ChainedRtcWakeupPins, RtcWakeLevel, RtcWakeupPins};
 
 mod source {
