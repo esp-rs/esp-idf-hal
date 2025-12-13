@@ -10,6 +10,9 @@ use core::time::Duration;
 use std::thread;
 use std::time::Instant;
 
+#[cfg(any(esp32s2, esp32s3, esp32c3))]
+use esp_idf_hal::gpio;
+
 #[cfg(esp32)]
 use esp_idf_hal::gpio::AnyIOPin;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
