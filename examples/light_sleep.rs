@@ -7,8 +7,11 @@
 #![allow(unexpected_cfgs)]
 
 use core::time::Duration;
-#[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
-use esp_idf_hal::gpio;
+use std::thread;
+use std::time::Instant;
+
+// #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
+// use esp_idf_hal::gpio;
 #[cfg(esp32)]
 use esp_idf_hal::gpio::AnyIOPin;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
@@ -23,15 +26,12 @@ use esp_idf_hal::uart::config::Config;
 use esp_idf_hal::uart::UartDriver;
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
 use esp_idf_hal::units::Hertz;
-use std::thread;
-use std::time::Instant;
 
 #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
-use crate::gpio::Level;
+use esp_idf_hal::gpio::Level;
 
 fn print_wakeup_result(time_before: Instant) {
     let time_after = Instant::now();
-
     let wakeup_reason = WakeupReason::get();
     println!(
         "wake up from light sleep due to {:?} which lasted for {:?}",
@@ -49,63 +49,56 @@ fn main() -> anyhow::Result<()> {
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         let peripherals = Peripherals::take().unwrap();
 
-        // RTC wakeup definitions
-        #[cfg(esp32)]
-        let rtc0 = PinDriver::rtc_input(peripherals.pins.gpio26, Pull::Down)?;
-        #[cfg(esp32)]
-        let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio27, Pull::Down)?;
+        // 1. Initialize Driver
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
+        let mut sleep = LightSleep::new()?;
 
-        #[cfg(any(esp32s2, esp32s3))]
-        let rtc0 = PinDriver::rtc_input(peripherals.pins.gpio1, Pull::Down)?;
-        #[cfg(any(esp32s2, esp32s3))]
-        let rtc1 = PinDriver::rtc_input(peripherals.pins.gpio2, Pull::Down)?;
+        // 2. Configure Timer
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
+        {
+            sleep = sleep.wakeup_on_timer(Duration::from_secs(5))?;
+        }
 
+        // 3. Configure RTC Wakeup (ESP32/S2/S3)
         #[cfg(any(esp32, esp32s2, esp32s3))]
-        let rtc_pin0 = &rtc0;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        let rtc_pin1 = &rtc1;
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        let rtc_wakeup = Some(RtcWakeup {
-            pins: EmptyRtcWakeupPins::chain(rtc_pin0).chain(rtc_pin1),
-            wake_level: RtcWakeLevel::AnyHigh,
-        });
+        {
+            // Define pins based on chip
+            #[cfg(esp32)]
+            let (p_rtc0, p_rtc1) = (peripherals.pins.gpio26, peripherals.pins.gpio27);
+            #[cfg(any(esp32s2, esp32s3))]
+            let (p_rtc0, p_rtc1) = (peripherals.pins.gpio1, peripherals.pins.gpio2);
 
-        // GPIO wakeup definitions
+            let rtc0 = PinDriver::rtc_input(p_rtc0, Pull::Down)?;
+            let rtc1 = PinDriver::rtc_input(p_rtc1, Pull::Down)?;
+
+            // Chain them and configure wakeup
+            let rtc_pins = rtc0.chain(&rtc1);
+            sleep = sleep.wakeup_on_rtc(&rtc_pins, RtcWakeLevel::AnyHigh)?;
+        }
+
+        // 4. Configure GPIO Wakeup
+        // Define pins based on chip
         #[cfg(esp32)]
-        let gpio0 = PinDriver::input(peripherals.pins.gpio12, Pull::Down)?;
-        #[cfg(esp32)]
-        let gpio1 = PinDriver::input(peripherals.pins.gpio14, Pull::Down)?;
-
+        let (p_gpio0, p_gpio1) = (peripherals.pins.gpio12, peripherals.pins.gpio14);
         #[cfg(any(esp32s2, esp32s3))]
-        let gpio0 = PinDriver::input(peripherals.pins.gpio37, Pull::Down)?;
-        #[cfg(any(esp32s2, esp32s3))]
-        let gpio1 = PinDriver::input(peripherals.pins.gpio38, Pull::Down)?;
+        let (p_gpio0, p_gpio1) = (peripherals.pins.gpio37, peripherals.pins.gpio38);
+        #[cfg(any(esp32c3, esp32c2))]
+        let (p_gpio0, p_gpio1) = (peripherals.pins.gpio0, peripherals.pins.gpio1);
 
-        #[cfg(esp32c3)]
-        let gpio0 = PinDriver::input(peripherals.pins.gpio0, Pull::Down)?;
-        #[cfg(esp32c3)]
-        let gpio1 = PinDriver::input(peripherals.pins.gpio1, Pull::Down)?;
+        #[cfg(any(esp32, esp32c3, esp32c2, esp32s2, esp32s3))]
+        {
+            let gpio0 = PinDriver::input(p_gpio0, Pull::Down)?;
+            let gpio1 = PinDriver::input(p_gpio1, Pull::Down)?;
 
-        #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
-        let gpio_pin0 = GpioWakeupPin {
-            pindriver: &gpio0,
-            wake_level: Level::High,
-        };
-        #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
-        let gpio_pin1 = GpioWakeupPin {
-            pindriver: &gpio1,
-            wake_level: Level::High,
-        };
-        #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
-        let gpio_wakeup = Some(GpioWakeup {
-            pins: EmptyGpioWakeupPins::chain(gpio_pin0).chain(gpio_pin1),
-        });
-        #[cfg(not(any(esp32, esp32c3, esp32s2, esp32s3)))]
-        let gpio_wakeup = None::<GpioWakeup<EmptyGpioWakeupPins>>;
+            // Apply sequentially
+            sleep = sleep.wakeup_on_gpio(&gpio0, Level::High)?;
+            sleep = sleep.wakeup_on_gpio(&gpio1, Level::High)?;
+        }
 
-        // UART definitions
+        // 5. Configure UART Wakeup
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
         let config = Config::new().baudrate(Hertz(115_200));
+
         #[cfg(esp32)]
         let uart = UartDriver::new(
             peripherals.uart0,
@@ -133,35 +126,26 @@ fn main() -> anyhow::Result<()> {
             Option::<gpio::Gpio1>::None,
             &config,
         )?;
+
         #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
-        let uart_wakeup = Some(UartWakeup::new(&uart, 3));
-        #[cfg(not(any(esp32, esp32s2, esp32s3, esp32c3)))]
-        let uart_wakeup: Option<UartWakeup> = None;
+        {
+            sleep = sleep.wakeup_on_uart(&uart, 3)?;
+        }
 
-        #[cfg(any(esp32, esp32s2, esp32s3))]
-        let lsleep = make_light_sleep_rtc_gpio_pins(
-            Some(TimerWakeup::new(Duration::from_secs(5))),
-            rtc_wakeup,
-            gpio_wakeup,
-            uart_wakeup,
-            None,
-            None,
-        );
-
-        #[cfg(not(any(esp32, esp32s2, esp32s3)))]
-        let lsleep = make_light_sleep_gpio_pins(
-            Some(TimerWakeup::new(Duration::from_secs(5))),
-            gpio_wakeup,
-            uart_wakeup,
-        );
-
+        // 6. Loop
         loop {
-            println!("Light sleep with: {:?}", lsleep);
+            println!("Entering light sleep...");
             // short sleep to flush stdout
             thread::sleep(Duration::from_millis(60));
 
             let time_before = Instant::now();
-            let err = lsleep.sleep();
+
+            // Enter sleep using the configured handle
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3))]
+            let err = sleep.enter();
+
+            #[cfg(not(any(esp32, esp32s2, esp32s3, esp32c2, esp32c3)))]
+            let err: Result<(), anyhow::Error> = Ok(());
 
             match err {
                 Ok(_) => print_wakeup_result(time_before),

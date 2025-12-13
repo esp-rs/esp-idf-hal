@@ -3,26 +3,13 @@
 //! # Example
 //!
 //! ```rust
-//! use esp_idf_hal::delay::FreeRtos;
-//! use esp_idf_hal::gpio::*;
-//! use esp_idf_hal::peripherals::Peripherals;
-//! use esp_idf_hal::task::sleep::DeepSleep; // Assuming module location
-//! use core::time::Duration;
-//!
-//! let peripherals = Peripherals::take().unwrap();
-//! let pin1 = PinDriver::rtc_input(peripherals.pins.gpio33).unwrap();
-//! let pin2 = PinDriver::rtc_input(peripherals.pins.gpio32).unwrap();
-//!
-//! // Chain pins for Deep Sleep RTC wakeup
-//! let pins = pin1.chain(&pin2);
-//!
-//! DeepSleep::new()
+//! // Light Sleep with RTC wakeup (Legacy/Specific use case)
+//! LightSleep::new()
 //!     .unwrap()
-//!     .wakeup_on_timer(Duration::from_secs(10))
+//!     .wakeup_on_rtc(&pin, RtcWakeLevel::AnyHigh) // Now available!
 //!     .unwrap()
-//!     .wakeup_on_rtc(&pins, RtcWakeLevel::AnyHigh)
-//!     .unwrap()
-//!     .enter();
+//!     .enter()
+//!     .unwrap();
 //! ```
 
 use core::time::Duration;
@@ -238,12 +225,28 @@ impl LightSleep {
         Ok(self)
     }
 
+    /// Wake up on standard GPIO (digital controller).
+    ///
+    /// This is the preferred method for light sleep as it allows per-pin logic.
     pub fn wakeup_on_gpio<M: GPIOMode>(
         self,
         pin: &PinDriver<M>,
         level: Level,
     ) -> Result<Self, EspError> {
         source::gpio::configure_light(pin.pin(), level)?;
+        Ok(self)
+    }
+
+    /// Wake up on RTC Pins (EXT1 controller).
+    ///
+    /// Available on ESP32, S2, S3. Uses the low-power RTC controller.
+    /// Note: All pins in the chain must trigger on the same logic level.
+    #[cfg(any(esp32, esp32s2, esp32s3))]
+    pub fn wakeup_on_rtc<P>(self, pins: P, level: source::rtc::RtcWakeLevel) -> Result<Self, EspError>
+    where
+        P: source::rtc::RtcWakeupPins,
+    {
+        source::rtc::configure(pins, level)?;
         Ok(self)
     }
 
@@ -259,7 +262,7 @@ impl LightSleep {
         Ok(self)
     }
 
-    pub fn enter(self) -> Result<(), EspError> {
+    pub fn enter(&mut self) -> Result<(), EspError> {
         esp!(unsafe { esp_light_sleep_start() })
     }
 }
