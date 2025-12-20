@@ -546,7 +546,9 @@ pub trait I2sRxSupported {}
 ///
 /// Example usage:
 /// ```
-/// use esp_idf_hal::i2s::{config::{StdConfig, DataBitWidth}, gpio::*};
+/// use esp_idf_hal::gpio::*;
+/// use esp_idf_hal::i2s::{config::{StdConfig, DataBitWidth}};
+/// use esp_idf_hal::i2s::{I2sDriver, I2sRx};
 /// let std_config = StdConfig::philips(48000, DataBitWidth::Bits16);
 /// let peripherals = Peripherals::take().unwrap();
 /// let bclk = peripherals.pins.gpio1;
@@ -565,7 +567,9 @@ pub trait I2sTxSupported {}
 ///
 /// Example usage:
 /// ```
-/// use esp_idf_hal::i2s::{config::{StdConfig, DataBitWidth}, gpio::*};
+/// use esp_idf_hal::gpio::*;
+/// use esp_idf_hal::i2s::{config::{StdConfig, DataBitWidth}};
+/// use esp_idf_hal::i2s::{I2sDriver, I2sTx};
 /// let std_config = StdConfig::philips(48000, DataBitWidth::Bits16);
 /// let peripherals = Peripherals::take().unwrap();
 /// let bclk = peripherals.pins.gpio1;
@@ -581,7 +585,9 @@ impl I2sTxSupported for I2sTx {}
 ///
 /// Example usage:
 /// ```
-/// use esp_idf_hal::i2s::{config::{StdConfig, DataBitWidth}, gpio::*, peripherals::Peripherals};
+/// use esp_idf_hal::{gpio::*, peripherals::Peripherals};
+/// use esp_idf_hal::i2s::{config::{StdConfig, DataBitWidth}};
+/// use esp_idf_hal::i2s::{I2sDriver, I2sBiDir};
 /// let std_config = StdConfig::philips(48000, DataBitWidth::Bits16);
 /// let peripherals = Peripherals::take().unwrap();
 /// let bclk = peripherals.pins.gpio1;
