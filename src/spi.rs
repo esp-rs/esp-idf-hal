@@ -648,7 +648,9 @@ impl<'d> SpiDriver<'d> {
 
 impl Drop for SpiDriver<'_> {
     fn drop(&mut self) {
-        esp!(unsafe { spi_bus_free(self.host()) }).unwrap();
+        if let Err(e) = esp!(unsafe { spi_bus_free(self.host()) }) {
+            ::log::error!("Unable to free spi bus: {e:?}");
+        }
     }
 }
 
