@@ -1,0 +1,17 @@
+[package]
+name = "esp-idf-macros"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.79"
+
+[lib]
+proc-macro = true
+
+[features]
+default = []
+doc-cfg = []
+
+[dependencies]
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["extra-traits", "full", "fold"] }
