@@ -170,7 +170,7 @@ pub struct ServiceElement(esp_gattc_service_elem_t);
 impl ServiceElement {
     pub const fn new() -> Self {
         Self(esp_gattc_service_elem_t {
-            uuid: BtUuid::uuid16(0).raw(),
+            uuid: BtUuid::uuid16(0).into_raw(),
             is_primary: false,
             start_handle: 0,
             end_handle: 0,
@@ -217,7 +217,7 @@ pub struct IncludeServiceElement(esp_gattc_incl_svc_elem_t);
 impl IncludeServiceElement {
     pub const fn new() -> Self {
         Self(esp_gattc_incl_svc_elem_t {
-            uuid: BtUuid::uuid16(0).raw(),
+            uuid: BtUuid::uuid16(0).into_raw(),
             handle: 0,
             incl_srvc_s_handle: 0,
             incl_srvc_e_handle: 0,
@@ -263,7 +263,7 @@ pub struct CharacteristicElement(esp_gattc_char_elem_t);
 impl CharacteristicElement {
     pub const fn new() -> Self {
         Self(esp_gattc_char_elem_t {
-            uuid: BtUuid::uuid16(0).raw(),
+            uuid: BtUuid::uuid16(0).into_raw(),
             char_handle: 0,
             properties: 0,
         })
@@ -304,7 +304,7 @@ pub struct DescriptorElement(esp_gattc_descr_elem_t);
 impl DescriptorElement {
     pub const fn new() -> Self {
         Self(esp_gattc_descr_elem_t {
-            uuid: BtUuid::uuid16(0).raw(),
+            uuid: BtUuid::uuid16(0).into_raw(),
             handle: 0,
         })
     }
@@ -372,7 +372,7 @@ pub struct DbElement(esp_gattc_db_elem_t);
 impl DbElement {
     pub const fn new() -> Self {
         Self(esp_gattc_db_elem_t {
-            uuid: BtUuid::uuid16(0).raw(),
+            uuid: BtUuid::uuid16(0).into_raw(),
             type_: 0,
             attribute_handle: 0,
             start_handle: 0,
@@ -1059,14 +1059,14 @@ where
     pub fn open(
         &self,
         gattc_if: GattInterface,
-        addr: BdAddr,
+        addr: &BdAddr,
         addr_type: BleAddrType,
         is_direct: bool,
     ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_ble_gattc_open(
                 gattc_if,
-                &addr.raw() as *const _ as *mut _,
+                addr.raw() as *const _ as *mut _,
                 addr_type as _,
                 is_direct,
             )
@@ -1076,14 +1076,14 @@ where
     pub fn aux_open(
         &self,
         gattc_if: GattInterface,
-        addr: BdAddr,
+        addr: &BdAddr,
         addr_type: BleAddrType,
         is_direct: bool,
     ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_ble_gattc_aux_open(
                 gattc_if,
-                &addr.raw() as *const _ as *mut _,
+                addr.raw() as *const _ as *mut _,
                 addr_type as _,
                 is_direct,
             )
@@ -1122,13 +1122,13 @@ where
         &self,
         gattc_if: GattInterface,
         conn_id: ConnectionId,
-        filter_uuid: Option<BtUuid>,
+        filter_uuid: Option<&BtUuid>,
     ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_ble_gattc_search_service(
                 gattc_if,
                 conn_id,
-                filter_uuid.map_or(core::ptr::null_mut(), |f| &f.raw() as *const _ as *mut _),
+                filter_uuid.map_or(core::ptr::null_mut(), |f| f.raw() as *const _ as *mut _),
             )
         })
     }
@@ -1148,7 +1148,7 @@ where
         &self,
         gattc_if: GattInterface,
         conn_id: ConnectionId,
-        svc_uuid: Option<BtUuid>,
+        svc_uuid: Option<&BtUuid>,
         offset: u16,
         results: &mut [ServiceElement],
     ) -> Result<usize, EspError> {
@@ -1162,7 +1162,7 @@ where
             esp_ble_gattc_get_service(
                 gattc_if,
                 conn_id,
-                svc_uuid.map_or(core::ptr::null_mut(), |s| &s.raw() as *const _ as *mut _),
+                svc_uuid.map_or(core::ptr::null_mut(), |s| s.raw() as *const _ as *mut _),
                 results as *const _ as *mut _,
                 &mut count,
                 offset,
@@ -1275,7 +1275,7 @@ where
         conn_id: ConnectionId,
         start_handle: Handle,
         end_handle: Handle,
-        char_uuid: BtUuid,
+        char_uuid: &BtUuid,
         results: &mut [CharacteristicElement],
     ) -> Result<usize, GattStatus> {
         let mut count: u16 = results.len() as _;
@@ -1286,7 +1286,7 @@ where
                 conn_id,
                 start_handle,
                 end_handle,
-                char_uuid.raw(),
+                *char_uuid.raw(),
                 results as *const _ as *mut _,
                 &mut count,
             )
@@ -1315,8 +1315,8 @@ where
         conn_id: ConnectionId,
         start_handle: Handle,
         end_handle: Handle,
-        char_uuid: BtUuid,
-        descr_uuid: BtUuid,
+        char_uuid: &BtUuid,
+        descr_uuid: &BtUuid,
         results: &mut [DescriptorElement],
     ) -> Result<usize, GattStatus> {
         let mut count: u16 = results.len() as _;
@@ -1327,8 +1327,8 @@ where
                 conn_id,
                 start_handle,
                 end_handle,
-                char_uuid.raw(),
-                descr_uuid.raw(),
+                *char_uuid.raw(),
+                *descr_uuid.raw(),
                 results as *const _ as *mut _,
                 &mut count,
             )
@@ -1353,7 +1353,7 @@ where
         gattc_if: GattInterface,
         conn_id: ConnectionId,
         char_handle: Handle,
-        descr_uuid: BtUuid,
+        descr_uuid: &BtUuid,
         results: &mut [DescriptorElement],
     ) -> Result<usize, GattStatus> {
         let mut count: u16 = results.len() as _;
@@ -1363,7 +1363,7 @@ where
                 gattc_if,
                 conn_id,
                 char_handle,
-                descr_uuid.raw(),
+                *descr_uuid.raw(),
                 results as *const _ as *mut _,
                 &mut count,
             )
@@ -1388,7 +1388,7 @@ where
         conn_id: ConnectionId,
         start_handle: Handle,
         end_handle: Handle,
-        incl_uuid: BtUuid,
+        incl_uuid: &BtUuid,
         results: &mut [IncludeServiceElement],
     ) -> Result<usize, GattStatus> {
         let mut count: u16 = results.len() as _;
@@ -1399,7 +1399,7 @@ where
                 conn_id,
                 start_handle,
                 end_handle,
-                &incl_uuid.raw() as *const _ as *mut _,
+                incl_uuid.raw() as *const _ as *mut _,
                 results as *const _ as *mut _,
                 &mut count,
             )
@@ -1528,7 +1528,7 @@ where
         conn_id: ConnectionId,
         start_handle: Handle,
         end_handle: Handle,
-        uuid: BtUuid,
+        uuid: &BtUuid,
         auth_req: GattAuthReq,
     ) -> Result<(), EspError> {
         esp!(unsafe {
@@ -1537,7 +1537,7 @@ where
                 conn_id,
                 start_handle,
                 end_handle,
-                &uuid.raw() as *const _ as *mut _,
+                uuid.raw() as *const _ as *mut _,
                 auth_req as _,
             )
         })
@@ -1807,13 +1807,13 @@ where
     pub fn register_for_notify(
         &self,
         gattc_if: GattInterface,
-        server_addr: BdAddr,
+        server_addr: &BdAddr,
         handle: Handle,
     ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_ble_gattc_register_for_notify(
                 gattc_if,
-                &server_addr.raw() as *const _ as *mut _,
+                server_addr.raw() as *const _ as *mut _,
                 handle,
             )
         })
@@ -1831,13 +1831,13 @@ where
     pub fn unregister_for_notify(
         &self,
         gattc_if: GattInterface,
-        server_addr: BdAddr,
+        server_addr: &BdAddr,
         handle: Handle,
     ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_ble_gattc_unregister_for_notify(
                 gattc_if,
-                &server_addr.raw() as *const _ as *mut _,
+                server_addr.raw() as *const _ as *mut _,
                 handle,
             )
         })
@@ -1850,8 +1850,8 @@ where
     /// 1. If the device is connected, this API will restart the discovery of service information of the remote device
     /// 2. This function triggers [`GattcEvent::DiscoveryCompleted`] only after the ACL connection is established. Otherwise,
     ///    no events will be triggered
-    pub fn cache_refresh(&self, remote_bda: BdAddr) -> Result<(), EspError> {
-        esp!(unsafe { esp_ble_gattc_cache_refresh(&remote_bda.raw() as *const _ as *mut _,) })
+    pub fn cache_refresh(&self, remote_bda: &BdAddr) -> Result<(), EspError> {
+        esp!(unsafe { esp_ble_gattc_cache_refresh(remote_bda.raw() as *const _ as *mut _,) })
     }
 
     /// Add or remove the association between the address in the local GATTC cache with the source address
@@ -1871,15 +1871,15 @@ where
     pub fn cache_assoc(
         &self,
         gattc_if: GattInterface,
-        src_addr: BdAddr,
-        assoc_addr: BdAddr,
+        src_addr: &BdAddr,
+        assoc_addr: &BdAddr,
         is_assoc: bool,
     ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_ble_gattc_cache_assoc(
                 gattc_if,
-                &src_addr.raw() as *const _ as *mut _,
-                &assoc_addr.raw() as *const _ as *mut _,
+                src_addr.raw() as *const _ as *mut _,
+                assoc_addr.raw() as *const _ as *mut _,
                 is_assoc,
             )
         })
@@ -1895,8 +1895,8 @@ where
 
     /// Clean the service cache of the target device in the local GATTC cache.
     /// * `remote_bda` Remote device address
-    pub fn cache_clean(&self, remote_addr: BdAddr) -> Result<(), EspError> {
-        esp!(unsafe { esp_ble_gattc_cache_clean(&remote_addr.raw() as *const _ as *mut _,) })
+    pub fn cache_clean(&self, remote_addr: &BdAddr) -> Result<(), EspError> {
+        esp!(unsafe { esp_ble_gattc_cache_clean(remote_addr.raw() as *const _ as *mut _,) })
     }
 
     unsafe extern "C" fn event_handler(

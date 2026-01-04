@@ -298,7 +298,7 @@ mod example {
                     info!("Service discover complete, conn_id {conn_id}");
 
                     self.gattc
-                        .search_service(gattc_if, conn_id, Some(SERVICE_UUID))?;
+                        .search_service(gattc_if, conn_id, Some(&SERVICE_UUID))?;
                 }
                 GattcEvent::Mtu { status, mtu, .. } => {
                     info!("MTU exchange, status {status:?}, MTU {mtu}");
@@ -393,7 +393,7 @@ mod example {
                                 conn_id,
                                 start_handle,
                                 end_handle,
-                                IND_CHARACTERISTIC_UUID,
+                                &IND_CHARACTERISTIC_UUID,
                                 &mut chars,
                             ) {
                                 Ok(char_count) => {
@@ -408,7 +408,7 @@ mod example {
                                                         Some(ind_char_elem.handle());
                                                     self.gattc.register_for_notify(
                                                         gattc_if,
-                                                        remote_addr,
+                                                        &remote_addr,
                                                         ind_char_elem.handle(),
                                                     )?;
                                                 }
@@ -431,7 +431,7 @@ mod example {
                                 conn_id,
                                 start_handle,
                                 end_handle,
-                                WRITE_CHARACTERISITIC_UUID,
+                                &WRITE_CHARACTERISITIC_UUID,
                                 &mut chars,
                             ) {
                                 Ok(char_count) => {
@@ -488,7 +488,7 @@ mod example {
                                 gattc_if,
                                 conn_id,
                                 handle,
-                                IND_DESCRIPTOR_UUID,
+                                &IND_DESCRIPTOR_UUID,
                                 &mut descrs,
                             ) {
                                 Ok(descrs_count) => {

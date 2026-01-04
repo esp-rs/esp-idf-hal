@@ -561,7 +561,7 @@ where
         esp!(unsafe {
             esp_ble_gatts_add_char(
                 service_handle,
-                &characteristic.uuid.raw() as *const _ as *mut _,
+                characteristic.uuid.raw() as *const _ as *mut _,
                 characteristic.permissions.as_repr(),
                 characteristic.properties.as_repr(),
                 &value as *const esp_attr_value_t as *mut _,
@@ -578,7 +578,7 @@ where
         esp!(unsafe {
             esp_ble_gatts_add_char_descr(
                 service_handle,
-                &descriptor.uuid.raw() as *const _ as *mut _,
+                descriptor.uuid.raw() as *const _ as *mut _,
                 descriptor.permissions.as_repr(),
                 core::ptr::null_mut(),
                 core::ptr::null_mut(),

@@ -37,8 +37,8 @@ pub mod spp;
 pub struct BdAddr(esp_bd_addr_t);
 
 impl BdAddr {
-    pub const fn raw(&self) -> esp_bd_addr_t {
-        self.0
+    pub const fn raw(&self) -> &esp_bd_addr_t {
+        &self.0
     }
 
     pub const fn from_bytes(bytes: [u8; 6]) -> Self {
@@ -77,7 +77,11 @@ impl From<esp_bd_addr_t> for BdAddr {
 pub struct BtUuid(esp_bt_uuid_t);
 
 impl BtUuid {
-    pub const fn raw(&self) -> esp_bt_uuid_t {
+    pub const fn raw(&self) -> &esp_bt_uuid_t {
+        &self.0
+    }
+
+    pub const fn into_raw(self) -> esp_bt_uuid_t {
         self.0
     }
 
