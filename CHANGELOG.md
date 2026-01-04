@@ -34,6 +34,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `write_with_break` for `UartDriver` and `UartTxDriver`
 - New RMT API
 - New GPTimer API
+- esp32p4 pins and core command added.
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
@@ -43,6 +44,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CAN: fix wrong Alert enum indexing / remove wrong TryFromPrimitive derive (#532)
 - GPIO: Allow interoperability with other code that initializes the GPIO ISR service (#537)
 - SD card support is no longer behind the `experimental` feature
+- Added 6th TX channel config argument for IDF 5.5.2+.
 
 ## [0.45.2] - 2025-01-15
 
