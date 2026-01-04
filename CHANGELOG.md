@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New RMT API
 - New GPTimer API
 - esp32p4 pins and core command added.
+- Removed the modem peripheral for esp32p4
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32

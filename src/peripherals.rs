@@ -7,6 +7,7 @@ use crate::i2s;
 use crate::ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 use crate::mac;
+#[cfg(not(esp32p4))]
 use crate::modem;
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(all(
@@ -110,6 +111,7 @@ pub struct Peripherals {
     pub ulp: ulp::ULP<'static>,
     #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
     pub mac: mac::MAC<'static>,
+    #[cfg(not(esp32p4))]
     pub modem: modem::Modem<'static>,
     #[cfg(esp_idf_soc_sdmmc_host_supported)]
     pub sdmmc0: sd::mmc::SDMMC0<'static>,
@@ -238,6 +240,7 @@ impl Peripherals {
             ulp: ulp::ULP::steal(),
             #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
             mac: mac::MAC::steal(),
+            #[cfg(not(esp32p4))]
             modem: modem::Modem::steal(),
             #[cfg(esp_idf_soc_sdmmc_host_supported)]
             sdmmc0: sd::mmc::SDMMC0::steal(),

@@ -41,6 +41,7 @@ pub mod io;
 pub mod ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 pub mod mac;
+#[cfg(not(esp32p4))]
 pub mod modem;
 #[cfg(all(
     esp_idf_soc_rmt_supported,
