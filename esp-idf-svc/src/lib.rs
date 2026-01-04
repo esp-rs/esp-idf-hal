@@ -105,7 +105,7 @@ pub mod thread;
 pub mod timer;
 pub mod tls;
 #[cfg(all(
-    not(esp32h2),
+    not(any(esp32h2, esp32p4)),
     feature = "alloc",
     esp_idf_comp_esp_wifi_enabled,
     esp_idf_comp_esp_event_enabled,
