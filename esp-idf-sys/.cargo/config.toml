@@ -22,6 +22,10 @@ rustflags = ["--cfg", "espidf_time64"]
 linker = "ldproxy"
 rustflags = ["--cfg", "espidf_time64"]
 
+[target.riscv32imafc-esp-espidf]
+linker = "ldproxy"
+rustflags = ["--cfg", "espidf_time64"]
+
 [env]
 ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"
 ESP_IDF_VERSION = "v5.3.2"
