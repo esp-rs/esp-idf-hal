@@ -10,6 +10,7 @@
 //! Configure LDO for MIPI D-PHY power supply (2.5V):
 //! ```
 //! use esp_idf_hal::ldo::*;
+//! use esp_idf_hal::delay::FreeRtos;
 //!
 //! // Configure LDO channel for MIPI D-PHY
 //! let ldo_config = LdoChannelConfig::new(3, 2500);  // channel_id, voltage_mv (2.5V)
@@ -19,6 +20,9 @@
 //!
 //! let mut ldo_channel = LdoChannel::new(&ldo_config)?;
 //! // Channel is automatically enabled when acquired
+//!
+//! // Wait for stabilization
+//! FreeRtos::delay_ms(20);
 //! ```
 
 #![cfg(esp32p4)]
@@ -30,10 +34,9 @@ use esp_idf_sys::*;
 /// Types for configuring the LDO peripheral
 pub mod config {
     /// LDO channel configuration
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Eq, PartialEq, Hash)]
     pub struct LdoChannelConfig {
         pub voltage_mv: i32,
-        pub channel_id: i32,
         /// Enable dynamic voltage adjustment via `adjust_voltage()`
         pub adjustable: bool,
         /// Allow hardware (e.g., eFuse) to control the channel
@@ -42,9 +45,8 @@ pub mod config {
 
     impl LdoChannelConfig {
         /// Create a new LDO channel configuration
-        pub fn new(channel_id: i32, voltage_mv: i32) -> Self {
+        pub const fn new(voltage_mv: i32) -> Self {
             Self {
-                channel_id,
                 voltage_mv,
                 adjustable: false,
                 owned_by_hw: false,
@@ -54,12 +56,6 @@ pub mod config {
         #[must_use]
         pub fn voltage_mv(mut self, voltage_mv: i32) -> Self {
             self.voltage_mv = voltage_mv;
-            self
-        }
-
-        #[must_use]
-        pub fn channel_id(mut self, channel_id: i32) -> Self {
-            self.channel_id = channel_id;
             self
         }
 
@@ -85,9 +81,12 @@ pub struct LdoChannel<'d> {
 
 impl<'d> LdoChannel<'d> {
     /// Create (acquire) a new LDO channel with the given configuration
-    pub fn new(config: &config::LdoChannelConfig) -> Result<Self, EspError> {
+    pub fn new<LDO: Ldo + 'd>(
+        _ldo: LDO,
+        config: &config::LdoChannelConfig,
+    ) -> Result<Self, EspError> {
         let mut ldo_config = esp_ldo_channel_config_t::default();
-        ldo_config.chan_id = config.channel_id;
+        ldo_config.chan_id = LDO::channel();
         ldo_config.voltage_mv = config.voltage_mv;
         ldo_config.flags = esp_ldo_channel_config_t_ldo_extra_flags {
             _bitfield_1: esp_ldo_channel_config_t_ldo_extra_flags::new_bitfield_1(
@@ -140,3 +139,29 @@ unsafe impl Send for LdoChannel<'_> {}
 
 // Re-export config types at module level
 pub use config::*;
+
+pub trait Ldo {
+    fn channel() -> i32;
+}
+
+macro_rules! impl_ldo {
+    ($ldo:ident: $channel:expr) => {
+        crate::impl_peripheral!($ldo);
+
+        impl Ldo for $ldo<'_> {
+            #[inline(always)]
+            fn channel() -> i32 {
+                $channel
+            }
+        }
+    };
+}
+
+#[cfg(esp32p4)]
+impl_ldo!(LDO1: 1);
+#[cfg(esp32p4)]
+impl_ldo!(LDO2: 2);
+#[cfg(esp32p4)]
+impl_ldo!(LDO3: 3);
+#[cfg(esp32p4)]
+impl_ldo!(LDO4: 4);
