@@ -187,7 +187,7 @@ fn enter(cs: &IsrCriticalSection) {
     }
 }
 
-#[cfg(not(any(esp32, esp32s2, esp32s3)))]
+#[cfg(not(any(esp32, esp32s2, esp32s3, esp32p4)))]
 #[inline(always)]
 #[link_section = ".iram1.interrupt_exit"]
 fn exit(_cs: &IsrCriticalSection) {
@@ -202,6 +202,15 @@ fn exit(_cs: &IsrCriticalSection) {
 fn exit(cs: &IsrCriticalSection) {
     unsafe {
         vPortExitCritical(cs.0.get());
+    }
+}
+
+#[cfg(esp32p4)]
+#[inline(always)]
+#[link_section = ".iram1.interrupt_exit"]
+fn exit(cs: &IsrCriticalSection) {
+    unsafe {
+        vPortExitCriticalMultiCore(cs.0.get());
     }
 }
 
