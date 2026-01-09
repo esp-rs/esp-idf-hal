@@ -40,13 +40,6 @@ pub mod config {
     #[derive(Debug, Clone, Eq, PartialEq, Hash)]
     pub struct LdoChannelConfig {
         pub voltage_mv: i32,
-        /// Enable dynamic voltage adjustment via `adjust_voltage()`
-        ///
-        /// Note: This field is ignored when creating a channel. The adjustability
-        /// is determined by the peripheral's type parameter (e.g., `LDO3<Adjustable>`
-        /// vs `LDO3<Fixed>`).
-        #[allow(dead_code)]
-        pub adjustable: bool,
         /// Allow hardware (e.g., eFuse) to control the channel
         pub owned_by_hw: bool,
     }
@@ -56,7 +49,6 @@ pub mod config {
         pub const fn new(voltage_mv: i32) -> Self {
             Self {
                 voltage_mv,
-                adjustable: false,
                 owned_by_hw: false,
             }
         }
@@ -68,12 +60,6 @@ pub mod config {
         }
 
         #[must_use]
-        pub fn adjustable(mut self, adjustable: bool) -> Self {
-            self.adjustable = adjustable;
-            self
-        }
-
-        #[must_use]
         pub fn owned_by_hw(mut self, owned_by_hw: bool) -> Self {
             self.owned_by_hw = owned_by_hw;
             self
@@ -81,17 +67,28 @@ pub mod config {
     }
 }
 
+pub trait VoltageType {
+    const IS_ADJUSTABLE: bool;
+}
+
 pub struct Adjustable;
 pub struct Fixed;
 
+impl VoltageType for Adjustable {
+    const IS_ADJUSTABLE: bool = true;
+}
+impl VoltageType for Fixed {
+    const IS_ADJUSTABLE: bool = false;
+}
+
 /// An LDO channel
-pub struct LdoChannel<'d, V: 'static> {
+pub struct LdoChannel<'d, V: VoltageType> {
     handle: esp_ldo_channel_handle_t,
     _p: PhantomData<&'d mut ()>,
     _v: PhantomData<V>,
 }
 
-impl<'d, V: 'static> LdoChannel<'d, V> {
+impl<'d, V: VoltageType> LdoChannel<'d, V> {
     /// Create (acquire) a new LDO channel with the given configuration
     pub fn new<LDO: Ldo<VoltageType = V> + 'd>(
         _ldo: &LDO,
@@ -100,11 +97,9 @@ impl<'d, V: 'static> LdoChannel<'d, V> {
         let mut ldo_config = esp_ldo_channel_config_t::default();
         ldo_config.chan_id = LDO::channel();
         ldo_config.voltage_mv = config.voltage_mv;
-        // Determine if adjustable based on the type parameter V
-        let is_adjustable = core::any::TypeId::of::<V>() == core::any::TypeId::of::<Adjustable>();
         ldo_config.flags = esp_ldo_channel_config_t_ldo_extra_flags {
             _bitfield_1: esp_ldo_channel_config_t_ldo_extra_flags::new_bitfield_1(
-                is_adjustable as u32,
+                V::IS_ADJUSTABLE as u32,
                 config.owned_by_hw as u32,
                 0, // bypass field (deprecated, always set to 0)
             ),
@@ -144,7 +139,7 @@ impl<'d> LdoChannel<'d, Adjustable> {
     }
 }
 
-impl<'d, V: 'static> Drop for LdoChannel<'d, V> {
+impl<'d, V: VoltageType> Drop for LdoChannel<'d, V> {
     fn drop(&mut self) {
         if !self.handle.is_null() {
             let _ = esp!(unsafe { esp_ldo_release_channel(self.handle) });
@@ -152,24 +147,24 @@ impl<'d, V: 'static> Drop for LdoChannel<'d, V> {
     }
 }
 
-unsafe impl<'d, V: 'static> Send for LdoChannel<'d, V> {}
+unsafe impl<'d, V: VoltageType> Send for LdoChannel<'d, V> {}
 
 // Re-export config types at module level
 pub use config::*;
 
 pub trait Ldo {
-    type VoltageType;
+    type VoltageType: VoltageType;
     fn channel() -> i32;
 }
 
 macro_rules! impl_ldo {
     ($ldo:ident: $channel:expr) => {
-        pub struct $ldo<'a, V>(
+        pub struct $ldo<'a, V: VoltageType>(
             ::core::marker::PhantomData<&'a mut ()>,
             ::core::marker::PhantomData<V>,
         );
 
-        impl<'a, V> $ldo<'a, V> {
+        impl<'a, V: VoltageType> $ldo<'a, V> {
             /// Unsafely create an instance of this peripheral out of thin air.
             ///
             /// # Safety
@@ -196,9 +191,9 @@ macro_rules! impl_ldo {
             }
         }
 
-        unsafe impl<'a, V> Send for $ldo<'a, V> {}
+        unsafe impl<'a, V: VoltageType> Send for $ldo<'a, V> {}
 
-        impl<'a, V> Ldo for $ldo<'a, V> {
+        impl<'a, V: VoltageType> Ldo for $ldo<'a, V> {
             type VoltageType = V;
             #[inline(always)]
             fn channel() -> i32 {
