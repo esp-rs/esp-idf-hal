@@ -41,7 +41,7 @@ pub mod config {
     pub struct LdoChannelConfig {
         pub voltage_mv: i32,
         /// Enable dynamic voltage adjustment via `adjust_voltage()`
-        /// 
+        ///
         /// Note: This field is ignored when creating a channel. The adjustability
         /// is determined by the peripheral's type parameter (e.g., `LDO3<Adjustable>`
         /// vs `LDO3<Fixed>`).
@@ -134,7 +134,6 @@ impl<'d, V: 'static> LdoChannel<'d, V> {
     pub fn handle(&self) -> esp_ldo_channel_handle_t {
         self.handle
     }
-
 }
 
 impl<'d> LdoChannel<'d, Adjustable> {
@@ -165,7 +164,10 @@ pub trait Ldo {
 
 macro_rules! impl_ldo {
     ($ldo:ident: $channel:expr) => {
-        pub struct $ldo<'a, V>(::core::marker::PhantomData<&'a mut ()>, ::core::marker::PhantomData<V>);
+        pub struct $ldo<'a, V>(
+            ::core::marker::PhantomData<&'a mut ()>,
+            ::core::marker::PhantomData<V>,
+        );
 
         impl<'a, V> $ldo<'a, V> {
             /// Unsafely create an instance of this peripheral out of thin air.
