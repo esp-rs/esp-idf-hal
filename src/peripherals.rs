@@ -103,13 +103,13 @@ pub struct Peripherals {
     pub can: can::CAN<'static>,
     pub ledc: ledc::LEDC,
     #[cfg(esp32p4)]
-    pub ldo1: ldo::LDO1<'static>,
+    pub ldo1: ldo::LDO1<'static, ldo::Fixed>,
     #[cfg(esp32p4)]
-    pub ldo2: ldo::LDO2<'static>,
+    pub ldo2: ldo::LDO2<'static, ldo::Fixed>,
     #[cfg(esp32p4)]
-    pub ldo3: ldo::LDO3<'static>,
+    pub ldo3: ldo::LDO3<'static, ldo::Adjustable>,
     #[cfg(esp32p4)]
-    pub ldo4: ldo::LDO4<'static>,
+    pub ldo4: ldo::LDO4<'static, ldo::Adjustable>,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
     #[cfg(feature = "rmt-legacy")]

@@ -11,15 +11,18 @@
 //! ```
 //! use esp_idf_hal::ldo::*;
 //! use esp_idf_hal::delay::FreeRtos;
+//! use esp_idf_hal::peripherals::Peripherals;
 //!
-//! // Configure LDO channel for MIPI D-PHY
-//! let ldo_config = LdoChannelConfig::new(3, 2500);  // channel_id, voltage_mv (2.5V)
-//! // Or use builder pattern:
-//! // let ldo_config = LdoChannelConfig::new(3, 2500)
-//! //     .adjustable(true);  // Enable dynamic voltage adjustment
+//! let peripherals = Peripherals::take()?;
 //!
-//! let mut ldo_channel = LdoChannel::new(&ldo_config)?;
+//! // Configure LDO channel for MIPI D-PHY (LDO3 is adjustable)
+//! let ldo_config = LdoChannelConfig::new(2500);  // voltage_mv (2.5V)
+//!
+//! let mut ldo_channel = LdoChannel::new(&peripherals.ldo3, &ldo_config)?;
 //! // Channel is automatically enabled when acquired
+//!
+//! // Adjust voltage (only available for Adjustable channels)
+//! ldo_channel.adjust_voltage(3000)?;  // Change to 3.0V
 //!
 //! // Wait for stabilization
 //! FreeRtos::delay_ms(20);
@@ -38,6 +41,11 @@ pub mod config {
     pub struct LdoChannelConfig {
         pub voltage_mv: i32,
         /// Enable dynamic voltage adjustment via `adjust_voltage()`
+        /// 
+        /// Note: This field is ignored when creating a channel. The adjustability
+        /// is determined by the peripheral's type parameter (e.g., `LDO3<Adjustable>`
+        /// vs `LDO3<Fixed>`).
+        #[allow(dead_code)]
         pub adjustable: bool,
         /// Allow hardware (e.g., eFuse) to control the channel
         pub owned_by_hw: bool,
@@ -73,24 +81,30 @@ pub mod config {
     }
 }
 
+pub struct Adjustable;
+pub struct Fixed;
+
 /// An LDO channel
-pub struct LdoChannel<'d> {
+pub struct LdoChannel<'d, V: 'static> {
     handle: esp_ldo_channel_handle_t,
     _p: PhantomData<&'d mut ()>,
+    _v: PhantomData<V>,
 }
 
-impl<'d> LdoChannel<'d> {
+impl<'d, V: 'static> LdoChannel<'d, V> {
     /// Create (acquire) a new LDO channel with the given configuration
-    pub fn new<LDO: Ldo + 'd>(
-        _ldo: LDO,
+    pub fn new<LDO: Ldo<VoltageType = V> + 'd>(
+        _ldo: &LDO,
         config: &config::LdoChannelConfig,
-    ) -> Result<Self, EspError> {
+    ) -> Result<LdoChannel<'d, V>, EspError> {
         let mut ldo_config = esp_ldo_channel_config_t::default();
         ldo_config.chan_id = LDO::channel();
         ldo_config.voltage_mv = config.voltage_mv;
+        // Determine if adjustable based on the type parameter V
+        let is_adjustable = core::any::TypeId::of::<V>() == core::any::TypeId::of::<Adjustable>();
         ldo_config.flags = esp_ldo_channel_config_t_ldo_extra_flags {
             _bitfield_1: esp_ldo_channel_config_t_ldo_extra_flags::new_bitfield_1(
-                config.adjustable as u32,
+                is_adjustable as u32,
                 config.owned_by_hw as u32,
                 0, // bypass field (deprecated, always set to 0)
             ),
@@ -104,9 +118,10 @@ impl<'d> LdoChannel<'d> {
             return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
-        Ok(Self {
+        Ok(LdoChannel {
             handle,
             _p: PhantomData,
+            _v: PhantomData,
         })
     }
 
@@ -120,6 +135,9 @@ impl<'d> LdoChannel<'d> {
         self.handle
     }
 
+}
+
+impl<'d> LdoChannel<'d, Adjustable> {
     /// Adjust the output voltage of the LDO channel
     pub fn adjust_voltage(&mut self, voltage_mv: i32) -> Result<(), EspError> {
         esp!(unsafe { esp_ldo_channel_adjust_voltage(self.handle, voltage_mv) })?;
@@ -127,7 +145,7 @@ impl<'d> LdoChannel<'d> {
     }
 }
 
-impl Drop for LdoChannel<'_> {
+impl<'d, V: 'static> Drop for LdoChannel<'d, V> {
     fn drop(&mut self) {
         if !self.handle.is_null() {
             let _ = esp!(unsafe { esp_ldo_release_channel(self.handle) });
@@ -135,20 +153,51 @@ impl Drop for LdoChannel<'_> {
     }
 }
 
-unsafe impl Send for LdoChannel<'_> {}
+unsafe impl<'d, V: 'static> Send for LdoChannel<'d, V> {}
 
 // Re-export config types at module level
 pub use config::*;
 
 pub trait Ldo {
+    type VoltageType;
     fn channel() -> i32;
 }
 
 macro_rules! impl_ldo {
     ($ldo:ident: $channel:expr) => {
-        crate::impl_peripheral!($ldo);
+        pub struct $ldo<'a, V>(::core::marker::PhantomData<&'a mut ()>, ::core::marker::PhantomData<V>);
 
-        impl Ldo for $ldo<'_> {
+        impl<'a, V> $ldo<'a, V> {
+            /// Unsafely create an instance of this peripheral out of thin air.
+            ///
+            /// # Safety
+            ///
+            /// You must ensure that you're only using one instance of this type at a time.
+            #[inline(always)]
+            pub unsafe fn steal() -> Self {
+                Self(::core::marker::PhantomData, ::core::marker::PhantomData)
+            }
+
+            /// Creates a new peripheral reference with a shorter lifetime.
+            ///
+            /// Use this method if you would like to keep working with the peripheral after
+            /// you dropped the driver that consumes this.
+            ///
+            /// # Safety
+            ///
+            /// You must ensure that you are not using reborrowed peripherals in drivers which are
+            /// forgotten via `core::mem::forget`.
+            #[inline]
+            #[allow(dead_code)]
+            pub unsafe fn reborrow(&mut self) -> $ldo<'_, V> {
+                Self(::core::marker::PhantomData, ::core::marker::PhantomData)
+            }
+        }
+
+        unsafe impl<'a, V> Send for $ldo<'a, V> {}
+
+        impl<'a, V> Ldo for $ldo<'a, V> {
+            type VoltageType = V;
             #[inline(always)]
             fn channel() -> i32 {
                 $channel
