@@ -67,19 +67,13 @@ pub mod config {
     }
 }
 
-pub trait VoltageType {
-    const IS_ADJUSTABLE: bool;
-}
+pub trait VoltageType {}
 
 pub struct Adjustable;
 pub struct Fixed;
 
-impl VoltageType for Adjustable {
-    const IS_ADJUSTABLE: bool = true;
-}
-impl VoltageType for Fixed {
-    const IS_ADJUSTABLE: bool = false;
-}
+impl VoltageType for Adjustable {}
+impl VoltageType for Fixed {}
 
 /// An LDO channel
 pub struct LdoChannel<'d, V: VoltageType> {
@@ -88,18 +82,39 @@ pub struct LdoChannel<'d, V: VoltageType> {
     _v: PhantomData<V>,
 }
 
-impl<'d, V: VoltageType> LdoChannel<'d, V> {
-    /// Create (acquire) a new LDO channel with the given configuration
+impl<'d, V: Adjustable> LdoChannel<'d, V> {
+    /// Create a new adjustable LDO channel
     pub fn new<LDO: Ldo<VoltageType = V> + 'd>(
         _ldo: &LDO,
         config: &config::LdoChannelConfig,
+    ) -> Result<LdoChannel<'d, V>, EspError> {
+        Self::new(_ldo, config, true)
+    }
+}
+
+impl<'d, V: Fixed> LdoChannel<'d, V> {
+    /// Create a new fixed LDO channel
+    fn new<LDO: Ldo<VoltageType = V> + 'd>(
+        _ldo: &LDO,
+        config: &config::LdoChannelConfig,
+    ) -> Result<LdoChannel<'d, V>, EspError> {
+        Self::new(_ldo, config, false)
+    }
+}
+
+impl<'d, V: VoltageType> LdoChannel<'d, V> {
+    /// Create (acquire) a new LDO channel with the given configuration
+    fn new<LDO: Ldo<VoltageType = V> + 'd>(
+        _ldo: &LDO,
+        config: &config::LdoChannelConfig,
+        is_adjustable: bool,
     ) -> Result<LdoChannel<'d, V>, EspError> {
         let mut ldo_config = esp_ldo_channel_config_t::default();
         ldo_config.chan_id = LDO::channel();
         ldo_config.voltage_mv = config.voltage_mv;
         ldo_config.flags = esp_ldo_channel_config_t_ldo_extra_flags {
             _bitfield_1: esp_ldo_channel_config_t_ldo_extra_flags::new_bitfield_1(
-                V::IS_ADJUSTABLE as u32,
+                is_adjustable as u32,
                 config.owned_by_hw as u32,
                 0, // bypass field (deprecated, always set to 0)
             ),
