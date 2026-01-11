@@ -4,6 +4,8 @@ use crate::gpio;
 use crate::i2c;
 #[cfg(esp_idf_soc_i2s_supported)]
 use crate::i2s;
+#[cfg(esp32p4)]
+use crate::ldo;
 use crate::ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 use crate::mac;
@@ -100,6 +102,14 @@ pub struct Peripherals {
     pub pcnt7: pcnt::PCNT7<'static>,
     pub can: can::CAN<'static>,
     pub ledc: ledc::LEDC,
+    #[cfg(esp32p4)]
+    pub ldo1: ldo::LDO1<'static, ldo::Fixed>,
+    #[cfg(esp32p4)]
+    pub ldo2: ldo::LDO2<'static, ldo::Fixed>,
+    #[cfg(esp32p4)]
+    pub ldo3: ldo::LDO3<'static, ldo::Adjustable>,
+    #[cfg(esp32p4)]
+    pub ldo4: ldo::LDO4<'static, ldo::Adjustable>,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
     #[cfg(feature = "rmt-legacy")]
@@ -229,6 +239,14 @@ impl Peripherals {
             pcnt7: pcnt::PCNT7::steal(),
             can: can::CAN::steal(),
             ledc: ledc::LEDC::new(),
+            #[cfg(esp32p4)]
+            ldo1: ldo::LDO1::steal(),
+            #[cfg(esp32p4)]
+            ldo2: ldo::LDO2::steal(),
+            #[cfg(esp32p4)]
+            ldo3: ldo::LDO3::steal(),
+            #[cfg(esp32p4)]
+            ldo4: ldo::LDO4::steal(),
             #[cfg(esp32)]
             hledc: ledc::HLEDC::new(),
             #[cfg(feature = "rmt-legacy")]
