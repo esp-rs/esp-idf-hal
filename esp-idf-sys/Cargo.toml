@@ -13,7 +13,7 @@ readme = "README.md"
 links = "esp_idf"
 build = "build/build.rs"
 documentation = "https://docs.esp-rs.org/esp-idf-sys/"
-rust-version = "1.66"
+rust-version = "1.82"
 
 [lib]
 harness = false

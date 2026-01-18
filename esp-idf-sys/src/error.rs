@@ -72,8 +72,7 @@ impl EspError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for EspError {}
+impl core::error::Error for EspError {}
 
 impl fmt::Display for EspError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
