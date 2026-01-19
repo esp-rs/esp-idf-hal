@@ -40,6 +40,9 @@ pub mod interrupt;
 pub mod io;
 #[cfg(esp32p4)]
 #[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
+pub mod lcd;
+#[cfg(esp32p4)]
+#[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
 pub mod ldo;
 pub mod ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]

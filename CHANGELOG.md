@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed the modem peripheral for esp32p4
 - LDO support for esp32p4
 - Support for `PLL_F48M` UART clock source on ESP32-H2
+- LCD support for esp32p4
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
