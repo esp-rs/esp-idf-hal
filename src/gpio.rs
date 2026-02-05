@@ -2221,9 +2221,7 @@ mod chip {
     }
 }
 
-// TODO: Implement esp32c6 glitch filters
-
-#[cfg(any(esp32c5, esp32c6, esp32c61))] // TODO: Implement proper pin layout for esp32c5, esp32c61
+#[cfg(esp32c5)]
 mod chip {
     #[cfg(feature = "alloc")]
     extern crate alloc;
@@ -2237,11 +2235,11 @@ mod chip {
 
     #[allow(clippy::type_complexity)]
     #[cfg(feature = "alloc")]
-    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 30] =
-        [PIN_ISR_INIT; 30];
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 29] =
+        [PIN_ISR_INIT; 29];
 
     #[allow(clippy::type_complexity)]
-    pub(crate) static PIN_NOTIF: [HalIsrNotification; 30] = [PIN_NOTIF_INIT; 30];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 31] = [PIN_NOTIF_INIT; 29];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
@@ -2254,6 +2252,131 @@ mod chip {
     pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
     pin!(Gpio6:6, IO, RTC:6, ADC1:ADCCH6, NODAC:0, NOTOUCH:0);
     pin!(Gpio7:7, IO, RTC:7, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio22:22, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio23:23, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio24:24, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio25:25, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio26:26, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio27:27, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio28:28, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
+        pub gpio22: Gpio22<'static>,
+        pub gpio23: Gpio23<'static>,
+        pub gpio24: Gpio24<'static>,
+        pub gpio25: Gpio25<'static>,
+        pub gpio26: Gpio26<'static>,
+        pub gpio27: Gpio27<'static>,
+        pub gpio28: Gpio28<'static>,
+    }
+
+    impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
+                gpio22: Gpio22::steal(),
+                gpio23: Gpio23::steal(),
+                gpio24: Gpio24::steal(),
+                gpio25: Gpio25::steal(),
+                gpio26: Gpio26::steal(),
+                gpio27: Gpio27::steal(),
+                gpio28: Gpio28::steal(),
+            }
+        }
+    }
+}
+
+#[cfg(esp32c6)]
+mod chip {
+    // TODO: Implement esp32c6 glitch filters
+
+    #[cfg(feature = "alloc")]
+    extern crate alloc;
+
+    #[cfg(feature = "alloc")]
+    use alloc::boxed::Box;
+
+    use crate::interrupt::asynch::HalIsrNotification;
+
+    use super::*;
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(feature = "alloc")]
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 31] =
+        [PIN_ISR_INIT; 31];
+
+    #[allow(clippy::type_complexity)]
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 31] = [PIN_NOTIF_INIT; 31];
+
+    pin!(Gpio0:0, IO, RTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2, IO, RTC:2, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6, IO, RTC:6, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio8:8, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio9:9, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio10:10, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
@@ -2350,6 +2473,132 @@ mod chip {
                 gpio28: Gpio28::steal(),
                 gpio29: Gpio29::steal(),
                 gpio30: Gpio30::steal(),
+            }
+        }
+    }
+}
+
+#[cfg(esp32c61)]
+mod chip {
+    #[cfg(feature = "alloc")]
+    extern crate alloc;
+
+    #[cfg(feature = "alloc")]
+    use alloc::boxed::Box;
+
+    use crate::interrupt::asynch::HalIsrNotification;
+
+    use super::*;
+
+    #[allow(clippy::type_complexity)]
+    #[cfg(feature = "alloc")]
+    pub(crate) static mut PIN_ISR_HANDLER: [Option<Box<dyn FnMut() + Send + 'static>>; 30] =
+        [PIN_ISR_INIT; 30];
+
+    #[allow(clippy::type_complexity)]
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 30] = [PIN_NOTIF_INIT; 30];
+
+    pin!(Gpio0:0, IO, RTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2, IO, RTC:2, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6, IO, RTC:6, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7, IO, RTC:7, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio8:8, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio9:9, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio11:11, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio12:12, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio13:13, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio14:14, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio15:15, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio16:16, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio22:22, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio23:23, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio24:24, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio25:25, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio26:26, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio27:27, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio28:28, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio29:29, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+
+    pub struct Pins {
+        pub gpio0: Gpio0<'static>,
+        pub gpio1: Gpio1<'static>,
+        pub gpio2: Gpio2<'static>,
+        pub gpio3: Gpio3<'static>,
+        pub gpio4: Gpio4<'static>,
+        pub gpio5: Gpio5<'static>,
+        pub gpio6: Gpio6<'static>,
+        pub gpio7: Gpio7<'static>,
+        pub gpio8: Gpio8<'static>,
+        pub gpio9: Gpio9<'static>,
+        pub gpio10: Gpio10<'static>,
+        pub gpio11: Gpio11<'static>,
+        pub gpio12: Gpio12<'static>,
+        pub gpio13: Gpio13<'static>,
+        pub gpio14: Gpio14<'static>,
+        pub gpio15: Gpio15<'static>,
+        pub gpio16: Gpio16<'static>,
+        pub gpio17: Gpio17<'static>,
+        pub gpio18: Gpio18<'static>,
+        pub gpio19: Gpio19<'static>,
+        pub gpio20: Gpio20<'static>,
+        pub gpio21: Gpio21<'static>,
+        pub gpio22: Gpio22<'static>,
+        pub gpio23: Gpio23<'static>,
+        pub gpio24: Gpio24<'static>,
+        pub gpio25: Gpio25<'static>,
+        pub gpio26: Gpio26<'static>,
+        pub gpio27: Gpio27<'static>,
+        pub gpio28: Gpio28<'static>,
+        pub gpio29: Gpio29<'static>,
+    }
+
+    impl Pins {
+        /// # Safety
+        ///
+        /// Care should be taken not to instantiate the Pins structure, if it is
+        /// already instantiated and used elsewhere
+        pub unsafe fn new() -> Self {
+            Self {
+                gpio0: Gpio0::steal(),
+                gpio1: Gpio1::steal(),
+                gpio2: Gpio2::steal(),
+                gpio3: Gpio3::steal(),
+                gpio4: Gpio4::steal(),
+                gpio5: Gpio5::steal(),
+                gpio6: Gpio6::steal(),
+                gpio7: Gpio7::steal(),
+                gpio8: Gpio8::steal(),
+                gpio9: Gpio9::steal(),
+                gpio10: Gpio10::steal(),
+                gpio11: Gpio11::steal(),
+                gpio12: Gpio12::steal(),
+                gpio13: Gpio13::steal(),
+                gpio14: Gpio14::steal(),
+                gpio15: Gpio15::steal(),
+                gpio16: Gpio16::steal(),
+                gpio17: Gpio17::steal(),
+                gpio18: Gpio18::steal(),
+                gpio19: Gpio19::steal(),
+                gpio20: Gpio20::steal(),
+                gpio21: Gpio21::steal(),
+                gpio22: Gpio22::steal(),
+                gpio23: Gpio23::steal(),
+                gpio24: Gpio24::steal(),
+                gpio25: Gpio25::steal(),
+                gpio26: Gpio26::steal(),
+                gpio27: Gpio27::steal(),
+                gpio28: Gpio28::steal(),
+                gpio29: Gpio29::steal(),
             }
         }
     }
