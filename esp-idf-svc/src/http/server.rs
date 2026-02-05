@@ -55,6 +55,7 @@ use alloc::vec::Vec;
 use ::log::{info, warn};
 
 use embedded_svc::http::headers::content_type;
+#[allow(unused_imports)]
 use embedded_svc::http::*;
 use embedded_svc::io::{ErrorType, Read, Write};
 

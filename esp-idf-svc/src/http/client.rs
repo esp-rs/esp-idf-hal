@@ -16,6 +16,7 @@ use alloc::string::ToString;
 
 use ::log::*;
 
+#[allow(unused_imports)]
 use embedded_svc::http::client::*;
 use embedded_svc::io::{ErrorType, Read, Write};
 
