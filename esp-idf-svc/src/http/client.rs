@@ -81,6 +81,10 @@ pub struct Configuration {
     pub use_global_ca_store: bool,
     pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut core::ffi::c_void) -> esp_err_t>,
     pub raw_request_body: bool,
+    pub keep_alive_enable: bool,
+    pub keep_alive_idle: Option<usize>,
+    pub keep_alive_interval: Option<usize>,
+    pub keep_alive_count: Option<usize>,
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
@@ -117,6 +121,7 @@ impl EspHttpConnection {
 
             use_global_ca_store: configuration.use_global_ca_store,
             crt_bundle_attach: configuration.crt_bundle_attach,
+            keep_alive_enable: configuration.keep_alive_enable,
 
             ..Default::default()
         };
@@ -162,6 +167,18 @@ impl EspHttpConnection {
 
             native_config.client_key_pem = private_key.as_esp_idf_raw_ptr() as _;
             native_config.client_key_len = private_key.as_esp_idf_raw_len();
+        }
+
+        if configuration.keep_alive_enable {
+            if let Some(keep_alive_idle) = configuration.keep_alive_idle {
+                native_config.keep_alive_idle = keep_alive_idle as _;
+            }
+            if let Some(keep_alive_interval) = configuration.keep_alive_interval {
+                native_config.keep_alive_interval = keep_alive_interval as _;
+            }
+            if let Some(keep_alive_count) = configuration.keep_alive_count {
+                native_config.keep_alive_count = keep_alive_count as _;
+            }
         }
 
         let raw_client = unsafe { esp_http_client_init(&native_config) };

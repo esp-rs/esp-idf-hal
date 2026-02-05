@@ -62,6 +62,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NVS: Added `EspNvs::erase_all` to remove all data stored in an nvs namespace
 - NVS: Added `EspNvs::keys` to iterate over all stored keys
 - esp32p4: This chip has no radio, so wifi has been disabled for this
+- HTTP: added `keep_alive_*` option into configuration
 
 ## [0.51.0] - 2025-01-15
 
