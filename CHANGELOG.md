@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for esp32c5 and esp32c61
 - Removed the modem peripheral for esp32p4
 - LDO support for esp32p4
+- LCD support for esp32p4
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
