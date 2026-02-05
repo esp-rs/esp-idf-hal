@@ -1,5 +1,6 @@
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum SleepTimer {
+    #[default]
     First = 0,
     Second = 1,
     Third = 2,
@@ -7,12 +8,6 @@ pub enum SleepTimer {
     Fifth = 4,
     #[cfg(esp32s2)]
     Sixth = 5,
-}
-
-impl Default for SleepTimer {
-    fn default() -> Self {
-        Self::First
-    }
 }
 
 #[cfg(any(
