@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bluetooth support is no longer behind the `experimental` feature
 - Thread support is no longer behind the `experimental` feature
 - MQTT: Fix a crash when the LWT payload is empty (#597)
+- WS: Fix `EspWebSocketClientConfig` `reconnect_timeout_ms` and `network_timeout_ms` fields not being passed to the underlying C struct (#635)
 
 ### Added
 - Compatibility with ESP-IDF V5.4.x and V5.5.x

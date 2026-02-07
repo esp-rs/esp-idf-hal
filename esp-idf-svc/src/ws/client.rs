@@ -239,6 +239,8 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
             #[cfg(not(esp_idf_version_major = "4"))]
             crt_bundle_attach: conf.crt_bundle_attach,
 
+            reconnect_timeout_ms: conf.reconnect_timeout_ms.as_millis() as _,
+            network_timeout_ms: conf.network_timeout_ms.as_millis() as _,
             ping_interval_sec: conf.ping_interval_sec.as_secs() as _,
 
             cert_pem: conf
