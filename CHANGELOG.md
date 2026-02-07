@@ -38,10 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Support for esp32c5 and esp32c61
 - Removed the modem peripheral for esp32p4
 - LDO support for esp32p4
+- Support for `PLL_F48M` UART clock source on ESP32-H2
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
 - Fix the SDMMC driver for ESP-IDF V5.5+
+- Fix UART initialization panic on ESP32-H2 with ESP-IDF 5.x due to unsupported `PLL_F48M` clock source
 - Replace Arc with Rc in ledc_threads example (#514)
 - Fix outdated task docs
 - CAN: fix wrong Alert enum indexing / remove wrong TryFromPrimitive derive (#532)
