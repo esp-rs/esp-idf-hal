@@ -61,11 +61,11 @@ embedded-hal = "1"
 embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
 embedded-hal-nb = "1"
 embedded-hal-async = "1"
-embedded-io = "0.6"
-embedded-io-async = "0.6"
+embedded-io = "0.7"
+embedded-io-async = "0.7"
 esp-idf-sys = { version = "0.36", default-features = false }
 critical-section = { version = "1.2", optional = true, features = ["restore-state-none"] }
-heapless = "0.8"
+heapless = "0.9"
 enumset = { version = "1.1.4", default-features = false }
 log = { version = "0.4", default-features = false }
 atomic-waker = { version = "1.1.1", default-features = false }
