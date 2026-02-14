@@ -12,7 +12,9 @@
 
 use core::time::Duration;
 
-use esp_idf_hal::gpio::{Level, PinDriver, Pull};
+#[cfg(any(esp32c2, esp32c3))]
+use esp_idf_hal::gpio::Level;
+use esp_idf_hal::gpio::{PinDriver, Pull};
 use esp_idf_hal::peripherals::Peripherals;
 use esp_idf_hal::reset::{ResetReason, WakeupReason};
 use esp_idf_hal::sleep::DeepSleep;
