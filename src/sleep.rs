@@ -172,12 +172,12 @@ fn reset_wakeup_sources() -> Result<(), EspError> {
     esp!(unsafe { esp_sleep_disable_wakeup_source(esp_sleep_source_t_ESP_SLEEP_WAKEUP_ALL) })
 }
 
-pub struct LightSleep;
+pub struct LightSleep(());
 
 impl LightSleep {
     pub fn new() -> Result<Self, EspError> {
         reset_wakeup_sources()?;
-        Ok(Self)
+        Ok(Self(()))
     }
 
     pub fn wakeup_on_timer(self, duration: Duration) -> Result<Self, EspError> {
@@ -229,12 +229,12 @@ impl LightSleep {
     }
 }
 
-pub struct DeepSleep;
+pub struct DeepSleep(());
 
 impl DeepSleep {
     pub fn new() -> Result<Self, EspError> {
         reset_wakeup_sources()?;
-        Ok(Self)
+        Ok(Self(()))
     }
 
     pub fn wakeup_on_timer(self, duration: Duration) -> Result<Self, EspError> {

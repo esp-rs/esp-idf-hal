@@ -22,7 +22,7 @@ use esp_idf_hal::uart::{config::Config, UartDriver};
 use esp_idf_hal::units::Hertz;
 
 #[cfg(not(any(esp32c2, esp32c3)))]
-use esp_idf_hal::sleep::RtcWakeLevel;
+use esp_idf_hal::sleep::{RtcWakeLevel, RtcWakeupPins};
 
 fn main() -> anyhow::Result<()> {
     esp_idf_hal::sys::link_patches();
