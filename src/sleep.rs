@@ -1,7 +1,7 @@
 use core::time::Duration;
 use esp_idf_sys::*;
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(not(any(esp32c2, esp32c3)))]
 pub use self::rtc::{ChainedRtcWakeupPins, RtcWakeLevel, RtcWakeupPins};
 
 pub mod timer {
@@ -13,7 +13,7 @@ pub mod timer {
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(not(any(esp32c2, esp32c3)))]
 pub mod rtc {
     use crate::gpio::{PinDriver, PinId, RTCMode};
     use esp_idf_sys::*;
@@ -152,7 +152,7 @@ pub mod uart {
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
 pub mod touch {
     use esp_idf_sys::*;
     pub fn configure() -> Result<(), EspError> {
@@ -160,7 +160,7 @@ pub mod touch {
     }
 }
 
-#[cfg(any(esp32, esp32s2, esp32s3))]
+#[cfg(any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4))]
 pub mod ulp {
     use esp_idf_sys::*;
     pub fn configure() -> Result<(), EspError> {
@@ -203,7 +203,7 @@ impl LightSleep {
         Ok(self)
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(not(any(esp32c2, esp32c3)))]
     pub fn wakeup_on_rtc<P>(self, pins: P, level: rtc::RtcWakeLevel) -> Result<Self, EspError>
     where
         P: rtc::RtcWakeupPins,
@@ -212,13 +212,13 @@ impl LightSleep {
         Ok(self)
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
     pub fn wakeup_on_touch(self) -> Result<Self, EspError> {
         touch::configure()?;
         Ok(self)
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4))]
     pub fn wakeup_on_ulp(self) -> Result<Self, EspError> {
         ulp::configure()?;
         Ok(self)
@@ -242,7 +242,7 @@ impl DeepSleep {
         Ok(self)
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(not(any(esp32c2, esp32c3)))]
     pub fn wakeup_on_rtc<P>(self, pins: P, level: rtc::RtcWakeLevel) -> Result<Self, EspError>
     where
         P: rtc::RtcWakeupPins,
@@ -261,13 +261,13 @@ impl DeepSleep {
         Ok(self)
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
     pub fn wakeup_on_touch(self) -> Result<Self, EspError> {
         touch::configure()?;
         Ok(self)
     }
 
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4))]
     pub fn wakeup_on_ulp(self) -> Result<Self, EspError> {
         ulp::configure()?;
         Ok(self)
