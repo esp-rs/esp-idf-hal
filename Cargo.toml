@@ -53,6 +53,7 @@ pcnt-legacy = []
 # - When enabled, the code for the legacy driver will be compiled.
 # - When disabled the code for the new driver will be compiled.
 timer-legacy = []
+embedded-graphics = ["dep:embedded-graphics-core"]
 
 [dependencies]
 nb = "1"
@@ -70,6 +71,7 @@ enumset = { version = "1.1.4", default-features = false }
 log = { version = "0.4", default-features = false }
 atomic-waker = { version = "1.1.1", default-features = false }
 embassy-sync = "0.7"
+embedded-graphics-core = { version = "0.4", optional = true }
 
 [build-dependencies]
 embuild = "0.33"

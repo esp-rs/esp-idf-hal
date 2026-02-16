@@ -5,7 +5,7 @@
 //! - Create a vendor-specific control panel (ILI9881C over DBI)
 //! - Initialize the panel
 //! - Create a DPI panel for frame updates
-//! - Draw a simple framebuffer
+//! - Draw a simple bitmap
 //!
 //! Requirements:
 //! - Target: ESP32-P4 (`ESP_IDF_TARGET=esp32p4`)
@@ -19,7 +19,7 @@
 mod example {
     use std::time::Duration;
 
-    use esp_idf_hal::lcd::*;
+    use esp_idf_hal::dsi::*;
     use esp_idf_hal::ldo::*;
     use esp_idf_hal::peripherals::Peripherals;
 
@@ -55,14 +55,16 @@ mod example {
         // - 2 DSI data lanes at 1250 Mbps
         // - RGB888 pixel format
         // - DPI clock at 48 MHz
-        let config = LcdConfig::new(video_timing)
-            .num_data_lanes(2)
-            .lane_bit_rate_mbps(1250)
-            .dpi_clock_freq_mhz(48)
-            .pixel_format(PixelFormat::Rgb888);
+        let config = LcdConfig::new(
+            video_timing,
+            2,    // num_data_lanes
+            1250, // lane_bit_rate_mbps
+            48,   // dpi_clock_freq_mhz
+            PixelFormat::Rgb888,
+        );
 
         // Create driver with DSI bus and DBI IO
-        let mut lcd = LcdDriver::new(peripherals.lcd, &config)?;
+        let mut lcd = LcdDriver::new(peripherals.dsi, &config)?;
 
         // Create vendor control panel (e.g., ILI9881C) over DBI.
         //
@@ -74,7 +76,7 @@ mod example {
         // Use -1 for no reset GPIO.
         dev_config.reset_gpio_num = -1;
 
-        let mut control_panel: esp_lcd_panel_handle_t = core::ptr::null_mut();
+        let mut control_panel: PanelHandle = core::ptr::null_mut();
         unsafe {
             // Replace `esp_lcd_new_panel_ili9881c` with the appropriate
             // vendor-specific constructor for your panel if needed.
@@ -91,18 +93,19 @@ mod example {
         lcd.init()?;
         lcd.set_display_on(true)?;
 
-        // Create the DPI panel for pixel data transfers
-        lcd.create_dpi_panel()?;
+        // Create the DPI panel for pixel data transfers.
+        // This consumes the NoDpiPanel driver and returns a WithDpiPanel driver.
+        let lcd = lcd.create_dpi_panel()?;
 
-        // Simple test framebuffer: clear screen to black.
+        // Simple test bitmap: clear screen to black.
         //
         // NOTE:
         // - draw_bitmap uses half-open intervals [x1, x2) × [y1, y2)
         // - For a 1024×600 display, use x2=1024, y2=600 (NOT 1023, 599)
         // - For RGB888, 3 bytes per pixel
-        let framebuffer = vec![0u8; 1024 * 600 * 3];
+        let bitmap = vec![0u8; 1024 * 600 * 3];
 
-        lcd.draw_bitmap(0, 0, 1024, 600, &framebuffer)?;
+        lcd.draw_bitmap(0, 0, 1024, 600, &bitmap)?;
 
         // Keep the application alive so the display remains on
         loop {
