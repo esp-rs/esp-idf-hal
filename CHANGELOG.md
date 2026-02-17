@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `rmt` module is now only exposed on chips that support the rmt feature
 - The `onewire` code has been updated for 1.0.4 and the new rmt API
 - Implement new gptimer API. The old API will be available through the `timer-legacy` feature.
+- Update `embedded-io`, `embedded-io-async`, and `heapless` dependencies to their latest versions
 
 ### Deprecated
 - `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+
