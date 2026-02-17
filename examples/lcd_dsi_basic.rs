@@ -19,7 +19,7 @@
 mod example {
     use std::time::Duration;
 
-    use esp_idf_hal::dsi::*;
+    use esp_idf_hal::lcd::*;
     use esp_idf_hal::ldo::*;
     use esp_idf_hal::peripherals::Peripherals;
 

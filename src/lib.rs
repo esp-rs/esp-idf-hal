@@ -29,9 +29,6 @@ pub mod adc;
 pub mod can;
 pub mod cpu;
 pub mod delay;
-#[cfg(esp32p4)]
-#[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
-pub mod dsi;
 pub mod gpio;
 pub mod i2c;
 #[cfg_attr(
@@ -41,6 +38,9 @@ pub mod i2c;
 pub mod i2s;
 pub mod interrupt;
 pub mod io;
+#[cfg(esp32p4)]
+#[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
+pub mod lcd;
 #[cfg(esp32p4)]
 #[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
 pub mod ldo;

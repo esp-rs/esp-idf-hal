@@ -1,7 +1,7 @@
-//! DSI peripheral control
+//! LCD peripheral control
 //!
 //! Interface to the [LCD (Liquid Crystal Display)](https://docs.espressif.com/projects/esp-idf/en/latest/esp32p4/api-reference/peripherals/lcd.html)
-//! peripheral, supporting DSI (Display Serial Interface) panels.
+//! peripheral, currently supporting DSI (Display Serial Interface) panels.
 //!
 //! This module provides safe Rust wrappers for the LCD API, which is available
 //! on ESP32-P4 and later chips.
@@ -15,7 +15,7 @@
 //!
 //! Initialize a DSI LCD panel and draw a bitmap:
 //! ```no_run
-//! use esp_idf_hal::dsi::*;
+//! use esp_idf_hal::lcd::*;
 //! use esp_idf_hal::peripherals::Peripherals;
 //! use esp_idf_sys::*;
 //!
@@ -61,7 +61,7 @@
 //! ```
 
 #[cfg(not(feature = "alloc"))]
-compile_error!("DSI module requires the `alloc` feature to be enabled");
+compile_error!("LCD module requires the `alloc` feature to be enabled");
 
 use core::ffi::c_void;
 use core::marker::PhantomData;
@@ -602,7 +602,7 @@ unsafe extern "C" fn on_color_trans_done_isr(
 /// # Example
 ///
 /// ```no_run
-/// use esp_idf_hal::dsi::*;
+/// use esp_idf_hal::lcd::*;
 /// use esp_idf_sys::*;
 ///
 /// struct Ili9881c {
@@ -850,7 +850,7 @@ impl<'d> LcdDriver<'d, NoDpiPanel> {
     /// # Example
     ///
     /// ```no_run
-    /// use esp_idf_hal::dsi::*;
+    /// use esp_idf_hal::lcd::*;
     /// use esp_idf_hal::peripherals::Peripherals;
     /// use esp_idf_sys::*;
     ///
