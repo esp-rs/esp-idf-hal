@@ -36,7 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New GPTimer API
 - esp32p4 pins and core command added.
 - Support for esp32c5 and esp32c61
-- Removed the modem peripheral for esp32p4
+- Made the modem peripheral for esp32p4 dependent on esp_wifi_remote
 - LDO support for esp32p4
 - Support for `PLL_F48M` UART clock source on ESP32-H2
 - LCD driver support; DSI peripheral support with the LCD driver for esp32p4
