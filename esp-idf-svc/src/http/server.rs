@@ -89,6 +89,7 @@ pub struct Configuration {
     pub core: Option<Core>,
     pub max_sessions: usize,
     pub session_timeout: Duration,
+    pub task_caps: u32,
     pub stack_size: usize,
     pub max_open_sockets: usize,
     pub max_uri_handlers: usize,
@@ -110,6 +111,7 @@ impl Default for Configuration {
             core: None,
             max_sessions: 16,
             session_timeout: Duration::from_secs(20 * 60),
+            task_caps: (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
             #[cfg(not(esp_idf_esp_https_server_enable))]
             stack_size: 6144,
             #[cfg(esp_idf_esp_https_server_enable)]
@@ -144,7 +146,7 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
                     ))
                 ),
             ))]
-            task_caps: (MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT),
+            task_caps: conf.task_caps,
             stack_size: conf.stack_size,
             core_id: conf.core.map(|core| core.into()).unwrap_or(i32::MAX),
             server_port: conf.http_port,

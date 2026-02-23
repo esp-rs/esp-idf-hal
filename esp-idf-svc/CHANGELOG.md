@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - NVS: Removed `NvsDataType::Any` and replaced `From<nvs_type_t>` with `NvsDataType:from_nvs_type`
 - (#529) `Peripheral` and `PeripheralRef` removed and replaced with a simple pattern similar to the `esp-hal` one.
   - Check https://github.com/esp-rs/esp-idf-hal/pull/529 for details on that change
+- HTTP: added `task_caps` option into server `Configuration`
 
 ### Fixed
 - `WifiDriver::get_ap_info` not takes `&self` instead of `&mut self`. Convenience method `EspWifi::get_ap_info` that delegates
