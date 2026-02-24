@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add raw bindings for `esp_lcd_mipi_dsi.h` and `esp_ldo_regulator.h` (#398)
 - Pulse counter bindings for esp32p4
 - `impl core::error::Error for EspError`
+- Added bindings for esp_wifi_remote and esp_hosted
 
 ### Fixed
 - Fix the `esp_app_desc!` macro so the reserv3 field is correct for ESP IDF v5.4

@@ -136,6 +136,14 @@
 #endif
 #endif
 
+#ifdef ESP_IDF_COMP_ESP_WIFI_REMOTE_ENABLED
+#include "esp_wifi_remote.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_HOSTED_ENABLED
+#include "esp_hosted.h"
+#endif
+
 #if defined(ESP_IDF_COMP_ESP_COEX_ENABLED) && (ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 1)
 #include "esp_coexist.h"
 #ifdef CONFIG_SOC_IEEE802154_SUPPORTED
