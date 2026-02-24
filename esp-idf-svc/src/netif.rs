@@ -80,9 +80,26 @@ impl NetifStack {
     fn default_mac(&self) -> Result<Option<[u8; 6]>, EspError> {
         if let Some(mac_type) = self.default_mac_raw_type() {
             let mut mac = [0; 6];
-            esp!(unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) })?;
 
-            Ok(Some(mac))
+            // On SoCs without native WiFi hardware (e.g., ESP32-P4 using
+            // esp_wifi_remote), the eFuse has no WiFi MAC address.
+            // esp_read_mac will fail for WiFi MAC types. Return None and let
+            // esp_wifi_start() set the real MAC from the companion chip later.
+            #[cfg(not(esp_idf_soc_wifi_supported))]
+            {
+                let err = unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) };
+                if err == ESP_OK {
+                    return Ok(Some(mac));
+                } else {
+                    return Ok(None);
+                }
+            }
+
+            #[cfg(esp_idf_soc_wifi_supported)]
+            {
+                esp!(unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) })?;
+                Ok(Some(mac))
+            }
         } else {
             Ok(None)
         }

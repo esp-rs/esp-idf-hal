@@ -2373,18 +2373,39 @@ impl EspEventDeserializer for WifiEvent<'_> {
                 ),
             )))]
             wifi_event_t_WIFI_EVENT_HOME_CHANNEL_CHANGE => {
-                let payload = unsafe {
-                    (data.payload.unwrap() as *const _ as *const wifi_event_home_channel_change_t)
-                        .as_ref()
-                }
-                .unwrap();
+                #[cfg(esp_idf_soc_wifi_supported)]
+                {
+                    let payload = unsafe {
+                        (data.payload.unwrap() as *const _
+                            as *const wifi_event_home_channel_change_t)
+                            .as_ref()
+                    }
+                    .unwrap();
 
-                WifiEvent::HomeChannelChange(HomeChannelChange {
-                    old_chan: payload.old_chan,
-                    old_snd: payload.old_snd.try_into().ok(),
-                    new_chan: payload.new_chan,
-                    new_snd: payload.new_snd.try_into().ok(),
-                })
+                    WifiEvent::HomeChannelChange(HomeChannelChange {
+                        old_chan: payload.old_chan,
+                        old_snd: payload.old_snd.try_into().ok(),
+                        new_chan: payload.new_chan,
+                        new_snd: payload.new_snd.try_into().ok(),
+                    })
+                }
+
+                // On SoCs without native WiFi (using esp_wifi_remote), this
+                // event may fire without a payload.
+                #[cfg(not(esp_idf_soc_wifi_supported))]
+                {
+                    let payload = data
+                        .payload
+                        .map(|p| p as *const _ as *const wifi_event_home_channel_change_t)
+                        .and_then(|p| unsafe { p.as_ref() });
+
+                    WifiEvent::HomeChannelChange(HomeChannelChange {
+                        old_chan: payload.map_or(0, |p| p.old_chan),
+                        old_snd: payload.and_then(|p| p.old_snd.try_into().ok()),
+                        new_chan: payload.map_or(0, |p| p.new_chan),
+                        new_snd: payload.and_then(|p| p.new_snd.try_into().ok()),
+                    })
+                }
             }
             _ => panic!("unknown event ID: {event_id}"),
         }
