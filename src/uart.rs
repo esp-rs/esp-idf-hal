@@ -788,7 +788,9 @@ impl<'d> UartDriver<'d> {
         };
         if let Err(err) = new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle) {
             // Roll back driver registration on failure to avoid dangling driver state
-            let _ = delete_driver(UART::port() as _);
+            if let Err(e) = delete_driver(UART::port() as _) {
+                ::log::error!("Failed to delete UART driver: {}", e);
+            }
 
             return Err(err);
         }
