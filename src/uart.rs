@@ -786,7 +786,12 @@ impl<'d> UartDriver<'d> {
         } else {
             None
         };
-        new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle)?;
+        if let Err(err) = new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle) {
+            // Roll back driver registration on failure to avoid dangling driver state
+            let _ = delete_driver(UART::port() as _);
+
+            return Err(err);
+        }
 
         // SAFTEY: okay because Queue borrows self
         // SAFETY: we can safely use UartEvent instead of uart_event_t because of repr(transparent)
