@@ -27,11 +27,7 @@ impl Display for EspIOError {
     }
 }
 
-#[cfg(not(feature = "std"))]
 impl core::error::Error for EspIOError {}
-
-#[cfg(feature = "std")]
-impl std::error::Error for EspIOError {}
 
 pub mod asynch {
     pub use embedded_io_async::*;
