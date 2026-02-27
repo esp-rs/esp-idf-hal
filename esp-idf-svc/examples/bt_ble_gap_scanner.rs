@@ -89,7 +89,7 @@ mod example {
 
     #[derive(Default)]
     struct State {
-        discovered: heapless::FnvIndexSet<BluetoothAddress, 64>,
+        discovered: heapless::index_set::FnvIndexSet<BluetoothAddress, 64>,
     }
 
     #[derive(Clone)]

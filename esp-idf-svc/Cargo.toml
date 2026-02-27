@@ -18,6 +18,7 @@ rust-version = "1.82"
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal" }
+embedded-svc = { git = "https://github.com/esp-rs/embedded-svc" }
 
 [lib]
 harness = false
@@ -48,7 +49,7 @@ libstart = ["esp-idf-hal/libstart"]
 use_serde = ["embedded-svc/use_serde"]
 
 [dependencies]
-heapless = { version = "0.8", default-features = false }
+heapless = { version = "0.9", default-features = false }
 num_enum = { version = "0.7", default-features = false }
 enumset = { version = "1", default-features = false }
 log = { version = "0.4", default-features = false }
