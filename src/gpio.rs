@@ -1118,16 +1118,8 @@ impl<MODE: InputMode> PinDriver<'_, MODE> {
         notif.reset();
 
         match interrupt_type {
-            InterruptType::LowLevel => {
-                if self.is_low() {
-                    return Ok(());
-                }
-            }
-            InterruptType::HighLevel => {
-                if self.is_high() {
-                    return Ok(());
-                }
-            }
+            InterruptType::LowLevel if self.is_low() => return Ok(()),
+            InterruptType::HighLevel if self.is_high() => return Ok(()),
             _ => (),
         }
 
