@@ -1531,7 +1531,7 @@ macro_rules! impl_dac {
 
 macro_rules! impl_touch {
     ($pxi:ident: $pin:expr, TOUCH: $touch:expr) => {
-        #[cfg(any(esp32, esp32s2, esp32s3))]
+        #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
         impl TouchPin for $pxi<'_> {
             type TouchChannel = TOUCHCH<$touch>;
         }
