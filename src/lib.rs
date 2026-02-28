@@ -111,7 +111,6 @@ pub mod rmt {
     pub use crate::rmt_legacy::*;
 }
 
-#[cfg(not(feature = "riscv-ulp-hal"))]
 pub mod sleep;
 
 pub mod rom;
