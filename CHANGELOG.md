@@ -31,6 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fade_with_time`, `fade_with_step`, `fade_stop` for `LedcDriver`
 - `write_with_break` for `UartDriver` and `UartTxDriver`
 - New RMT API
+- New Deep and Light Sleep API (#555)
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
