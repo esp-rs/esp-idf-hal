@@ -19,11 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ThreadSpawnConfiguration::name` changed from `&'static [u8]` to `&'static core::ffi::CStr` as it is actually a `CStr`
 - The `rmt` module is now only exposed on chips that support the rmt feature
 - The `onewire` code has been updated for 1.0.4 and the new rmt API
+- Implement new gptimer API. The old API will be available through the `timer-legacy` feature.
+- Update `embedded-io`, `embedded-io-async`, and `heapless` dependencies to their latest versions
+- Raise Rust MSRV to `1.82`
 
 ### Deprecated
 - `DB_11` ADC attenuation in favor of `DB_12` for ESP-IDF V5.0+
 - The old pcnt API (only available with the `pcnt-legacy` feature).
 - The old rmt API (only available with the `rmt-legacy` feature)
+- The old gptimer API (only available with the `timer-legacy` feature)
 
 ### Added
 - `Send` for `AsyncCanDriver`
@@ -31,16 +35,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `fade_with_time`, `fade_with_step`, `fade_stop` for `LedcDriver`
 - `write_with_break` for `UartDriver` and `UartTxDriver`
 - New RMT API
+- New GPTimer API
+- esp32p4 pins and core command added.
+- Support for esp32c5 and esp32c61
+- Made the modem peripheral for esp32p4 dependent on esp_wifi_remote
+- LDO support for esp32p4
+- Support for `PLL_F48M` UART clock source on ESP32-H2
+- LCD driver support; DSI peripheral support with the LCD driver for esp32p4
 - New Deep and Light Sleep API (#555)
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
 - Fix the SDMMC driver for ESP-IDF V5.5+
+- Fix UART initialization panic on ESP32-H2 with ESP-IDF 5.x due to unsupported `PLL_F48M` clock source
 - Replace Arc with Rc in ledc_threads example (#514)
 - Fix outdated task docs
 - CAN: fix wrong Alert enum indexing / remove wrong TryFromPrimitive derive (#532)
 - GPIO: Allow interoperability with other code that initializes the GPIO ISR service (#537)
 - SD card support is no longer behind the `experimental` feature
+- Added 6th TX channel config argument for IDF 5.5.2+.
+- esp32p4 uses vPortExitCriticalMultiCore instead of vPortExitCritical
+- UART: Fix dangling driver state when initialization fails mid-way
 
 ## [0.45.2] - 2025-01-15
 

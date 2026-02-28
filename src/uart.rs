@@ -243,10 +243,20 @@ pub mod config {
         /// UART source clock from `XTAL`
         #[cfg(esp_idf_soc_uart_support_xtal_clk)]
         Crystal,
-        /// UART source clock from `XTAL`
+        /// UART source clock from `PLL_F80M`
         #[allow(non_camel_case_types)]
         #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
         PLL_F80M,
+        /// UART source clock from `PLL_F48M` (ESP32-H2)
+        #[allow(non_camel_case_types)]
+        #[cfg(not(any(
+            esp_idf_soc_uart_support_apb_clk,
+            esp_idf_soc_uart_support_pll_f40m_clk,
+            esp_idf_soc_uart_support_pll_f80m_clk,
+            esp_idf_soc_uart_support_ref_tick,
+            esp_idf_version_major = "4"
+        )))]
+        PLL_F48M,
         /// UART source clock from `REF_TICK`
         #[cfg(esp_idf_soc_uart_support_ref_tick)]
         RefTick,
@@ -275,6 +285,14 @@ pub mod config {
                 XTAL_SCLK => SourceClock::Crystal,
                 #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
                 PLL_F80M_SCLK => SourceClock::PLL_F80M,
+                #[cfg(not(any(
+                    esp_idf_soc_uart_support_apb_clk,
+                    esp_idf_soc_uart_support_pll_f40m_clk,
+                    esp_idf_soc_uart_support_pll_f80m_clk,
+                    esp_idf_soc_uart_support_ref_tick,
+                    esp_idf_version_major = "4"
+                )))]
+                PLL_F48M_SCLK => SourceClock::PLL_F48M,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 REF_TICK_SCLK => SourceClock::RefTick,
                 _ => unreachable!(),
@@ -320,6 +338,17 @@ pub mod config {
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_pll_f80m_clk))]
     const PLL_F80M_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_PLL_F80M;
 
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        not(any(
+            esp_idf_soc_uart_support_apb_clk,
+            esp_idf_soc_uart_support_pll_f40m_clk,
+            esp_idf_soc_uart_support_pll_f80m_clk,
+            esp_idf_soc_uart_support_ref_tick
+        ))
+    ))]
+    const PLL_F48M_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_PLL_F48M;
+
     #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_uart_support_ref_tick))]
     const REF_TICK_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_REF_TICK;
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_ref_tick))]
@@ -346,6 +375,14 @@ pub mod config {
                 SourceClock::Crystal => XTAL_SCLK,
                 #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
                 SourceClock::PLL_F80M => PLL_F80M_SCLK,
+                #[cfg(not(any(
+                    esp_idf_soc_uart_support_apb_clk,
+                    esp_idf_soc_uart_support_pll_f40m_clk,
+                    esp_idf_soc_uart_support_pll_f80m_clk,
+                    esp_idf_soc_uart_support_ref_tick,
+                    esp_idf_version_major = "4"
+                )))]
+                SourceClock::PLL_F48M => PLL_F48M_SCLK,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 SourceClock::RefTick => REF_TICK_SCLK,
             }
@@ -749,7 +786,14 @@ impl<'d> UartDriver<'d> {
         } else {
             None
         };
-        new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle)?;
+        if let Err(err) = new_common(uart, Some(tx), Some(rx), cts, rts, config, q_handle) {
+            // Roll back driver registration on failure to avoid dangling driver state
+            if let Err(e) = delete_driver(UART::port() as _) {
+                ::log::error!("Failed to delete UART driver: {}", e);
+            }
+
+            return Err(err);
+        }
 
         // SAFTEY: okay because Queue borrows self
         // SAFETY: we can safely use UartEvent instead of uart_event_t because of repr(transparent)

@@ -4,9 +4,14 @@ use crate::gpio;
 use crate::i2c;
 #[cfg(esp_idf_soc_i2s_supported)]
 use crate::i2s;
+#[cfg(esp32p4)]
+use crate::lcd;
+#[cfg(esp32p4)]
+use crate::ldo;
 use crate::ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 use crate::mac;
+#[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
 use crate::modem;
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(all(
@@ -29,7 +34,7 @@ use crate::spi;
 use crate::task::watchdog;
 #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
 use crate::temp_sensor;
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
 use crate::timer;
 use crate::uart;
 #[cfg(all(
@@ -99,6 +104,16 @@ pub struct Peripherals {
     pub pcnt7: pcnt::PCNT7<'static>,
     pub can: can::CAN<'static>,
     pub ledc: ledc::LEDC,
+    #[cfg(esp32p4)]
+    pub ldo1: ldo::LDO1<'static, ldo::Fixed>,
+    #[cfg(esp32p4)]
+    pub ldo2: ldo::LDO2<'static, ldo::Fixed>,
+    #[cfg(esp32p4)]
+    pub ldo3: ldo::LDO3<'static, ldo::Adjustable>,
+    #[cfg(esp32p4)]
+    pub ldo4: ldo::LDO4<'static, ldo::Adjustable>,
+    #[cfg(esp32p4)]
+    pub dsi: lcd::DSI<'static>,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
     #[cfg(feature = "rmt-legacy")]
@@ -110,6 +125,7 @@ pub struct Peripherals {
     pub ulp: ulp::ULP<'static>,
     #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
     pub mac: mac::MAC<'static>,
+    #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
     pub modem: modem::Modem<'static>,
     #[cfg(esp_idf_soc_sdmmc_host_supported)]
     pub sdmmc0: sd::mmc::SDMMC0<'static>,
@@ -118,15 +134,15 @@ pub struct Peripherals {
     #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
     pub temp_sensor: temp_sensor::TempSensor<'static>,
     // TODO: Check the timer story for c2, h2, c5, c6, and p4
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
     pub timer00: timer::TIMER00<'static>,
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
     #[cfg(any(esp32, esp32s2, esp32s3))]
     pub timer01: timer::TIMER01<'static>,
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
     #[cfg(not(esp32c2))]
     pub timer10: timer::TIMER10<'static>,
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
     #[cfg(any(esp32, esp32s2, esp32s3))]
     pub timer11: timer::TIMER11<'static>,
     #[cfg(any(
@@ -227,6 +243,16 @@ impl Peripherals {
             pcnt7: pcnt::PCNT7::steal(),
             can: can::CAN::steal(),
             ledc: ledc::LEDC::new(),
+            #[cfg(esp32p4)]
+            ldo1: ldo::LDO1::steal(),
+            #[cfg(esp32p4)]
+            ldo2: ldo::LDO2::steal(),
+            #[cfg(esp32p4)]
+            ldo3: ldo::LDO3::steal(),
+            #[cfg(esp32p4)]
+            ldo4: ldo::LDO4::steal(),
+            #[cfg(esp32p4)]
+            dsi: lcd::DSI::steal(),
             #[cfg(esp32)]
             hledc: ledc::HLEDC::new(),
             #[cfg(feature = "rmt-legacy")]
@@ -238,6 +264,7 @@ impl Peripherals {
             ulp: ulp::ULP::steal(),
             #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
             mac: mac::MAC::steal(),
+            #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
             modem: modem::Modem::steal(),
             #[cfg(esp_idf_soc_sdmmc_host_supported)]
             sdmmc0: sd::mmc::SDMMC0::steal(),
@@ -245,15 +272,15 @@ impl Peripherals {
             sdmmc1: sd::mmc::SDMMC1::steal(),
             #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
             temp_sensor: temp_sensor::TempSensor::steal(),
-            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
             timer00: timer::TIMER00::steal(),
-            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
             #[cfg(any(esp32, esp32s2, esp32s3))]
             timer01: timer::TIMER01::steal(),
-            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
             #[cfg(not(esp32c2))]
             timer10: timer::TIMER10::steal(),
-            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            #[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
             #[cfg(any(esp32, esp32s2, esp32s3))]
             timer11: timer::TIMER11::steal(),
             #[cfg(any(

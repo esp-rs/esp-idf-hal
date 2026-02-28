@@ -162,10 +162,7 @@ impl Symbol {
             }
         };
 
-        // This can be replaced with a call to `core::iter::repeat_n` once the target rust version is high enough
-        core::iter::repeat(*self)
-            .take(count as usize)
-            .chain(core::iter::once(last_symbol).flatten())
+        core::iter::repeat_n(*self, count as usize).chain(core::iter::once(last_symbol).flatten())
     }
 
     #[must_use]

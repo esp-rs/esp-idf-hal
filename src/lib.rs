@@ -38,9 +38,16 @@ pub mod i2c;
 pub mod i2s;
 pub mod interrupt;
 pub mod io;
+#[cfg(esp32p4)]
+#[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
+pub mod lcd;
+#[cfg(esp32p4)]
+#[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
+pub mod ldo;
 pub mod ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 pub mod mac;
+#[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
 pub mod modem;
 #[cfg(all(
     esp_idf_soc_rmt_supported,
@@ -99,7 +106,7 @@ pub mod reset;
 pub mod rmt;
 #[cfg(feature = "rmt-legacy")]
 #[cfg_attr(
-    feature = "rmt-legacy"
+    feature = "rmt-legacy",
     deprecated(
         since = "0.46.0",
         note = "use the new `rmt` api by disabling the `rmt-legacy` feature"
@@ -120,8 +127,35 @@ pub mod sys;
 pub mod task;
 #[cfg(all(esp_idf_soc_temp_sensor_supported, esp_idf_version_major = "5"))]
 pub mod temp_sensor;
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+
+#[cfg(all(
+    esp_idf_soc_gptimer_supported,
+    not(feature = "timer-legacy"),
+    feature = "alloc"
+))]
+#[cfg_attr(
+    feature = "nightly",
+    doc(cfg(all(
+        esp_idf_soc_gptimer_supported,
+        not(feature = "timer-legacy"),
+        feature = "alloc"
+    )))
+)]
 pub mod timer;
+#[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
+#[cfg_attr(
+    all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)),
+    deprecated(
+        since = "0.46.0",
+        note = "use the new `timer` api by disabling the `timer-legacy` feature"
+    )
+)]
+mod timer_legacy;
+#[cfg(all(feature = "timer-legacy", not(esp_idf_version_at_least_6_0_0)))]
+pub mod timer {
+    pub use crate::timer_legacy::*;
+}
+
 pub mod uart;
 #[cfg(all(
     any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
