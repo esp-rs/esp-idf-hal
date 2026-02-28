@@ -118,6 +118,8 @@ pub mod rmt {
     pub use crate::rmt_legacy::*;
 }
 
+pub mod sleep;
+
 pub mod rom;
 pub mod sd;
 pub mod spi;

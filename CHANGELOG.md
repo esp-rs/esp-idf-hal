@@ -42,6 +42,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LDO support for esp32p4
 - Support for `PLL_F48M` UART clock source on ESP32-H2
 - LCD driver support; DSI peripheral support with the LCD driver for esp32p4
+- New Deep and Light Sleep API (#555)
 
 ### Fixed
 - Fix pcnt_rotary_encoder example for esp32
