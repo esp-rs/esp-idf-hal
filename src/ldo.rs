@@ -28,8 +28,6 @@
 //! FreeRtos::delay_ms(20);
 //! ```
 
-#![cfg(esp32p4)]
-
 use core::marker::PhantomData;
 
 use esp_idf_sys::*;
@@ -94,15 +92,17 @@ impl<'d, V: VoltageType> LdoChannel<'d, V> {
         _ldo: LDO,
         config: &config::LdoChannelConfig,
     ) -> Result<LdoChannel<'d, V>, EspError> {
-        let mut ldo_config = esp_ldo_channel_config_t::default();
-        ldo_config.chan_id = LDO::channel();
-        ldo_config.voltage_mv = config.voltage_mv;
-        ldo_config.flags = esp_ldo_channel_config_t_ldo_extra_flags {
-            _bitfield_1: esp_ldo_channel_config_t_ldo_extra_flags::new_bitfield_1(
-                V::IS_ADJUSTABLE as u32,
-                config.owned_by_hw as u32,
-                0, // bypass field (deprecated, always set to 0)
-            ),
+        let ldo_config = esp_ldo_channel_config_t {
+            chan_id: LDO::channel(),
+            voltage_mv: config.voltage_mv,
+            flags: esp_ldo_channel_config_t_ldo_extra_flags {
+                _bitfield_1: esp_ldo_channel_config_t_ldo_extra_flags::new_bitfield_1(
+                    V::IS_ADJUSTABLE as u32,
+                    config.owned_by_hw as u32,
+                    0, // bypass field (deprecated, always set to 0)
+                ),
+                ..Default::default()
+            },
             ..Default::default()
         };
 

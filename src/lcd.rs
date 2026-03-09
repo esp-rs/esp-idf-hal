@@ -130,6 +130,7 @@ pub mod config {
         /// * `lane_bit_rate_mbps` - Lane bit rate in Mbps (e.g. 1000, 1250)
         /// * `dpi_clock_freq_mhz` - DPI clock frequency in MHz (e.g. 48, 52)
         /// * `pixel_format` - Pixel format for the display
+        #[allow(clippy::unnecessary_cast)]
         pub fn new(
             video_timing: VideoTiming,
             num_data_lanes: u8,
@@ -791,7 +792,7 @@ impl<'d, S: DpiPanelState> LcdDriver<'d, S> {
 
     fn require_control_panel(&self) -> Result<PanelHandle, EspError> {
         self.control_panel_handle
-            .ok_or_else(|| EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
+            .ok_or(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())
     }
 
     /// Reset the panel
@@ -880,7 +881,7 @@ impl<'d> LcdDriver<'d, NoDpiPanel> {
             esp!(esp_lcd_new_dsi_bus(&config.bus_config, &mut bus_handle))?;
 
             let bus_handle = NonNull::new(bus_handle as *mut c_void)
-                .ok_or_else(|| EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
+                .ok_or(EspError::from_infallible::<ESP_ERR_INVALID_STATE>())?;
 
             // Create DBI IO interface
             let mut dbi_io: PanelIoHandle = core::ptr::null_mut();
@@ -946,16 +947,14 @@ impl<'d> LcdDriver<'d, NoDpiPanel> {
             };
 
             // Create semaphore + callback so draw_bitmap can wait for DMA completion
-            let sem = create_binary_semaphore().map_err(|e| {
+            let sem = create_binary_semaphore().inspect_err(|_| {
                 let _ = esp_lcd_panel_del(panel_handle);
                 let _ = Box::from_raw(dpi_config_ptr);
-                e
             })?;
-            register_draw_done_cb(panel_handle, sem).map_err(|e| {
+            register_draw_done_cb(panel_handle, sem).inspect_err(|_| {
                 vQueueDelete(sem);
                 let _ = esp_lcd_panel_del(panel_handle);
                 let _ = Box::from_raw(dpi_config_ptr);
-                e
             })?;
 
             // Prevent Drop from running on self (we're moving fields to the new driver)
