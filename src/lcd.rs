@@ -141,7 +141,7 @@ pub mod config {
                 bus_id: 0,
                 num_data_lanes,
                 phy_clk_src: soc_module_clk_t_SOC_MOD_CLK_PLL_F160M as u32,
-                lane_bit_rate_mbps,
+                lane_bit_rate_mbps: lane_bit_rate_mbps as _,
             };
 
             let dbi_config = esp_lcd_dbi_io_config_t {
@@ -161,7 +161,7 @@ pub mod config {
                 out_color_format: color_format,
                 num_fbs: 1,
                 video_timing: esp_timing,
-                dpi_clock_freq_mhz,
+                dpi_clock_freq_mhz: dpi_clock_freq_mhz as _,
                 ..unsafe { core::mem::zeroed() }
             };
             dpi_config.flags.set_use_dma2d(1);

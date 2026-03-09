@@ -23,6 +23,7 @@ jobs:
         target:
           - riscv32imc-esp-espidf
           - riscv32imac-esp-espidf
+          - riscv32imafc-esp-espidf
           - xtensa-esp32-espidf
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
@@ -31,7 +32,7 @@ jobs:
           - v5.2.5
           - v5.3.3
           - v5.4.2
-          - v5.5
+          - v5.5.3
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3

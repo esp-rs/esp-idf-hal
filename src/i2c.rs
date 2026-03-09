@@ -19,6 +19,7 @@ crate::embedded_hal_error!(
 );
 
 #[allow(unused)]
+#[cfg(not(esp32c2))]
 const APB_TICK_PERIOD_NS: u32 = 1_000_000_000 / APB_CLK_FREQ;
 
 #[cfg(esp_idf_xtal_freq_48)]
