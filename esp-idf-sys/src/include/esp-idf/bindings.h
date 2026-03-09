@@ -600,7 +600,7 @@
 #endif
 #endif
 
-#ifndef CONFIG_IDF_TARGET_ESP32S2 // No BT in ESP32-S2
+#if !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32P4) // No BT in ESP32-S2 & ESP32-P4
 
 // If a custom sdkconfig file has been used to enable Bluetooth support,
 // since by default neither of the BT stacks is enabled.
