@@ -331,7 +331,7 @@ impl From<Level> for embedded_hal::digital::PinState {
 
 pub trait GPIOMode {}
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 pub trait RTCMode {}
 
 pub trait InputMode {
@@ -346,13 +346,13 @@ pub struct Disabled;
 pub struct Input;
 pub struct Output;
 pub struct InputOutput;
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 pub struct RtcDisabled;
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 pub struct RtcInput;
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 pub struct RtcOutput;
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 pub struct RtcInputOutput;
 
 impl GPIOMode for Disabled {}
@@ -379,34 +379,34 @@ impl OutputMode for Output {
     const RTC: bool = false;
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl RTCMode for RtcDisabled {}
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl RTCMode for RtcInput {}
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl InputMode for RtcInput {
     const RTC: bool = true;
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl RTCMode for RtcInputOutput {}
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl InputMode for RtcInputOutput {
     const RTC: bool = true;
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl OutputMode for RtcInputOutput {
     const RTC: bool = true;
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl RTCMode for RtcOutput {}
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl OutputMode for RtcOutput {
     const RTC: bool = true;
 }
@@ -492,7 +492,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     /// Try to convert the pin driver into an RTC disabled pin driver.
     ///
     /// Return an error if the pin cannot be disabled.
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     #[inline]
     pub fn try_into_rtc_disabled(self) -> Result<PinDriver<'d, RtcDisabled>, EspError> {
         PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_DISABLED)
@@ -501,7 +501,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     /// Try to convert the pin driver into an RTC input pin driver.
     ///
     /// Return an error if the pin cannot be set as RTC input.
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     #[inline]
     pub fn try_into_rtc_input(self, pull: Pull) -> Result<PinDriver<'d, RtcInput>, EspError> {
         let mut pin = PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_INPUT_ONLY)?;
@@ -514,7 +514,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     /// Try to convert the pin driver into an RTC output pin driver.
     ///
     /// Return an error if the pin cannot be set as RTC output.
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     #[inline]
     pub fn try_into_rtc_output(self) -> Result<PinDriver<'d, RtcOutput>, EspError> {
         PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_ONLY)
@@ -523,7 +523,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     /// Try to convert the pin driver into an RTC output open-drain pin driver.
     ///
     /// Return an error if the pin cannot be set as RTC output open-drain.
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     #[inline]
     pub fn try_into_rtc_output_od(self) -> Result<PinDriver<'d, RtcOutput>, EspError> {
         PinDriver::new_rtc(self.pin as _, rtc_gpio_mode_t_RTC_GPIO_MODE_OUTPUT_OD)
@@ -532,7 +532,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     /// Try to convert the pin driver into an RTC input-output pin driver.
     ///
     /// Return an error if the pin cannot be set as RTC input-output.
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     #[inline]
     pub fn try_into_rtc_input_output(
         self,
@@ -549,7 +549,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     /// Try to convert the pin driver into an RTC input-output open-drain pin driver.
     ///
     /// Return an error if the pin cannot be set as RTC input-output open-drain.
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     #[inline]
     pub fn try_into_rtc_input_output_od(
         self,
@@ -626,7 +626,7 @@ impl<'d> PinDriver<'d, Output> {
     }
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl<'d> PinDriver<'d, RtcDisabled> {
     /// Creates the driver for a pin in disabled state.
     #[inline]
@@ -635,7 +635,7 @@ impl<'d> PinDriver<'d, RtcDisabled> {
     }
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl<'d> PinDriver<'d, RtcInput> {
     /// Creates the driver for a pin in RTC input state.
     #[inline]
@@ -648,7 +648,7 @@ impl<'d> PinDriver<'d, RtcInput> {
     }
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl<'d> PinDriver<'d, RtcInputOutput> {
     /// Creates the driver for a pin in RTC input-output state.
     #[inline]
@@ -677,7 +677,7 @@ impl<'d> PinDriver<'d, RtcInputOutput> {
     }
 }
 
-#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+#[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
 impl<'d> PinDriver<'d, RtcOutput> {
     /// Creates the driver for a pin in RTC output state.
     #[inline]
@@ -706,10 +706,10 @@ impl<'d, MODE> PinDriver<'d, MODE> {
         let mut cap: gpio_drive_cap_t = 0;
 
         if MODE::RTC {
-            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
             esp!(unsafe { rtc_gpio_get_drive_capability(self.pin as _, &mut cap) })?;
 
-            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
+            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32h4))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_get_drive_capability(self.pin as _, &mut cap) })?;
@@ -724,10 +724,10 @@ impl<'d, MODE> PinDriver<'d, MODE> {
         MODE: OutputMode,
     {
         if MODE::RTC {
-            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
             esp!(unsafe { rtc_gpio_set_drive_capability(self.pin as _, strength.into()) })?;
 
-            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
+            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32h4))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_set_drive_capability(self.pin as _, strength.into()) })?;
@@ -760,7 +760,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
         let res;
 
         if MODE::RTC {
-            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
             {
                 res = if unsafe { rtc_gpio_get_level(self.pin as _) } != 0 {
                     Level::High
@@ -769,7 +769,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
                 };
             }
 
-            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
+            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32h4))]
             unreachable!();
         } else if unsafe { gpio_get_level(self.pin as _) } != 0 {
             res = Level::High;
@@ -807,9 +807,9 @@ impl<'d, MODE> PinDriver<'d, MODE> {
 
         let pin = self.pin as u32;
 
-        #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
+        #[cfg(any(esp32c3, esp32c2, esp32h2, esp32h4))]
         let is_set_high = unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 };
-        #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+        #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
         let is_set_high = if pin <= 31 {
             // GPIO0 - GPIO31
             unsafe { (*(GPIO_OUT_REG as *const u32) >> pin) & 0x01 != 0 }
@@ -853,10 +853,10 @@ impl<'d, MODE> PinDriver<'d, MODE> {
         };
 
         if MODE::RTC {
-            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
             esp!(unsafe { rtc_gpio_set_level(self.pin as _, on) })?;
 
-            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
+            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32h4))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_set_level(self.pin as _, on) })?;
@@ -883,7 +883,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
         MODE: InputMode,
     {
         if MODE::RTC {
-            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+            #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
             unsafe {
                 match pull {
                     Pull::Down => {
@@ -905,7 +905,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
                 }
             }
 
-            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32c5))]
+            #[cfg(any(esp32c3, esp32c2, esp32h2, esp32h4))]
             unreachable!();
         } else {
             esp!(unsafe { gpio_set_pull_mode(self.pin as _, pull.into()) })?;
@@ -1075,7 +1075,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     }
 
     #[inline]
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     fn new_rtc(pin: PinId, mode: rtc_gpio_mode_t) -> Result<Self, EspError>
     where
         MODE: RTCMode,
@@ -1372,7 +1372,7 @@ pub unsafe fn set_isr_service_flag_unchecked() {
 pub(crate) unsafe fn rtc_reset_pin(pin: i32) -> Result<(), EspError> {
     gpio_reset_without_pull(pin)?;
 
-    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32c5)))]
+    #[cfg(not(any(esp32c3, esp32c2, esp32h2, esp32h4)))]
     esp!(rtc_gpio_init(pin))?;
 
     Ok(())
@@ -2089,7 +2089,7 @@ mod chip {
     }
 }
 
-#[cfg(esp32h2)]
+#[cfg(any(esp32h2, esp32h4))]
 mod chip {
     #[cfg(feature = "alloc")]
     extern crate alloc;
