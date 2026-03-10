@@ -18,6 +18,9 @@ rust-version = "1.82"
 [lib]
 harness = false
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
+
 [features]
 default = ["std", "binstart"]
 std = ["alloc", "esp-idf-sys/std"]
