@@ -2231,7 +2231,7 @@ mod chip {
         [PIN_ISR_INIT; 29];
 
     #[allow(clippy::type_complexity)]
-    pub(crate) static PIN_NOTIF: [HalIsrNotification; 31] = [PIN_NOTIF_INIT; 29];
+    pub(crate) static PIN_NOTIF: [HalIsrNotification; 29] = [PIN_NOTIF_INIT; 29];
 
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
