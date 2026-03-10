@@ -88,6 +88,7 @@ pub struct LdoChannel<'d, V: VoltageType> {
 
 impl<'d, V: VoltageType> LdoChannel<'d, V> {
     /// Create (acquire) a new LDO channel with the given configuration
+    #[allow(clippy::needless_update)]
     pub fn new<LDO: Ldo<VoltageType = V> + 'd>(
         _ldo: LDO,
         config: &config::LdoChannelConfig,
