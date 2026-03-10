@@ -36,7 +36,7 @@ mod example {
         // NOTE: Adjust the voltage to match your board's design and panel
         // requirements. 2.5 V is a common value for the DSI PHY supply.
         let ldo_cfg = LdoChannelConfig::new(2500);
-        let _ldo3 = LdoChannel::new(&peripherals.ldo3, &ldo_cfg)?;
+        let _ldo3 = LdoChannel::new(peripherals.ldo3, &ldo_cfg)?;
 
         // Give the LDO some time to stabilize before enabling the panel.
         std::thread::sleep(Duration::from_millis(20));
@@ -76,16 +76,21 @@ mod example {
         // Use -1 for no reset GPIO.
         dev_config.reset_gpio_num = -1;
 
+        #[allow(unused_mut)]
         let mut control_panel: PanelHandle = core::ptr::null_mut();
-        unsafe {
-            // Replace `esp_lcd_new_panel_ili9881c` with the appropriate
-            // vendor-specific constructor for your panel if needed.
-            esp!(esp_lcd_new_panel_ili9881c(
-                lcd.dbi_io_handle(),
-                &dev_config,
-                &mut control_panel
-            ))?;
-        }
+        // Replace `esp_lcd_new_panel_ili9881c` with the appropriate
+        // vendor-specific constructor for your panel if needed.
+        //
+        // Note that you DO need to include the ESP-IDf custom component
+        // corresponding to your panel (e.g., ILI9881C DSI panel) in your project for this to work.
+        //
+        // unsafe {
+        //     esp!(esp_lcd_new_panel_ili9881c(
+        //         lcd.dbi_io_handle(),
+        //         &dev_config,
+        //         &mut control_panel
+        //     ))?;
+        // }
         lcd.set_control_panel(control_panel)?;
 
         // Initialize the control panel

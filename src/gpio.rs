@@ -2616,36 +2616,32 @@ mod chip {
     #[allow(clippy::type_complexity)]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 54] = [PIN_NOTIF_INIT; 54];
 
-    // Any pin can be used as RTC. The documentation mentions that they need to be routed
-    // to the RTC low power system.
-    // ADC1 is available on GPIOs 16-23
-    // ADC2 is available on GPIOs 48-53
     pin!(Gpio0:0, IO, RTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio1:1, IO, RTC:1, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio2:2, IO, RTC:2, NOADC:NOADC, NODAC:0, TOUCH:1);
-    pin!(Gpio3:3, IO, RTC:3, NOADC:NOADC, NODAC:0, TOUCH:2);
-    pin!(Gpio4:4, IO, RTC:4, NOADC:NOADC, NODAC:0, TOUCH:3);
-    pin!(Gpio5:5, IO, RTC:5, NOADC:NOADC, NODAC:0, TOUCH:4);
-    pin!(Gpio6:6, IO, RTC:6, NOADC:NOADC, NODAC:0, TOUCH:5);
-    pin!(Gpio7:7, IO, RTC:7, NOADC:NOADC, NODAC:0, TOUCH:6);
-    pin!(Gpio8:8, IO, RTC:8, NOADC:NOADC, NODAC:0, TOUCH:7);
-    pin!(Gpio9:9, IO, RTC:9, NOADC:NOADC, NODAC:0, TOUCH:8);
+    pin!(Gpio2:2, IO, RTC:2, NOADC:NOADC, NODAC:0, TOUCH:0);
+    pin!(Gpio3:3, IO, RTC:3, NOADC:NOADC, NODAC:0, TOUCH:1);
+    pin!(Gpio4:4, IO, RTC:4, NOADC:NOADC, NODAC:0, TOUCH:2);
+    pin!(Gpio5:5, IO, RTC:5, NOADC:NOADC, NODAC:0, TOUCH:3);
+    pin!(Gpio6:6, IO, RTC:6, NOADC:NOADC, NODAC:0, TOUCH:4);
+    pin!(Gpio7:7, IO, RTC:7, NOADC:NOADC, NODAC:0, TOUCH:5);
+    pin!(Gpio8:8, IO, RTC:8, NOADC:NOADC, NODAC:0, TOUCH:6);
+    pin!(Gpio9:9, IO, RTC:9, NOADC:NOADC, NODAC:0, TOUCH:7);
 
-    pin!(Gpio10:10, IO, RTC:10, NOADC:NOADC, NODAC:0, TOUCH:9);
-    pin!(Gpio11:11, IO, RTC:11, NOADC:NOADC, NODAC:0, TOUCH:10);
-    pin!(Gpio12:12, IO, RTC:12, NOADC:NOADC, NODAC:0, TOUCH:11);
-    pin!(Gpio13:13, IO, RTC:13, NOADC:NOADC, NODAC:0, TOUCH:12);
-    pin!(Gpio14:14, IO, RTC:14, NOADC:NOADC, NODAC:0, TOUCH:13);
-    pin!(Gpio15:15, IO, NORTC:0, NOADC:NOADC, NODAC:0, TOUCH:14);
-    pin!(Gpio16:16, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio17:17, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio18:18, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio19:19, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio10:10, IO, RTC:10, NOADC:NOADC, NODAC:0, TOUCH:8);
+    pin!(Gpio11:11, IO, RTC:11, NOADC:NOADC, NODAC:0, TOUCH:9);
+    pin!(Gpio12:12, IO, RTC:12, NOADC:NOADC, NODAC:0, TOUCH:10);
+    pin!(Gpio13:13, IO, RTC:13, NOADC:NOADC, NODAC:0, TOUCH:11);
+    pin!(Gpio14:14, IO, RTC:14, NOADC:NOADC, NODAC:0, TOUCH:12);
+    pin!(Gpio15:15, IO, RTC:15, NOADC:NOADC, NODAC:0, TOUCH:13);
+    pin!(Gpio16:16, IO, NORTC:0, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio17:17, IO, NORTC:0, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio18:18, IO, NORTC:0, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio19:19, IO, NORTC:0, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
 
-    pin!(Gpio20:20, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio21:21, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio22:22, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio23:23, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio20:20, IO, NORTC:0, ADC1:ADCCH4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio21:21, IO, NORTC:0, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
+    pin!(Gpio22:22, IO, NORTC:0, ADC1:ADCCH6, NODAC:0, NOTOUCH:0);
+    pin!(Gpio23:23, IO, NORTC:0, ADC1:ADCCH7, NODAC:0, NOTOUCH:0);
     pin!(Gpio24:24, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio25:25, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio26:26, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
@@ -2673,13 +2669,13 @@ mod chip {
     pin!(Gpio46:46, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio47:47, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio48:48, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio49:49, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio49:49, IO, NORTC:0, ADC2:ADCCH0, NODAC:0, NOTOUCH:0);
 
-    pin!(Gpio50:50, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio51:51, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio52:52, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio53:53, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio54:54, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio50:50, IO, NORTC:0, ADC2:ADCCH1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio51:51, IO, NORTC:0, ADC2:ADCCH2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio52:52, IO, NORTC:0, ADC2:ADCCH3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio53:53, IO, NORTC:0, ADC2:ADCCH4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio54:54, IO, NORTC:0, ADC2:ADCCH5, NODAC:0, NOTOUCH:0);
 
     pub struct Pins {
         pub gpio0: Gpio0<'static>,
