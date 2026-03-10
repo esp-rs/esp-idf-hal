@@ -30,17 +30,17 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
-#[cfg(not(esp32s2))]
+#[cfg(not(any(esp32s2, esp32p4)))]
 fn main() -> anyhow::Result<()> {
     example::main()
 }
 
-#[cfg(esp32s2)]
+#[cfg(any(esp32s2, esp32p4))]
 fn main() -> anyhow::Result<()> {
-    panic!("ESP32-S2 does not have a BLE radio");
+    panic!("ESP32-S2 and ESP32-P4 do not have a BLE radio");
 }
 
-#[cfg(not(esp32s2))]
+#[cfg(not(any(esp32s2, esp32p4)))]
 mod example {
     use std::sync::{Arc, Condvar, Mutex};
 
