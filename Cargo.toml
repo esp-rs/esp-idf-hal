@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-hal"
-version = "0.46.0"
+version = "0.46.1"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -17,9 +17,6 @@ rust-version = "1.82"
 
 [lib]
 harness = false
-
-[patch.crates-io]
-esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys" }
 
 [features]
 default = ["std", "binstart"]
@@ -64,7 +61,7 @@ embedded-hal-nb = "1"
 embedded-hal-async = "1"
 embedded-io = "0.7"
 embedded-io-async = "0.7"
-esp-idf-sys = { version = "0.37", default-features = false }
+esp-idf-sys = { version = "0.37.1", default-features = false }
 critical-section = { version = "1.2", optional = true, features = ["restore-state-none"] }
 heapless = "0.9"
 enumset = { version = "1.1.4", default-features = false }
@@ -78,7 +75,7 @@ embuild = "0.33"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.37", features = ["binstart"] }
+esp-idf-sys = { version = "0.37.1", features = ["binstart"] }
 mipidsi = "0.5.0"
 display-interface-spi = "0.4.1"
 embedded-graphics = "0.7.1"
