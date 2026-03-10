@@ -25,6 +25,9 @@ mod example {
 
     use esp_idf_sys::*;
 
+    #[allow(unused_variables)]
+    #[allow(unused_assignments)]
+    #[allow(unused_mut)]
     pub fn run() -> anyhow::Result<()> {
         // Link ESP-IDF patches (required for examples)
         esp_idf_hal::sys::link_patches();
@@ -70,15 +73,12 @@ mod example {
         //
         // Note: This requires the corresponding ESP-IDF component
         // (e.g., ILI9881C DSI panel driver) to be enabled.
-        #[allow(unused_variables)]
         let mut dev_config: esp_lcd_panel_dev_config_t = lcd.config().into();
 
         // Configure reset GPIO if your panel uses one (adjust as needed).
         // Use -1 for no reset GPIO.
-        #[allow(unused_assignments)]
         dev_config.reset_gpio_num = -1;
 
-        #[allow(unused_mut)]
         let mut control_panel: PanelHandle = core::ptr::null_mut();
         // Replace `esp_lcd_new_panel_ili9881c` with the appropriate
         // vendor-specific constructor for your panel if needed.
