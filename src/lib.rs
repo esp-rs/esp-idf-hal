@@ -38,8 +38,8 @@ pub mod i2c;
 pub mod i2s;
 pub mod interrupt;
 pub mod io;
-#[cfg(esp32p4)]
-#[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]
+#[cfg(all(esp32p4, feature = "alloc"))]
+#[cfg_attr(feature = "nightly", doc(cfg(all(esp32p4, feature = "alloc"))))]
 pub mod lcd;
 #[cfg(esp32p4)]
 #[cfg_attr(feature = "nightly", doc(cfg(esp32p4)))]

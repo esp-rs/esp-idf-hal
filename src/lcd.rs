@@ -60,9 +60,6 @@
 //! lcd.draw_bitmap(0, 0, 1024, 600, &bitmap)?;
 //! ```
 
-#[cfg(not(feature = "alloc"))]
-compile_error!("LCD module requires the `alloc` feature to be enabled");
-
 use core::ffi::c_void;
 use core::marker::PhantomData;
 use core::mem::ManuallyDrop;
