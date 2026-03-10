@@ -483,7 +483,9 @@ where
             bt_sco_datapath: crate::sys::CONFIG_BTDM_CTRL_BR_EDR_SCO_DATA_PATH_EFF as _,
             auto_latency: crate::sys::BTDM_CTRL_AUTO_LATENCY_EFF != 0,
             bt_legacy_auth_vs_evt: crate::sys::BTDM_CTRL_LEGACY_AUTH_VENDOR_EVT_EFF != 0,
-            bt_max_sync_conn: crate::sys::CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN_EFF as _,
+            // See https://github.com/espressif/esp-idf/blob/12f36a021f511cd4de41d3fffff146c5336ac1e7/components/bt/controller/esp32/esp_bredr_cfg.h#L19
+            // bt_max_sync_conn: crate::sys::CONFIG_BTDM_CTRL_BR_EDR_MAX_SYNC_CONN_EFF as _,
+            bt_max_sync_conn: 1,
             ble_sca: crate::sys::CONFIG_BTDM_BLE_SLEEP_CLOCK_ACCURACY_INDEX_EFF as _,
             pcm_role: crate::sys::CONFIG_BTDM_CTRL_PCM_ROLE_EFF as _,
             pcm_polar: crate::sys::CONFIG_BTDM_CTRL_PCM_POLAR_EFF as _,
