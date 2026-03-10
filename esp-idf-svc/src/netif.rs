@@ -87,18 +87,14 @@ impl NetifStack {
             // esp_wifi_start() set the real MAC from the companion chip later.
             #[cfg(not(esp_idf_soc_wifi_supported))]
             {
-                let err = unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) };
-                if err == ESP_OK {
-                    return Ok(Some(mac));
-                } else {
-                    return Ok(None);
-                }
+                Ok(unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) }.ok())
             }
 
             #[cfg(esp_idf_soc_wifi_supported)]
             {
-                esp!(unsafe { esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type) })?;
-                Ok(Some(mac))
+                Ok(Some(esp!(unsafe {
+                    esp_read_mac(mac.as_mut_ptr() as *mut _, mac_type)
+                })?))
             }
         } else {
             Ok(None)
