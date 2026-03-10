@@ -4,14 +4,17 @@ use crate::gpio;
 use crate::i2c;
 #[cfg(esp_idf_soc_i2s_supported)]
 use crate::i2s;
-#[cfg(esp32p4)]
+#[cfg(all(esp32p4, feature = "alloc"))]
 use crate::lcd;
 #[cfg(esp32p4)]
 use crate::ldo;
 use crate::ledc;
 #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
 use crate::mac;
-#[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
+#[cfg(any(
+    not(any(esp32h2, esp32h4, esp32p4)),
+    esp_idf_comp_espressif__esp_wifi_remote_enabled
+))]
 use crate::modem;
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
 #[cfg(all(
@@ -112,7 +115,7 @@ pub struct Peripherals {
     pub ldo3: ldo::LDO3<'static, ldo::Adjustable>,
     #[cfg(esp32p4)]
     pub ldo4: ldo::LDO4<'static, ldo::Adjustable>,
-    #[cfg(esp32p4)]
+    #[cfg(all(esp32p4, feature = "alloc"))]
     pub dsi: lcd::DSI<'static>,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
@@ -125,7 +128,10 @@ pub struct Peripherals {
     pub ulp: ulp::ULP<'static>,
     #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
     pub mac: mac::MAC<'static>,
-    #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
+    #[cfg(any(
+        not(any(esp32h2, esp32h4, esp32p4)),
+        esp_idf_comp_espressif__esp_wifi_remote_enabled
+    ))]
     pub modem: modem::Modem<'static>,
     #[cfg(esp_idf_soc_sdmmc_host_supported)]
     pub sdmmc0: sd::mmc::SDMMC0<'static>,
@@ -251,7 +257,7 @@ impl Peripherals {
             ldo3: ldo::LDO3::steal(),
             #[cfg(esp32p4)]
             ldo4: ldo::LDO4::steal(),
-            #[cfg(esp32p4)]
+            #[cfg(all(esp32p4, feature = "alloc"))]
             dsi: lcd::DSI::steal(),
             #[cfg(esp32)]
             hledc: ledc::HLEDC::new(),
@@ -264,7 +270,10 @@ impl Peripherals {
             ulp: ulp::ULP::steal(),
             #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
             mac: mac::MAC::steal(),
-            #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
+            #[cfg(any(
+                not(any(esp32h2, esp32h4, esp32p4)),
+                esp_idf_comp_espressif__esp_wifi_remote_enabled
+            ))]
             modem: modem::Modem::steal(),
             #[cfg(esp_idf_soc_sdmmc_host_supported)]
             sdmmc0: sd::mmc::SDMMC0::steal(),
