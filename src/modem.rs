@@ -3,7 +3,10 @@ pub use split::*;
 
 use crate::impl_peripheral;
 
-#[cfg(not(any(esp32h2, esp32h4)))]
+#[cfg(any(
+    not(any(esp32h2, esp32h4, esp32p4)),
+    esp_idf_comp_espressif__esp_wifi_remote_enabled
+))]
 pub trait WifiModemPeripheral {}
 
 #[cfg(any(esp32h2, esp32h4, esp32c5, esp32c6, esp32c61))]
