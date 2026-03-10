@@ -47,7 +47,7 @@ mod example {
     // Expects a number between 0 and 32, defaults to 24
     const GATEWAY_NETMASK: Option<&str> = option_env!("GATEWAY_NETMASK");
 
-    fn main() -> anyhow::Result<()> {
+    pub fn main() -> anyhow::Result<()> {
         esp_idf_svc::sys::link_patches();
         EspLogger::initialize_default();
 

@@ -6,12 +6,12 @@
 #![allow(unexpected_cfgs)]
 
 #[cfg(not(any(esp32h2, esp32h4, esp32p4)))]
-fn main() {
+fn main() -> anyhow::Result<()> {
     example::main()
 }
 
 #[cfg(any(esp32h2, esp32h4, esp32p4))]
-fn main() {
+fn main() -> anyhow::Result<()> {
     panic!("ESP32-H2, ESP32-H4 and ESP32-P4 do not have a Wifi radio (but you could enable the esp-wifi-remote component to use them with a WiFi co-processor)");
 }
 
@@ -135,7 +135,7 @@ mod example {
         }
     }
 
-    fn main() -> anyhow::Result<()> {
+    pub fn main() -> anyhow::Result<()> {
         esp_idf_svc::sys::link_patches();
         esp_idf_svc::log::EspLogger::initialize_default();
 

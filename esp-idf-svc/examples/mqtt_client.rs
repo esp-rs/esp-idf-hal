@@ -34,7 +34,7 @@ mod example {
     const MQTT_CLIENT_ID: &str = "esp-mqtt-demo";
     const MQTT_TOPIC: &str = "esp-mqtt-demo";
 
-    fn main() {
+    pub fn main() {
         esp_idf_svc::sys::link_patches();
         esp_idf_svc::log::EspLogger::initialize_default();
 

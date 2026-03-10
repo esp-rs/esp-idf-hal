@@ -63,7 +63,7 @@ mod example {
     A7sKPPcw7+uvTPyLNhBzPvOk
     -----END CERTIFICATE-----\0";
 
-    fn main() -> anyhow::Result<()> {
+    pub fn main() -> anyhow::Result<()> {
         esp_idf_svc::sys::link_patches();
         EspLogger::initialize_default();
 

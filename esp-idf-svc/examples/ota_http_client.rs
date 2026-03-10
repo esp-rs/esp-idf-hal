@@ -60,7 +60,7 @@ mod example {
         pub const NOT_MODIFIED: u16 = 304;
     }
 
-    fn main() -> anyhow::Result<()> {
+    pub fn main() -> anyhow::Result<()> {
         esp_idf_svc::sys::link_patches();
         EspLogger::initialize_default();
 
