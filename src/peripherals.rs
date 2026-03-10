@@ -4,7 +4,7 @@ use crate::gpio;
 use crate::i2c;
 #[cfg(esp_idf_soc_i2s_supported)]
 use crate::i2s;
-#[cfg(all(esp32p4, feature = "alloc"))]
+#[cfg(all(esp32p4, esp_idf_comp_esp_lcd, feature = "alloc"))]
 use crate::lcd;
 #[cfg(esp32p4)]
 use crate::ldo;
@@ -112,7 +112,7 @@ pub struct Peripherals {
     pub ldo3: ldo::LDO3<'static, ldo::Adjustable>,
     #[cfg(esp32p4)]
     pub ldo4: ldo::LDO4<'static, ldo::Adjustable>,
-    #[cfg(all(esp32p4, feature = "alloc"))]
+    #[cfg(all(esp32p4, esp_idf_comp_esp_lcd, feature = "alloc"))]
     pub dsi: lcd::DSI<'static>,
     #[cfg(esp32)]
     pub hledc: ledc::HLEDC,
@@ -251,7 +251,7 @@ impl Peripherals {
             ldo3: ldo::LDO3::steal(),
             #[cfg(esp32p4)]
             ldo4: ldo::LDO4::steal(),
-            #[cfg(all(esp32p4, feature = "alloc"))]
+            #[cfg(all(esp32p4, esp_idf_comp_esp_lcd, feature = "alloc"))]
             dsi: lcd::DSI::steal(),
             #[cfg(esp32)]
             hledc: ledc::HLEDC::new(),
