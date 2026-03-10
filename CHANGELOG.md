@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.46.1] - 2026-03-10
 
 ### Fixed
-- Fix several compilation issues with esp32p4
+- Fix several compilation issues with esp32p4 and esp32h2
 
 ## [0.46.0] - 2026-03-09
 
