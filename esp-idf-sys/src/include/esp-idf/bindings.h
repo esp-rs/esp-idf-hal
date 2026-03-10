@@ -240,7 +240,9 @@
 #endif
 
 #ifdef ESP_IDF_COMP_FATFS_ENABLED
+#ifdef ESP_IDF_COMP_VFS_ENABLED
 #include "esp_vfs_fat.h"
+#endif
 #include "diskio_impl.h"
 #include "diskio_rawflash.h"
 #include "diskio_sdmmc.h"
@@ -502,10 +504,8 @@
 #include "driver/sdmmc_types.h"
 #include "driver/sdspi_host.h"
 #endif
-#if ESP_IDF_VERSION_MAJOR > 5
 #if defined(ESP_IDF_COMP_SDMMC_ENABLED)
 #include "sdmmc_cmd.h"
-#endif
 #endif
 
 // Sigma-delta
