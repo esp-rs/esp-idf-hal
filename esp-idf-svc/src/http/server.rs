@@ -81,6 +81,29 @@ pub use embedded_svc::utils::http::server::registration::*;
 
 pub use super::*;
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub struct KeepAlive {
+    pub idle_secs: u32,
+    pub interval_secs: u32,
+    pub probe_count: u32,
+}
+
+impl KeepAlive {
+    pub const fn new() -> Self {
+        Self {
+            idle_secs: 5,
+            interval_secs: 5,
+            probe_count: 3,
+        }
+    }
+}
+
+impl Default for KeepAlive {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 pub struct Configuration {
     pub http_port: u16,
@@ -96,6 +119,8 @@ pub struct Configuration {
     pub max_resp_headers: usize,
     pub lru_purge_enable: bool,
     pub uri_match_wildcard: bool,
+    pub keep_alive: Option<KeepAlive>,
+    pub so_linger: Option<Duration>,
     #[cfg(esp_idf_esp_https_server_enable)]
     pub server_certificate: Option<X509<'static>>,
     #[cfg(esp_idf_esp_https_server_enable)]
@@ -121,6 +146,8 @@ impl Default for Configuration {
             max_resp_headers: 8,
             lru_purge_enable: true,
             uri_match_wildcard: false,
+            keep_alive: None,
+            so_linger: None,
             #[cfg(esp_idf_esp_https_server_enable)]
             server_certificate: None,
             #[cfg(esp_idf_esp_https_server_enable)]
@@ -165,9 +192,15 @@ impl From<&Configuration> for Newtype<httpd_config_t> {
             open_fn: None,
             close_fn: None,
             uri_match_fn: conf.uri_match_wildcard.then_some(httpd_uri_match_wildcard),
-            // Latest 4.4 and master branches have options to control SO linger,
-            // but these are not released yet so we cannot (yet) support these
-            // conditionally
+            keep_alive_enable: conf.keep_alive.is_some(),
+            keep_alive_idle: conf.keep_alive.map(|ka| ka.idle_secs as i32).unwrap_or(0),
+            keep_alive_interval: conf
+                .keep_alive
+                .map(|ka| ka.interval_secs as i32)
+                .unwrap_or(0),
+            keep_alive_count: conf.keep_alive.map(|ka| ka.probe_count as i32).unwrap_or(0),
+            enable_so_linger: conf.so_linger.is_some(),
+            linger_timeout: conf.so_linger.map(|d| d.as_secs() as i32).unwrap_or(0),
             ..Default::default()
         })
     }
