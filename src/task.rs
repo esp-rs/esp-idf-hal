@@ -1222,188 +1222,182 @@ pub mod queue {
         }
     }
 
-    /// Indicates which queue in a [`QueueSet2`] was selected and provides
-    /// the received item.
-    pub enum QueueSet2Selected<T1, T2> {
-        /// An item was available in the first queue.
-        First(T1),
-        /// An item was available in the second queue.
-        Second(T2),
-    }
-
-    /// A FreeRTOS queue set that monitors exactly two queues of (potentially)
-    /// different item types.
+    /// Macro that generates a typed FreeRTOS queue-set struct and its
+    /// associated selected-item enum for a fixed arity.
     ///
-    /// `QueueSet2` allows a single task to block on two queues simultaneously.
-    /// When either queue receives an item, [`select_from_set`] wakes up,
-    /// automatically receives the item, and returns a [`QueueSet2Selected`]
-    /// discriminant that tells the caller which queue fired and carries the
-    /// item value.
+    /// # Invocation syntax
     ///
-    /// # Lifetime
-    ///
-    /// The struct borrows both queues (`&'a Queue<T1>` and `&'a Queue<T2>`).
-    /// The Rust borrow checker therefore guarantees that the queues outlive
-    /// the `QueueSet2`. On `Drop`, the queues are automatically removed from
-    /// the underlying FreeRTOS queue set before the set handle is deleted.
-    ///
-    /// # FreeRTOS constraints
-    ///
-    /// - Both queues must be **empty** when `QueueSet2::new` is called.
-    /// - The combined length of the two queues must not be zero.
-    /// - A queue may only belong to **one** queue set at a time.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use esp_idf_hal::task::queue::{Queue, QueueSet2, QueueSet2Selected};
-    /// use esp_idf_sys::portMAX_DELAY;
-    ///
-    /// let q1: Queue<u32> = Queue::new(4);
-    /// let q2: Queue<f32> = Queue::new(4);
-    ///
-    /// let qs = QueueSet2::new(&q1, &q2).unwrap();
-    ///
-    /// // In another task / ISR:
-    /// q1.send_back(42u32, portMAX_DELAY).unwrap();
-    ///
-    /// // In the listening task:
-    /// match qs.select_from_set(portMAX_DELAY) {
-    ///     Some(QueueSet2Selected::First(v))  => println!("q1 item: {v}"),
-    ///     Some(QueueSet2Selected::Second(v)) => println!("q2 item: {v}"),
-    ///     None => println!("timeout"),
-    /// }
+    /// ```text
+    /// impl_queue_set!(StructName, EnumName, (T0, field0, Variant0), (T1, field1, Variant1), …);
     /// ```
     ///
-    /// [`select_from_set`]: QueueSet2::select_from_set
-    pub struct QueueSet2<'a, T1, T2>
-    where
-        T1: Copy,
-        T2: Copy,
-    {
-        set_ptr: sys::QueueSetHandle_t,
-        first: &'a Queue<T1>,
-        second: &'a Queue<T2>,
-    }
-
-    unsafe impl<T1, T2> Send for QueueSet2<'_, T1, T2>
-    where
-        T1: Send + Sync + Copy,
-        T2: Send + Sync + Copy,
-    {
-    }
-
-    unsafe impl<T1, T2> Sync for QueueSet2<'_, T1, T2>
-    where
-        T1: Send + Sync + Copy,
-        T2: Send + Sync + Copy,
-    {
-    }
-
-    impl<'a, T1, T2> QueueSet2<'a, T1, T2>
-    where
-        T1: Copy,
-        T2: Copy,
-    {
-        /// Create a new `QueueSet2` that monitors `first` and `second`.
-        ///
-        /// The event queue length is computed as `first.len() + second.len()`.
-        /// Both queues must be empty at the time of the call. Returns an error
-        /// if adding either queue to the set fails (e.g. the queue is not
-        /// empty, or is already a member of another set).
-        pub fn new(first: &'a Queue<T1>, second: &'a Queue<T2>) -> Result<Self, EspError> {
-            let event_queue_length = first.len() + second.len();
-            let set_ptr = unsafe { sys::xQueueCreateSet(event_queue_length as u32) };
-
-            // Add first queue; return early on failure.
-            let r1 = unsafe { sys::xQueueAddToSet(first.as_raw(), set_ptr) };
-            if r1 != 1 {
-                unsafe { sys::vQueueDelete(set_ptr) };
-                return Err(EspError::from_infallible::<ESP_FAIL>());
+    /// Each tuple `(TypeIdent, fieldIdent, VariantIdent)` describes one member
+    /// queue.  The macro expands to:
+    ///
+    /// - `pub enum EnumName<T0, T1, …>` — one variant per queue, carrying the
+    ///   received item.
+    /// - `pub struct StructName<'a, T0, T1, …>` — borrows each queue for
+    ///   lifetime `'a`, owns the raw `QueueSetHandle_t`.
+    /// - `impl StructName { fn new(…) }` — creates the FreeRTOS set, adds all
+    ///   queues with rollback on failure.
+    /// - `impl StructName { fn select_from_set(timeout) }` — ISR-aware select
+    ///   that auto-receives the item.
+    /// - `unsafe impl Send/Sync` — forwarded from the item types.
+    /// - `impl Drop` — removes all queues then deletes the handle.
+    macro_rules! impl_queue_set {
+        (
+            $struct_name:ident,
+            $enum_name:ident,
+            $(($ty:ident, $field:ident, $variant:ident)),+
+        ) => {
+            /// Indicates which queue in the set was selected and carries the
+            /// received item.
+            pub enum $enum_name<$($ty),+> {
+                $(
+                    /// An item was received from the corresponding queue.
+                    $variant($ty),
+                )+
             }
 
-            // Add second queue; roll back the first if this fails.
-            let r2 = unsafe { sys::xQueueAddToSet(second.as_raw(), set_ptr) };
-            if r2 != 1 {
-                unsafe {
-                    sys::xQueueRemoveFromSet(first.as_raw(), set_ptr);
-                    sys::vQueueDelete(set_ptr);
-                };
-                return Err(EspError::from_infallible::<ESP_FAIL>());
+            /// A FreeRTOS queue set that monitors a fixed number of queues of
+            /// (potentially) different item types.
+            ///
+            /// Construct with `new`, then call `select_from_set` to block
+            /// until any member queue has an item ready.  The item is
+            /// automatically received and returned inside the typed enum.
+            ///
+            /// # FreeRTOS constraints
+            ///
+            /// - All queues must be **empty** when `new` is called.
+            /// - A queue may only belong to **one** queue set at a time.
+            /// - The combined capacity of all queues must not be zero.
+            pub struct $struct_name<'a, $($ty),+>
+            where
+                $($ty: Copy,)+
+            {
+                set_ptr: sys::QueueSetHandle_t,
+                $($field: &'a Queue<$ty>,)+
             }
 
-            Ok(QueueSet2 {
-                set_ptr,
-                first,
-                second,
-            })
-        }
+            unsafe impl<$($ty),+> Send for $struct_name<'_, $($ty),+>
+            where
+                $($ty: Send + Sync + Copy,)+
+            {}
 
-        /// Block until one of the two queues has an item available, or until
-        /// `timeout` ticks elapse.
-        ///
-        /// On success, the item is **automatically received** from the ready
-        /// queue and returned inside the [`QueueSet2Selected`] variant.
-        /// Returns `None` on timeout.
-        ///
-        /// # FreeRTOS note
-        ///
-        /// Internally this calls `xQueueSelectFromSet` to identify the ready
-        /// queue, then immediately calls `xQueueReceive` on it (with a zero
-        /// timeout). The receive should always succeed because the FreeRTOS
-        /// scheduler guarantees the item is still present.
-        ///
-        /// # ISR safety
-        ///
-        /// This function is safe to call from ISR contexts (the ISR variant
-        /// `xQueueSelectFromSetFromISR` is dispatched automatically).
-        pub fn select_from_set(
-            &self,
-            timeout: sys::TickType_t,
-        ) -> Option<QueueSet2Selected<T1, T2>> {
-            let member = unsafe {
-                if crate::interrupt::active() {
-                    sys::xQueueSelectFromSetFromISR(self.set_ptr)
-                } else {
-                    sys::xQueueSelectFromSet(self.set_ptr, timeout)
+            unsafe impl<$($ty),+> Sync for $struct_name<'_, $($ty),+>
+            where
+                $($ty: Send + Sync + Copy,)+
+            {}
+
+            impl<'a, $($ty),+> $struct_name<'a, $($ty),+>
+            where
+                $($ty: Copy,)+
+            {
+                /// Create a new queue set monitoring all supplied queues.
+                ///
+                /// The FreeRTOS event-queue length is computed as the sum of
+                /// the capacities of all member queues.  All queues must be
+                /// empty at the time of the call.  On failure (queue not
+                /// empty, already in a set, etc.) all previously added queues
+                /// are removed and the set handle is deleted before returning
+                /// the error.
+                pub fn new($($field: &'a Queue<$ty>),+) -> Result<Self, EspError> {
+                    let event_queue_length = 0usize $(+ $field.len())+;
+                    let set_ptr = unsafe { sys::xQueueCreateSet(event_queue_length as u32) };
+
+                    // Add each queue in order.  On the first failure, remove
+                    // every queue that was already added (by attempting to
+                    // remove all of them — removals of queues not yet added
+                    // are harmless no-ops at the FreeRTOS level), delete the
+                    // set handle, and return an error.
+                    let mut ok = true;
+                    $(
+                        if ok && unsafe { sys::xQueueAddToSet($field.as_raw(), set_ptr) } != 1 {
+                            ok = false;
+                        }
+                    )+
+                    if !ok {
+                        unsafe {
+                            $( sys::xQueueRemoveFromSet($field.as_raw(), set_ptr); )+
+                            sys::vQueueDelete(set_ptr);
+                        }
+                        return Err(EspError::from_infallible::<ESP_FAIL>());
+                    }
+
+                    Ok($struct_name { set_ptr, $($field,)+ })
                 }
-            };
 
-            if member.is_null() {
-                return None;
+                /// Block until one of the member queues has an item available,
+                /// or until `timeout` ticks elapse.
+                ///
+                /// On success the item is **automatically received** from the
+                /// ready queue and returned inside the enum variant.
+                /// Returns `None` on timeout.
+                ///
+                /// # ISR safety
+                ///
+                /// Dispatches to `xQueueSelectFromSetFromISR` when called from
+                /// an ISR context, otherwise uses `xQueueSelectFromSet`.
+                pub fn select_from_set(
+                    &self,
+                    timeout: sys::TickType_t,
+                ) -> Option<$enum_name<$($ty),+>> {
+                    let member = unsafe {
+                        if crate::interrupt::active() {
+                            sys::xQueueSelectFromSetFromISR(self.set_ptr)
+                        } else {
+                            sys::xQueueSelectFromSet(self.set_ptr, timeout)
+                        }
+                    };
+
+                    if member.is_null() {
+                        return None;
+                    }
+
+                    $(
+                        if member == self.$field.as_raw() {
+                            return self.$field
+                                .recv_front(0)
+                                .map(|(item, _)| $enum_name::$variant(item));
+                        }
+                    )+
+
+                    // Should never be reached; member handle matches no queue.
+                    None
+                }
             }
 
-            if member == self.first.as_raw() {
-                self.first
-                    .recv_front(0)
-                    .map(|(item, _)| QueueSet2Selected::First(item))
-            } else if member == self.second.as_raw() {
-                self.second
-                    .recv_front(0)
-                    .map(|(item, _)| QueueSet2Selected::Second(item))
-            } else {
-                // Should never happen; the member handle doesn't match either queue.
-                None
+            impl<$($ty),+> Drop for $struct_name<'_, $($ty),+>
+            where
+                $($ty: Copy,)+
+            {
+                fn drop(&mut self) {
+                    // Queues must be removed before the set handle is deleted.
+                    unsafe {
+                        $(sys::xQueueRemoveFromSet(self.$field.as_raw(), self.set_ptr);)+
+                        sys::vQueueDelete(self.set_ptr);
+                    }
+                }
             }
-        }
+        };
     }
 
-    impl<T1, T2> Drop for QueueSet2<'_, T1, T2>
-    where
-        T1: Copy,
-        T2: Copy,
-    {
-        fn drop(&mut self) {
-            // Queues must be removed from the set before the set handle is
-            // deleted. Ignore errors — the queues may already have been
-            // removed manually.
-            unsafe {
-                sys::xQueueRemoveFromSet(self.first.as_raw(), self.set_ptr);
-                sys::xQueueRemoveFromSet(self.second.as_raw(), self.set_ptr);
-                sys::vQueueDelete(self.set_ptr);
-            }
-        }
-    }
+    impl_queue_set!(QueueSet2, QueueSet2Selected, (T0, q0, Q0), (T1, q1, Q1));
+    impl_queue_set!(
+        QueueSet3,
+        QueueSet3Selected,
+        (T0, q0, Q0),
+        (T1, q1, Q1),
+        (T2, q2, Q2)
+    );
+    impl_queue_set!(
+        QueueSet4,
+        QueueSet4Selected,
+        (T0, q0, Q0),
+        (T1, q1, Q1),
+        (T2, q2, Q2),
+        (T3, q3, Q3)
+    );
 }
 
 pub mod asynch {
