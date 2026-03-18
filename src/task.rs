@@ -1150,6 +1150,33 @@ pub mod queue {
             }
         }
 
+        /// Returns the number of items currently waiting in the queue.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to use in ISR contexts.
+        #[inline]
+        pub fn messages_waiting(&self) -> usize {
+            unsafe { sys::uxQueueMessagesWaiting(self.ptr) as usize }
+        }
+
+        /// Returns the total capacity of the queue (maximum number of items it can hold).
+        ///
+        /// This is computed as `messages_waiting() + spaces_available()`.
+        #[inline]
+        pub fn len(&self) -> usize {
+            unsafe {
+                (sys::uxQueueMessagesWaiting(self.ptr) + sys::uxQueueSpacesAvailable(self.ptr))
+                    as usize
+            }
+        }
+
+        /// Returns `true` if the queue is currently empty.
+        #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.messages_waiting() == 0
+        }
+
         /// Copy the first message from the queue without removing it.
         ///
         /// # ISR safety
@@ -1191,6 +1218,189 @@ pub mod queue {
         fn drop(&mut self) {
             if self.is_owned {
                 unsafe { sys::vQueueDelete(self.ptr) }
+            }
+        }
+    }
+
+    /// Indicates which queue in a [`QueueSet2`] was selected and provides
+    /// the received item.
+    pub enum QueueSet2Selected<T1, T2> {
+        /// An item was available in the first queue.
+        First(T1),
+        /// An item was available in the second queue.
+        Second(T2),
+    }
+
+    /// A FreeRTOS queue set that monitors exactly two queues of (potentially)
+    /// different item types.
+    ///
+    /// `QueueSet2` allows a single task to block on two queues simultaneously.
+    /// When either queue receives an item, [`select_from_set`] wakes up,
+    /// automatically receives the item, and returns a [`QueueSet2Selected`]
+    /// discriminant that tells the caller which queue fired and carries the
+    /// item value.
+    ///
+    /// # Lifetime
+    ///
+    /// The struct borrows both queues (`&'a Queue<T1>` and `&'a Queue<T2>`).
+    /// The Rust borrow checker therefore guarantees that the queues outlive
+    /// the `QueueSet2`. On `Drop`, the queues are automatically removed from
+    /// the underlying FreeRTOS queue set before the set handle is deleted.
+    ///
+    /// # FreeRTOS constraints
+    ///
+    /// - Both queues must be **empty** when `QueueSet2::new` is called.
+    /// - The combined length of the two queues must not be zero.
+    /// - A queue may only belong to **one** queue set at a time.
+    ///
+    /// # Example
+    ///
+    /// ```no_run
+    /// use esp_idf_hal::task::queue::{Queue, QueueSet2, QueueSet2Selected};
+    /// use esp_idf_sys::portMAX_DELAY;
+    ///
+    /// let q1: Queue<u32> = Queue::new(4);
+    /// let q2: Queue<f32> = Queue::new(4);
+    ///
+    /// let qs = QueueSet2::new(&q1, &q2).unwrap();
+    ///
+    /// // In another task / ISR:
+    /// q1.send_back(42u32, portMAX_DELAY).unwrap();
+    ///
+    /// // In the listening task:
+    /// match qs.select_from_set(portMAX_DELAY) {
+    ///     Some(QueueSet2Selected::First(v))  => println!("q1 item: {v}"),
+    ///     Some(QueueSet2Selected::Second(v)) => println!("q2 item: {v}"),
+    ///     None => println!("timeout"),
+    /// }
+    /// ```
+    ///
+    /// [`select_from_set`]: QueueSet2::select_from_set
+    pub struct QueueSet2<'a, T1, T2>
+    where
+        T1: Copy,
+        T2: Copy,
+    {
+        set_ptr: sys::QueueSetHandle_t,
+        first: &'a Queue<T1>,
+        second: &'a Queue<T2>,
+    }
+
+    unsafe impl<T1, T2> Send for QueueSet2<'_, T1, T2>
+    where
+        T1: Send + Sync + Copy,
+        T2: Send + Sync + Copy,
+    {
+    }
+
+    unsafe impl<T1, T2> Sync for QueueSet2<'_, T1, T2>
+    where
+        T1: Send + Sync + Copy,
+        T2: Send + Sync + Copy,
+    {
+    }
+
+    impl<'a, T1, T2> QueueSet2<'a, T1, T2>
+    where
+        T1: Copy,
+        T2: Copy,
+    {
+        /// Create a new `QueueSet2` that monitors `first` and `second`.
+        ///
+        /// The event queue length is computed as `first.len() + second.len()`.
+        /// Both queues must be empty at the time of the call. Returns an error
+        /// if adding either queue to the set fails (e.g. the queue is not
+        /// empty, or is already a member of another set).
+        pub fn new(first: &'a Queue<T1>, second: &'a Queue<T2>) -> Result<Self, EspError> {
+            let event_queue_length = first.len() + second.len();
+            let set_ptr = unsafe { sys::xQueueCreateSet(event_queue_length as u32) };
+
+            // Add first queue; return early on failure.
+            let r1 = unsafe { sys::xQueueAddToSet(first.as_raw(), set_ptr) };
+            if r1 != 1 {
+                unsafe { sys::vQueueDelete(set_ptr) };
+                return Err(EspError::from_infallible::<ESP_FAIL>());
+            }
+
+            // Add second queue; roll back the first if this fails.
+            let r2 = unsafe { sys::xQueueAddToSet(second.as_raw(), set_ptr) };
+            if r2 != 1 {
+                unsafe {
+                    sys::xQueueRemoveFromSet(first.as_raw(), set_ptr);
+                    sys::vQueueDelete(set_ptr);
+                };
+                return Err(EspError::from_infallible::<ESP_FAIL>());
+            }
+
+            Ok(QueueSet2 {
+                set_ptr,
+                first,
+                second,
+            })
+        }
+
+        /// Block until one of the two queues has an item available, or until
+        /// `timeout` ticks elapse.
+        ///
+        /// On success, the item is **automatically received** from the ready
+        /// queue and returned inside the [`QueueSet2Selected`] variant.
+        /// Returns `None` on timeout.
+        ///
+        /// # FreeRTOS note
+        ///
+        /// Internally this calls `xQueueSelectFromSet` to identify the ready
+        /// queue, then immediately calls `xQueueReceive` on it (with a zero
+        /// timeout). The receive should always succeed because the FreeRTOS
+        /// scheduler guarantees the item is still present.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to call from ISR contexts (the ISR variant
+        /// `xQueueSelectFromSetFromISR` is dispatched automatically).
+        pub fn select_from_set(
+            &self,
+            timeout: sys::TickType_t,
+        ) -> Option<QueueSet2Selected<T1, T2>> {
+            let member = unsafe {
+                if crate::interrupt::active() {
+                    sys::xQueueSelectFromSetFromISR(self.set_ptr)
+                } else {
+                    sys::xQueueSelectFromSet(self.set_ptr, timeout)
+                }
+            };
+
+            if member.is_null() {
+                return None;
+            }
+
+            if member == self.first.as_raw() {
+                self.first
+                    .recv_front(0)
+                    .map(|(item, _)| QueueSet2Selected::First(item))
+            } else if member == self.second.as_raw() {
+                self.second
+                    .recv_front(0)
+                    .map(|(item, _)| QueueSet2Selected::Second(item))
+            } else {
+                // Should never happen; the member handle doesn't match either queue.
+                None
+            }
+        }
+    }
+
+    impl<T1, T2> Drop for QueueSet2<'_, T1, T2>
+    where
+        T1: Copy,
+        T2: Copy,
+    {
+        fn drop(&mut self) {
+            // Queues must be removed from the set before the set handle is
+            // deleted. Ignore errors — the queues may already have been
+            // removed manually.
+            unsafe {
+                sys::xQueueRemoveFromSet(self.first.as_raw(), self.set_ptr);
+                sys::xQueueRemoveFromSet(self.second.as_raw(), self.set_ptr);
+                sys::vQueueDelete(self.set_ptr);
             }
         }
     }
