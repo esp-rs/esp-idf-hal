@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking
 - HTTP: Add `keep_alive: Option<KeepAlive>` and `so_linger: Option<Duration>` to server `Configuration`
+- New events need to be handled in the WiFi event loop:
+  - `WifiEvent::StaNeighborRep` / `StaNeighborRepRef` (v5.3.0+)
+  - `WifiEvent::ApWrongPassword` / `ApWrongPasswordRef` (v5.3.3+, v5.4.1+, v5.5.0+)
+  - `WifiEvent::StaBeaconOffsetUnstable` / `StaBeaconOffsetUnstableRef` (v5.5.0+)
+  - `WifiEvent::DppUriReady` / `DppUriReadyRef` (v5.5.0+)
+  - `WifiEvent::DppCfgRecvd` / `DppCfgRecvdRef` (v5.5.0+)
+  - `WifiEvent::DppFailed` / `DppFailedRef` (v5.5.0+)
+
+### Fixed
+- WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)
 
 ## [0.52.1] - 2026-03-10
 

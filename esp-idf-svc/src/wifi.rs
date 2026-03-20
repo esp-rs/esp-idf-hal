@@ -2203,6 +2203,193 @@ impl TryFrom<u32> for WifiSecondChan {
     }
 }
 
+/// Payload reference for [`WifiEvent::StaNeighborRep`].
+///
+/// The neighbor report bytes are stored in a flexible array member that
+/// immediately follows the fixed header in memory.
+#[cfg(esp_idf_version_at_least_5_3_0)]
+#[repr(transparent)]
+pub struct StaNeighborRepRef(wifi_event_neighbor_report_t);
+
+#[cfg(esp_idf_version_at_least_5_3_0)]
+impl StaNeighborRepRef {
+    /// Number of bytes in the neighbor report.
+    pub fn report_len(&self) -> usize {
+        self.0.report_len as usize
+    }
+
+    /// The raw neighbor report bytes received from the AP.
+    ///
+    /// The slice is reconstructed from the flexible array member
+    /// (`n_report`) that immediately follows the fixed header in memory.
+    pub fn report(&self) -> &[u8] {
+        // SAFETY: `wifi_event_neighbor_report_t` is followed in memory by
+        // exactly `report_len` bytes of report data (the `n_report` FAM).
+        // The pointer arithmetic is safe because `as_payload()` hands us a
+        // reference to the full event payload buffer whose size is at least
+        // `sizeof(wifi_event_neighbor_report_t) + report_len`.
+        unsafe { core::slice::from_raw_parts(self.0.n_report.as_ptr(), self.report_len()) }
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_3_0)]
+impl fmt::Debug for StaNeighborRepRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StaNeighborRepRef")
+            .field("report_len", &self.report_len())
+            .field("report", &self.report())
+            .finish()
+    }
+}
+
+/// Payload reference for [`WifiEvent::ApWrongPassword`].
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_3_3,
+    esp_idf_version_patch_at_least_5_4_1,
+    esp_idf_version_at_least_5_5_0,
+))]
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct ApWrongPasswordRef(wifi_event_ap_wrong_password_t);
+
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_3_3,
+    esp_idf_version_patch_at_least_5_4_1,
+    esp_idf_version_at_least_5_5_0,
+))]
+impl ApWrongPasswordRef {
+    /// MAC address of the station that supplied a wrong password.
+    pub fn mac(&self) -> [u8; 6] {
+        self.0.mac
+    }
+}
+
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_3_3,
+    esp_idf_version_patch_at_least_5_4_1,
+    esp_idf_version_at_least_5_5_0,
+))]
+impl fmt::Debug for ApWrongPasswordRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ApWrongPasswordRef")
+            .field("mac", &self.mac())
+            .finish()
+    }
+}
+
+/// Payload reference for [`WifiEvent::StaBeaconOffsetUnstable`].
+#[cfg(esp_idf_version_at_least_5_5_0)]
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct StaBeaconOffsetUnstableRef(wifi_event_sta_beacon_offset_unstable_t);
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl StaBeaconOffsetUnstableRef {
+    /// Fraction of beacons successfully received during the unstable period.
+    pub fn beacon_success_rate(&self) -> f32 {
+        self.0.beacon_success_rate
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl fmt::Debug for StaBeaconOffsetUnstableRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("StaBeaconOffsetUnstableRef")
+            .field("beacon_success_rate", &self.beacon_success_rate())
+            .finish()
+    }
+}
+
+/// Payload reference for [`WifiEvent::DppUriReady`].
+///
+/// The URI string is stored in a flexible array member that immediately
+/// follows the fixed header; `uri_data_len` includes the null terminator.
+/// [`DppUriReadyRef::uri`] strips the terminator and returns the URI as a `&str`.
+#[cfg(esp_idf_version_at_least_5_5_0)]
+#[repr(transparent)]
+pub struct DppUriReadyRef(wifi_event_dpp_uri_ready_t);
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl DppUriReadyRef {
+    /// Length of the URI string **excluding** the null terminator.
+    pub fn uri_len(&self) -> usize {
+        (self.0.uri_data_len as usize).saturating_sub(1)
+    }
+
+    /// The DPP bootstrapping URI as a string slice (no null terminator).
+    ///
+    /// The slice is reconstructed from the flexible array member
+    /// (`uri`) that immediately follows the fixed header in memory.
+    ///
+    /// DPP bootstrapping URIs are defined by the Wi-Fi Alliance DPP
+    /// specification to be ASCII-printable, so the bytes are always
+    /// valid UTF-8.
+    pub fn uri(&self) -> &str {
+        // SAFETY: `uri_data_len` includes the null terminator; we subtract 1
+        // to get the string length without it. DPP URIs are always ASCII so
+        // `from_utf8_unchecked` is safe.
+        unsafe {
+            core::str::from_utf8_unchecked(core::slice::from_raw_parts(
+                self.0.uri.as_ptr().cast::<u8>(),
+                self.uri_len(),
+            ))
+        }
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl fmt::Debug for DppUriReadyRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DppUriReadyRef")
+            .field("uri", &self.uri())
+            .finish()
+    }
+}
+
+/// Payload reference for [`WifiEvent::DppCfgRecvd`].
+#[cfg(esp_idf_version_at_least_5_5_0)]
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct DppCfgRecvdRef(wifi_event_dpp_config_received_t);
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl DppCfgRecvdRef {
+    /// The WiFi configuration received via DPP authentication.
+    pub fn wifi_cfg(&self) -> &wifi_config_t {
+        &self.0.wifi_cfg
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl fmt::Debug for DppCfgRecvdRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DppCfgRecvdRef").finish_non_exhaustive()
+    }
+}
+
+/// Payload reference for [`WifiEvent::DppFailed`].
+#[cfg(esp_idf_version_at_least_5_5_0)]
+#[derive(Copy, Clone)]
+#[repr(transparent)]
+pub struct DppFailedRef(wifi_event_dpp_failed_t);
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl DppFailedRef {
+    /// The DPP failure reason code.
+    pub fn failure_reason(&self) -> i32 {
+        self.0.failure_reason
+    }
+}
+
+#[cfg(esp_idf_version_at_least_5_5_0)]
+impl fmt::Debug for DppFailedRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DppFailedRef")
+            .field("failure_reason", &self.failure_reason())
+            .finish()
+    }
+}
+
 #[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct WpsCredentialsRef(wifi_event_sta_wps_er_success_t__bindgen_ty_1);
@@ -2299,6 +2486,35 @@ pub enum WifiEvent<'a> {
         ),
     )))]
     HomeChannelChange(HomeChannelChange),
+
+    /// Neighbor report received from the AP in response to a neighbor report
+    /// request from the station.
+    #[cfg(esp_idf_version_at_least_5_3_0)]
+    StaNeighborRep(&'a StaNeighborRepRef),
+
+    /// A station attempted to connect to the soft-AP with the wrong password.
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_3_3,
+        esp_idf_version_patch_at_least_5_4_1,
+        esp_idf_version_at_least_5_5_0,
+    ))]
+    ApWrongPassword(&'a ApWrongPasswordRef),
+
+    /// The station's beacon offset has become unstable.
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    StaBeaconOffsetUnstable(&'a StaBeaconOffsetUnstableRef),
+
+    /// A DPP bootstrapping URI is ready to be scanned by the peer.
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    DppUriReady(&'a DppUriReadyRef),
+
+    /// DPP authentication succeeded and a WiFi configuration was received.
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    DppCfgRecvd(&'a DppCfgRecvdRef),
+
+    /// DPP authentication or configuration exchange failed.
+    #[cfg(esp_idf_version_at_least_5_5_0)]
+    DppFailed(&'a DppFailedRef),
 }
 
 unsafe impl EspEventSource for WifiEvent<'_> {
@@ -2406,6 +2622,48 @@ impl EspEventDeserializer for WifiEvent<'_> {
                         new_snd: payload.and_then(|p| p.new_snd.try_into().ok()),
                     })
                 }
+            }
+            #[cfg(esp_idf_version_at_least_5_3_0)]
+            wifi_event_t_WIFI_EVENT_STA_NEIGHBOR_REP => {
+                // `wifi_event_neighbor_report_t` contains `__IncompleteArrayField`
+                // which prevents deriving `Copy`, so we cannot use `as_payload()`.
+                // The cast is safe for the same reason as `as_payload` internaly:
+                // we only produce a shared reference into the event buffer.
+                WifiEvent::StaNeighborRep(unsafe {
+                    (data.payload.unwrap() as *const _ as *const StaNeighborRepRef)
+                        .as_ref()
+                        .unwrap()
+                })
+            }
+            #[cfg(any(
+                esp_idf_version_patch_at_least_5_3_3,
+                esp_idf_version_patch_at_least_5_4_1,
+                esp_idf_version_at_least_5_5_0,
+            ))]
+            wifi_event_t_WIFI_EVENT_AP_WRONG_PASSWORD => {
+                WifiEvent::ApWrongPassword(unsafe { data.as_payload() })
+            }
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            wifi_event_t_WIFI_EVENT_STA_BEACON_OFFSET_UNSTABLE => {
+                WifiEvent::StaBeaconOffsetUnstable(unsafe { data.as_payload() })
+            }
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            wifi_event_t_WIFI_EVENT_DPP_URI_READY => {
+                // `wifi_event_dpp_uri_ready_t` contains `__IncompleteArrayField`
+                // which prevents deriving `Copy`, so we cannot use `as_payload()`.
+                WifiEvent::DppUriReady(unsafe {
+                    (data.payload.unwrap() as *const _ as *const DppUriReadyRef)
+                        .as_ref()
+                        .unwrap()
+                })
+            }
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            wifi_event_t_WIFI_EVENT_DPP_CFG_RECVD => {
+                WifiEvent::DppCfgRecvd(unsafe { data.as_payload() })
+            }
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            wifi_event_t_WIFI_EVENT_DPP_FAILED => {
+                WifiEvent::DppFailed(unsafe { data.as_payload() })
             }
             _ => panic!("unknown event ID: {event_id}"),
         }
