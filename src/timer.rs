@@ -282,10 +282,10 @@ impl<'d> TimerDriver<'d> {
                     {
                         config.allow_pd as _
                     },
-                    // The `backup_before_sleep` field is deprecated, and will be removed in 6.1
+                    // The `backup_before_sleep` field was removed in IDF 6.0
                     #[cfg(all(
                         esp_idf_version_at_least_5_3_0,
-                        not(esp_idf_version_at_least_6_1_0)
+                        not(esp_idf_version_at_least_6_0_0)
                     ))]
                     {
                         false as _
