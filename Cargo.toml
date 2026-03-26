@@ -70,6 +70,9 @@ atomic-waker = { version = "1.1.1", default-features = false }
 embassy-sync = "0.7"
 embedded-graphics-core = { version = "0.4", optional = true }
 
+[patch.crates-io]
+esp-idf-sys = { git = "https://github.com/mh0pe/esp-idf-sys", branch = "esp-idf-v6-support" }
+
 [build-dependencies]
 embuild = "0.33"
 

@@ -135,10 +135,19 @@ pub mod gpio {
     pub fn configure_deep(pin: PinId, level: Level) -> Result<(), EspError> {
         let mask = 1 << pin;
         let mode = match level {
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             Level::Low => esp_deepsleep_gpio_wake_up_mode_t_ESP_GPIO_WAKEUP_GPIO_LOW,
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             Level::High => esp_deepsleep_gpio_wake_up_mode_t_ESP_GPIO_WAKEUP_GPIO_HIGH,
+            #[cfg(esp_idf_version_at_least_6_0_0)]
+            Level::Low => esp_sleep_gpio_wake_up_mode_t_ESP_GPIO_WAKEUP_GPIO_LOW,
+            #[cfg(esp_idf_version_at_least_6_0_0)]
+            Level::High => esp_sleep_gpio_wake_up_mode_t_ESP_GPIO_WAKEUP_GPIO_HIGH,
         };
-        esp!(unsafe { esp_deep_sleep_enable_gpio_wakeup(mask, mode) })
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
+        return esp!(unsafe { esp_deep_sleep_enable_gpio_wakeup(mask, mode) });
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        return esp!(unsafe { esp_sleep_enable_gpio_wakeup_on_hp_periph_powerdown(mask, mode) });
     }
 }
 
