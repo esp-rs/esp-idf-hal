@@ -2515,6 +2515,13 @@ pub enum WifiEvent<'a> {
     /// DPP authentication or configuration exchange failed.
     #[cfg(esp_idf_version_at_least_5_5_0)]
     DppFailed(&'a DppFailedRef),
+
+    /// An event ID not recognised by this version of the library was received.
+    ///
+    /// This variant is produced instead of panicking when an unknown event ID
+    /// arrives, allowing applications to remain forward-compatible with
+    /// ESP-IDF versions that introduce new WiFi events.
+    Other(i32),
 }
 
 unsafe impl EspEventSource for WifiEvent<'_> {
@@ -2665,7 +2672,10 @@ impl EspEventDeserializer for WifiEvent<'_> {
             wifi_event_t_WIFI_EVENT_DPP_FAILED => {
                 WifiEvent::DppFailed(unsafe { data.as_payload() })
             }
-            _ => panic!("unknown event ID: {event_id}"),
+            _ => {
+                ::log::warn!("WifiEvent: unknown event ID {event_id}, ignoring");
+                WifiEvent::Other(event_id as i32)
+            }
         }
     }
 }

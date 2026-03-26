@@ -14,7 +14,7 @@ use alloc::boxed::Box;
 use alloc::sync::Arc;
 
 #[allow(unused)]
-use ::log::{debug, info};
+use ::log::{debug, info, warn};
 
 use crate::eventloop::{EspEventDeserializer, EspEventSource, EspSystemEventLoop};
 use crate::hal::delay;
@@ -2013,6 +2013,13 @@ pub enum ThreadEvent {
         esp_idf_version_at_least_5_4_0
     ))]
     DatasetChanged,
+
+    /// An event ID not recognised by this version of the library was received.
+    ///
+    /// This variant is produced instead of panicking when an unknown event ID
+    /// arrives, allowing applications to remain forward-compatible with
+    /// ESP-IDF versions that introduce new Thread events.
+    Other(i32),
 }
 
 unsafe impl EspEventSource for ThreadEvent {
@@ -2111,7 +2118,10 @@ impl EspEventDeserializer for ThreadEvent {
                 esp_idf_version_at_least_5_4_0
             ))]
             esp_openthread_event_t_OPENTHREAD_EVENT_DATASET_CHANGED => ThreadEvent::DatasetChanged,
-            _ => panic!("unknown event ID: {event_id}"),
+            _ => {
+                warn!("ThreadEvent: unknown event ID {event_id}, ignoring");
+                ThreadEvent::Other(event_id as i32)
+            }
         }
     }
 }

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `WifiEvent::DppUriReady` / `DppUriReadyRef` (v5.5.0+)
   - `WifiEvent::DppCfgRecvd` / `DppCfgRecvdRef` (v5.5.0+)
   - `WifiEvent::DppFailed` / `DppFailedRef` (v5.5.0+)
+- Unknown event IDs on the ESP-IDF event bus now produce an `Other(i32)` variant and a `log::warn!` instead of panicking, for `WifiEvent`, `IpEvent`, `EthEvent`, `PppEvent`, and `ThreadEvent`, improving forward compatibility with future ESP-IDF releases
 
 ### Fixed
 - WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)

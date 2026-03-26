@@ -873,6 +873,7 @@ impl<'d, T> EthDriver<'d, T> {
                     EthEvent::Stopped(_) => *guard = Status::Stopped,
                     EthEvent::Connected(_) => *guard = Status::Connected,
                     EthEvent::Disconnected(_) => *guard = Status::Disconnected,
+                    EthEvent::Other(_) => (),
                 }
             }
         })?;
@@ -1310,6 +1311,13 @@ pub enum EthEvent {
     Stopped(esp_eth_handle_t),
     Connected(esp_eth_handle_t),
     Disconnected(esp_eth_handle_t),
+
+    /// An event ID not recognised by this version of the library was received.
+    ///
+    /// This variant is produced instead of panicking when an unknown event ID
+    /// arrives, allowing applications to remain forward-compatible with
+    /// ESP-IDF versions that introduce new Ethernet events.
+    Other(i32),
 }
 
 unsafe impl Send for EthEvent {}
@@ -1329,6 +1337,7 @@ impl EthEvent {
             Self::Stopped(handle) => *handle,
             Self::Connected(handle) => *handle,
             Self::Disconnected(handle) => *handle,
+            Self::Other(_) => core::ptr::null_mut(),
         };
 
         handle as esp_eth_handle_t
@@ -1360,7 +1369,8 @@ impl EspEventDeserializer for EthEvent {
         } else if event_id == eth_event_t_ETHERNET_EVENT_DISCONNECTED {
             EthEvent::Disconnected(*eth_handle_ref.unwrap() as _)
         } else {
-            panic!("Unknown event ID: {event_id}");
+            ::log::warn!("EthEvent: unknown event ID {event_id}, ignoring");
+            EthEvent::Other(event_id as i32)
         }
     }
 }
