@@ -28,9 +28,9 @@ fn main() -> anyhow::Result<()> {
     let q_pressure: Arc<Queue<i16>> = Arc::new(Queue::new(4));
 
     // Clone Arc handles for the producer threads.
-    let q_sensor_tx = Arc::clone(&q_sensor);
-    let q_temp_tx = Arc::clone(&q_temp);
-    let q_pressure_tx = Arc::clone(&q_pressure);
+    let q_sensor_tx = q_sensor.clone();
+    let q_temp_tx = q_temp.clone();
+    let q_pressure_tx = q_pressure.clone();
 
     // Producer A: sends u32 sensor readings.
     std::thread::Builder::new()

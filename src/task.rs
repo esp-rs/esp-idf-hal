@@ -1160,11 +1160,17 @@ pub mod queue {
             unsafe { sys::uxQueueMessagesWaiting(self.ptr) as usize }
         }
 
+        /// Returns the number of messages currently available in the queue.
+        #[inline]
+        pub fn len(&self) -> usize {
+            self.messages_waiting()
+        }
+
         /// Returns the total capacity of the queue (maximum number of items it can hold).
         ///
         /// This is computed as `messages_waiting() + spaces_available()`.
         #[inline]
-        pub fn len(&self) -> usize {
+        pub fn capacity(&self) -> usize {
             unsafe {
                 (sys::uxQueueMessagesWaiting(self.ptr) + sys::uxQueueSpacesAvailable(self.ptr))
                     as usize
@@ -1174,7 +1180,7 @@ pub mod queue {
         /// Returns `true` if the queue is currently empty.
         #[inline]
         pub fn is_empty(&self) -> bool {
-            self.messages_waiting() == 0
+            self.len() == 0
         }
 
         /// Copy the first message from the queue without removing it.
@@ -1224,6 +1230,14 @@ pub mod queue {
 
     /// Macro that generates a typed FreeRTOS queue-set struct and its
     /// associated selected-item enum for a fixed arity.
+    ///
+    /// # Why a macro?
+    ///
+    /// Each `QueueSetN` holds N queue references with *different* item types
+    /// — e.g. `QueueSet2<T0, T1>` where `T0` and `T1` can be completely
+    /// different types, `QueueSet3<T0, T1, T2>` where all three can differ,
+    /// and so on.Once the language gains variadic-generic support,
+    /// this macro should be replaceable with a single generic definition.
     ///
     /// # Invocation syntax
     ///
@@ -1302,7 +1316,7 @@ pub mod queue {
                 /// are removed and the set handle is deleted before returning
                 /// the error.
                 pub fn new($($field: &'a Queue<$ty>),+) -> Result<Self, EspError> {
-                    let event_queue_length = 0usize $(+ $field.len())+;
+                    let event_queue_length = 0usize $(+ $field.capacity())+;
                     let set_ptr = unsafe { sys::xQueueCreateSet(event_queue_length as u32) };
 
                     // Add each queue in order.  On the first failure, remove
