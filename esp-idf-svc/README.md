@@ -15,7 +15,7 @@
 
 **You might want to also check out the ESP IDF [Drivers](https://github.com/esp-rs/esp-idf-hal) wrappers, and the raw bindings to ESP IDF in the [esp-idf-sys](https://github.com/esp-rs/esp-idf-sys) crate!**
 
-## Commuity Effort
+## Community Effort
 
 Please note that **all `esp-idf-*` crates are a community effort**, in that Espressif puts little to no paid developer time in these.
 So while ESP-IDF itself is very popular and well tested, the `esp-idf-*` crates:
