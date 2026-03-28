@@ -16,6 +16,8 @@ crate::embedded_hal_error!(
 
 pub type I2cMasterBusConfig = config::MasterBusConfig;
 pub type I2cMasterDeviceConfig = config::MasterDeviceConfig;
+#[cfg(not(esp32c2))]
+pub type I2cSlaveDeviceConfig = config::SlaveDeviceConfig;
 
 /// I2C configuration
 pub mod config {
@@ -91,6 +93,44 @@ pub mod config {
             Self {
                 scl_speed_hz: 100_000,
                 scl_wait_us: 0,
+                timeout_ms: -1,
+            }
+        }
+    }
+
+    /// Configuration for the new I2C slave device (driver/i2c_slave.h)
+    #[cfg(not(esp32c2))]
+    #[derive(Debug, Clone)]
+    pub struct SlaveDeviceConfig {
+        pub send_buf_depth: u32,
+        pub timeout_ms: i32,
+    }
+
+    #[cfg(not(esp32c2))]
+    impl SlaveDeviceConfig {
+        pub fn new() -> Self {
+            Default::default()
+        }
+
+        #[must_use]
+        pub fn send_buf_depth(mut self, depth: u32) -> Self {
+            self.send_buf_depth = depth;
+            self
+        }
+
+        /// Transmit timeout in milliseconds. Use -1 for blocking (default).
+        #[must_use]
+        pub fn timeout_ms(mut self, ms: i32) -> Self {
+            self.timeout_ms = ms;
+            self
+        }
+    }
+
+    #[cfg(not(esp32c2))]
+    impl Default for SlaveDeviceConfig {
+        fn default() -> Self {
+            Self {
+                send_buf_depth: 256,
                 timeout_ms: -1,
             }
         }
@@ -302,6 +342,88 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDev
         I2cMasterDevice::transaction(self, operations).map_err(to_i2c_err)
     }
 }
+
+/// I2C slave device using the new ESP-IDF driver (`driver/i2c_slave.h`).
+///
+/// Wraps `i2c_slave_dev_handle_t`. The slave listens on a configured address
+/// and communicates with an external master.
+///
+/// Note: [`I2cSlaveDevice::receive`] is non-blocking — it initiates a receive
+/// job. Use the `on_recv_done` callback (via [`i2c_slave_register_event_callbacks`])
+/// to be notified when data arrives.
+#[cfg(not(esp32c2))]
+pub struct I2cSlaveDevice<'d> {
+    handle: i2c_slave_dev_handle_t,
+    timeout_ms: i32,
+    _p: PhantomData<&'d mut ()>,
+}
+
+#[cfg(not(esp32c2))]
+impl<'d> I2cSlaveDevice<'d> {
+    pub fn new<I2C: I2c + 'd>(
+        _i2c: I2C,
+        sda: impl InputPin + OutputPin + 'd,
+        scl: impl InputPin + OutputPin + 'd,
+        slave_addr: u8,
+        config: &config::SlaveDeviceConfig,
+    ) -> Result<Self, EspError> {
+        let slave_config = i2c_slave_config_t {
+            i2c_port: I2C::port() as _,
+            sda_io_num: sda.pin() as _,
+            scl_io_num: scl.pin() as _,
+            clk_source: soc_periph_i2c_clk_src_t_I2C_CLK_SRC_DEFAULT,
+            send_buf_depth: config.send_buf_depth,
+            slave_addr: slave_addr as u16,
+            addr_bit_len: i2c_addr_bit_len_t_I2C_ADDR_BIT_LEN_7,
+            intr_priority: 0,
+            ..Default::default()
+        };
+
+        let mut handle: i2c_slave_dev_handle_t = core::ptr::null_mut();
+        esp!(unsafe { i2c_new_slave_device(&slave_config, &mut handle) })?;
+
+        Ok(Self {
+            handle,
+            timeout_ms: config.timeout_ms,
+            _p: PhantomData,
+        })
+    }
+
+    /// Initiate a non-blocking receive job.
+    ///
+    /// The buffer must remain valid until the `on_recv_done` callback fires.
+    /// Register callbacks via the raw `i2c_slave_register_event_callbacks` FFI.
+    pub fn receive(&mut self, buffer: &mut [u8]) -> Result<(), EspError> {
+        esp!(unsafe { i2c_slave_receive(self.handle, buffer.as_mut_ptr(), buffer.len()) })
+    }
+
+    /// Write data to the internal TX ringbuffer. The hardware FIFO is filled
+    /// from this buffer when the master clocks in a read.
+    pub fn transmit(&mut self, bytes: &[u8]) -> Result<(), EspError> {
+        esp!(unsafe {
+            i2c_slave_transmit(
+                self.handle,
+                bytes.as_ptr(),
+                bytes.len() as _,
+                self.timeout_ms,
+            )
+        })
+    }
+
+    pub fn handle(&self) -> i2c_slave_dev_handle_t {
+        self.handle
+    }
+}
+
+#[cfg(not(esp32c2))]
+impl Drop for I2cSlaveDevice<'_> {
+    fn drop(&mut self) {
+        esp!(unsafe { i2c_del_slave_device(self.handle) }).unwrap();
+    }
+}
+
+#[cfg(not(esp32c2))]
+unsafe impl Send for I2cSlaveDevice<'_> {}
 
 fn to_i2c_err(err: EspError) -> I2cError {
     if err.code() == ESP_FAIL {
