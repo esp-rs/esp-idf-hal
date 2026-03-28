@@ -852,10 +852,7 @@ impl<'d, S: DpiPanelState> LcdDriver<'d, S> {
     /// Requires that `set_control_panel()` has been called first.
     pub fn set_display_off(&self, off: bool) -> Result<(), EspError> {
         let panel = self.require_control_panel()?;
-        #[cfg(not(esp_idf_version_at_least_6_0_0))]
-        return unsafe { esp!(esp_lcd_panel_disp_off(panel, off)) };
-        #[cfg(esp_idf_version_at_least_6_0_0)]
-        return unsafe { esp!(esp_lcd_panel_disp_on_off(panel, !off)) };
+        unsafe { esp!(esp_lcd_panel_disp_on_off(panel, !off)) }
     }
 
     /// Enter or exit sleep mode (low power mode)
