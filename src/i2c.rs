@@ -408,8 +408,8 @@ where
 
 #[cfg(not(esp32c2))]
 #[allow(clippy::type_complexity)]
-struct I2cSlaveRecvUserData<'d> {
-    on_recv: Box<dyn FnMut(&[u8]) + Send + 'd>,
+struct I2cSlaveRecvUserData {
+    on_recv: Box<dyn FnMut(&[u8]) + Send + 'static>,
     notif: HalIsrNotification,
     #[cfg(not(esp_idf_version_at_least_6_0_0))]
     handle: i2c_slave_dev_handle_t,
@@ -429,7 +429,7 @@ pub struct I2cSlaveDriver<'d> {
     handle: i2c_slave_dev_handle_t,
     timeout_ms: i32,
     recv_buf_size: usize,
-    on_recv: Option<Box<I2cSlaveRecvUserData<'d>>>,
+    on_recv: Option<Box<I2cSlaveRecvUserData>>,
     _p: PhantomData<&'d mut ()>,
 }
 
@@ -482,20 +482,6 @@ impl<'d> I2cSlaveDriver<'d> {
     pub fn subscribe(
         &mut self,
         on_recv: impl FnMut(&[u8]) + Send + 'static,
-    ) -> Result<(), EspError> {
-        unsafe { self.subscribe_nonstatic(on_recv) }
-    }
-
-    /// Register a non-`'static` callback for data received from the master.
-    ///
-    /// # Safety
-    ///
-    /// The callback must remain valid for the lifetime of the subscription.
-    /// Do not forget the driver (e.g. via [`core::mem::forget`]) while the
-    /// callback is subscribed, as this would lead to undefined behavior.
-    pub unsafe fn subscribe_nonstatic(
-        &mut self,
-        on_recv: impl FnMut(&[u8]) + Send + 'd,
     ) -> Result<(), EspError> {
         self.unsubscribe()?;
 
