@@ -1,25 +1,16 @@
 use core::marker::PhantomData;
 
-use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
-
 use esp_idf_sys::*;
 
 use crate::gpio::*;
 
 pub use embedded_hal::i2c::Operation;
 
-crate::embedded_hal_error!(
-    I2cError,
-    embedded_hal::i2c::Error,
-    embedded_hal::i2c::ErrorKind
-);
-
 pub type I2cMasterBusConfig = config::MasterBusConfig;
 pub type I2cMasterDeviceConfig = config::MasterDeviceConfig;
 #[cfg(not(esp32c2))]
 pub type I2cSlaveDeviceConfig = config::SlaveDeviceConfig;
 
-/// I2C configuration
 pub mod config {
     /// Configuration for the I2C master bus (driver/i2c_master.h)
     #[derive(Debug, Clone)]
@@ -217,8 +208,6 @@ unsafe impl Sync for I2cMasterBus<'_> {}
 /// Implements [`embedded_hal::i2c::I2c`] so it works with ecosystem device
 /// drivers (e.g. `ina228`, `ssd1306`).
 ///
-/// The address passed to the embedded-hal trait methods is **ignored** — the
-/// device handle already knows its address.
 pub struct I2cMasterDevice<'d> {
     handle: i2c_master_dev_handle_t,
     timeout_ms: i32,
@@ -315,37 +304,6 @@ impl Drop for I2cMasterDevice<'_> {
 
 unsafe impl Send for I2cMasterDevice<'_> {}
 
-impl embedded_hal::i2c::ErrorType for I2cMasterDevice<'_> {
-    type Error = I2cError;
-}
-
-impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDevice<'_> {
-    fn read(&mut self, _addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        I2cMasterDevice::read(self, buffer).map_err(to_i2c_err)
-    }
-
-    fn write(&mut self, _addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        I2cMasterDevice::write(self, bytes).map_err(to_i2c_err)
-    }
-
-    fn write_read(
-        &mut self,
-        _addr: u8,
-        bytes: &[u8],
-        buffer: &mut [u8],
-    ) -> Result<(), Self::Error> {
-        I2cMasterDevice::write_read(self, bytes, buffer).map_err(to_i2c_err)
-    }
-
-    fn transaction(
-        &mut self,
-        _address: u8,
-        operations: &mut [embedded_hal::i2c::Operation<'_>],
-    ) -> Result<(), Self::Error> {
-        I2cMasterDevice::transaction(self, operations).map_err(to_i2c_err)
-    }
-}
-
 /// I2C slave device using the new ESP-IDF driver (`driver/i2c_slave.h`).
 ///
 /// Wraps `i2c_slave_dev_handle_t`. The slave listens on a configured address
@@ -427,14 +385,6 @@ impl Drop for I2cSlaveDevice<'_> {
 
 #[cfg(not(esp32c2))]
 unsafe impl Send for I2cSlaveDevice<'_> {}
-
-fn to_i2c_err(err: EspError) -> I2cError {
-    if err.code() == ESP_FAIL {
-        I2cError::new(ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown), err)
-    } else {
-        I2cError::other(err)
-    }
-}
 
 macro_rules! impl_i2c {
     ($i2c:ident: $port:expr) => {
