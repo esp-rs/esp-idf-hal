@@ -182,6 +182,43 @@
 #endif
 #endif
 
+// External Ethernet PHY drivers (managed components)
+#ifdef ESP_IDF_COMP_ESPRESSIF__DP83848_ENABLED
+#include "esp_eth_phy_dp83848.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESPRESSIF__IP101_ENABLED
+#include "esp_eth_phy_ip101.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESPRESSIF__KSZ80XX_ENABLED
+#include "esp_eth_phy_ksz80xx.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESPRESSIF__LAN87XX_ENABLED
+#include "esp_eth_phy_lan87xx.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESPRESSIF__RTL8201_ENABLED
+#include "esp_eth_phy_rtl8201.h"
+#endif
+
+// External Ethernet SPI drivers (managed components)
+#ifdef ESP_IDF_COMP_ESPRESSIF__DM9051_ENABLED
+#include "esp_eth_mac_dm9051.h"
+#include "esp_eth_phy_dm9051.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESPRESSIF__W5500_ENABLED
+#include "esp_eth_mac_w5500.h"
+#include "esp_eth_phy_w5500.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESPRESSIF__KSZ8851SNL_ENABLED
+#include "esp_eth_mac_ksz8851snl.h"
+#include "esp_eth_phy_ksz8851snl.h"
+#endif
+
 // OpenThread support
 #ifdef ESP_IDF_COMP_OPENTHREAD_ENABLED
 #ifdef CONFIG_OPENTHREAD_ENABLED
@@ -272,13 +309,16 @@
 #endif
 
 #ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
+#include "mbedtls/build_info.h"
 #include "mbedtls/ssl.h"
+#if MBEDTLS_VERSION_MAJOR < 4
 #include "mbedtls/aes.h"
 #include "mbedtls/cipher.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/cmac.h"
 #include "mbedtls/ecdh.h"
+#endif
 #include "mbedtls/ecp.h"
 #include "mbedtls/debug.h"
 
@@ -342,7 +382,7 @@
 #include "mdns.h"
 #endif
 
-#ifdef ESP_IDF_COMP_MQTT_ENABLED
+#if defined(ESP_IDF_COMP_MQTT_ENABLED) || defined(ESP_IDF_COMP_ESPRESSIF__MQTT_ENABLED)
 #include "mqtt_client.h"
 #ifdef CONFIG_MQTT_PROTOCOL_5
 #include "mqtt5_client.h"
@@ -401,6 +441,11 @@
 // GPIO
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_GPIO_ENABLED)
 #include "driver/gpio.h"
+// In ESP-IDF v6.0, soc/gpio_periph.h no longer includes soc/gpio_reg.h, so GPIO_OUT_REG
+// and friends are no longer transitively visible. Include it explicitly.
+#if ESP_IDF_VERSION_MAJOR >= 6
+#include "soc/gpio_reg.h"
+#endif
 #endif
 
 // GPTIMER
@@ -531,6 +576,9 @@
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_UART_ENABLED)
 #include "driver/uart.h"
 #include "driver/uart_select.h"
+#if ESP_IDF_VERSION_MAJOR >= 5 && defined(ESP_IDF_COMP_VFS_ENABLED)
+#include "driver/uart_vfs.h"
+#endif
 #endif
 
 // TEMP SENSOR

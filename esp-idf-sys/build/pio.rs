@@ -174,6 +174,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 }),
         ),
         esp_idf,
+        gcc_sysroot: None,
         config,
     };
 

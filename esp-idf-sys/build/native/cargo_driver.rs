@@ -586,6 +586,17 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         setup_clang_env(has_libclang.then_some(lib_path.as_deref().unwrap()))?;
     }
 
+    let gcc_ld_name = format!("{}-ld", chip.gcc_toolchain(version.as_ref()));
+    let gcc_sysroot = which::which_in_global(&gcc_ld_name, Some(idf.exported_path.clone()))
+        .ok()
+        .and_then(|mut it| it.next())
+        .and_then(|ld| {
+            embuild::cmd!(&ld, "--print-sysroot")
+                .stdout()
+                .ok()
+                .map(|s| PathBuf::from(s.trim()))
+        });
+
     let sdkconfig_json = path_buf![&cmake_build_dir, "config", "sdkconfig.json"];
     let build_output = EspIdfBuildOutput {
         cincl_args: build::CInclArgs::try_from(&target.compile_groups[0])?,
@@ -604,6 +615,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         ),
         env_path: Some(idf.exported_path.try_to_str()?.to_owned()),
         esp_idf: build_info.esp_idf_dir,
+        gcc_sysroot,
         config,
     };
 
