@@ -15,7 +15,7 @@ extern crate alloc;
 
 const RUST_LOG: Option<&str> = option_env!("RUST_LOG");
 
-/// Exposes the newlib stdout file descriptor to allow writing formatted
+/// Exposes the newlib/picolibc stdout file descriptor to allow writing formatted
 /// messages to stdout without a std dependency or allocation
 ///
 /// Does lock the `stdout` file descriptor on `new` and does release the lock on `drop`,
@@ -24,10 +24,14 @@ struct EspStdout(*mut FILE);
 
 impl EspStdout {
     fn new() -> Self {
-        let stdout = unsafe { __getreent().as_mut() }.unwrap()._stdout;
+        #[cfg(not(esp_idf_libc_picolibc))]
+        let stdout_ptr = unsafe { __getreent().as_mut() }.unwrap()._stdout;
+        #[cfg(esp_idf_libc_picolibc)]
+        let stdout_ptr = unsafe { stdout };
 
-        let file = unsafe { stdout.as_mut() }.unwrap();
+        let file = unsafe { stdout_ptr.as_mut() }.unwrap();
 
+        #[cfg(not(esp_idf_libc_picolibc))]
         // Copied from here:
         // https://github.com/bminor/newlib/blob/master/newlib/libc/stdio/local.h#L80
         // https://github.com/bminor/newlib/blob/3bafe2fae7a0878598a82777c623edb2faa70b74/newlib/libc/include/sys/stdio.h#L13
@@ -37,7 +41,12 @@ impl EspStdout {
             }
         }
 
-        Self(stdout)
+        #[cfg(esp_idf_libc_picolibc)]
+        unsafe {
+            _lock_acquire_recursive(&mut file.lock);
+        }
+
+        Self(stdout_ptr)
     }
 }
 
@@ -45,6 +54,7 @@ impl Drop for EspStdout {
     fn drop(&mut self) {
         let file = unsafe { self.0.as_mut() }.unwrap();
 
+        #[cfg(not(esp_idf_libc_picolibc))]
         // Copied from here:
         // https://github.com/bminor/newlib/blob/master/newlib/libc/stdio/local.h#L85
         // https://github.com/bminor/newlib/blob/3bafe2fae7a0878598a82777c623edb2faa70b74/newlib/libc/include/sys/stdio.h#L21
@@ -52,6 +62,11 @@ impl Drop for EspStdout {
             unsafe {
                 _lock_release_recursive(&mut file._lock);
             }
+        }
+
+        #[cfg(esp_idf_libc_picolibc)]
+        unsafe {
+            _lock_release_recursive(&mut file.lock);
         }
     }
 }
@@ -351,15 +366,15 @@ where
             let args = record.args();
             let color = Self::get_color(record.level());
 
-            let mut stdout = EspStdout::new();
+            let mut stdout_writer = EspStdout::new();
 
             if let Some(color) = color {
-                write!(stdout, "\x1b[0;{color}m").unwrap();
+                write!(stdout_writer, "\x1b[0;{color}m").unwrap();
             }
-            write!(stdout, "{marker} (").unwrap();
+            write!(stdout_writer, "{marker} (").unwrap();
             if cfg!(esp_idf_log_timestamp_source_rtos) {
                 let timestamp = unsafe { esp_log_timestamp() };
-                write!(stdout, "{timestamp}").unwrap();
+                write!(stdout_writer, "{timestamp}").unwrap();
             } else if cfg!(esp_idf_log_timestamp_source_system) {
                 // TODO: https://github.com/esp-rs/esp-idf-svc/pull/494 - official usage of
                 // `esp_log_timestamp_str()` should be tracked and replace the not thread-safe
@@ -367,13 +382,13 @@ where
                 // returning a pointer to a static buffer containing the c-string.
                 let timestamp =
                     unsafe { CStr::from_ptr(esp_log_system_timestamp()).to_str().unwrap() };
-                write!(stdout, "{timestamp}").unwrap();
+                write!(stdout_writer, "{timestamp}").unwrap();
             }
-            write!(stdout, ") {target}: {args}").unwrap();
+            write!(stdout_writer, ") {target}: {args}").unwrap();
             if color.is_some() {
-                write!(stdout, "\x1b[0m").unwrap();
+                write!(stdout_writer, "\x1b[0m").unwrap();
             }
-            writeln!(stdout).unwrap();
+            writeln!(stdout_writer).unwrap();
         }
     }
 

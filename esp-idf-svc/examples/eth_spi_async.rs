@@ -1,24 +1,68 @@
 //! This example demonstrates how to configure an SPI based Ethernet adapter
 //!
-//! To be able to use this example, you need to set the following in your sdkconfig.default file:
+//! To be able to use this example on ESP-IDF v5.x, you need to set the following in your
+//! sdkconfig.defaults file (pick one depending on your chip):
 //! CONFIG_ETH_SPI_ETHERNET_DM9051=y
 //! CONFIG_ETH_SPI_ETHERNET_W5500=y
 //! CONFIG_ETH_SPI_ETHERNET_KSZ8851SNL=y
-//! You only pick one of the three, depending on which chip you have on your board.
 //! Also adjust the EspEth::wrap call below to match your board's chip.
+//!
+//! Note: On ESP-IDF v6.0+, SPI Ethernet drivers were moved out of the main tree.
+//! Add the relevant component to your `Cargo.toml` depending on your chip:
+//! ```toml
+//! [[package.metadata.esp-idf-sys.extra_components]]
+//! remote_component = { name = "espressif/w5500", version = "1.*" }   # or dm9051, ksz8851snl
+//! ```
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
+#[cfg(all(
+    esp32,
+    any(
+        esp_idf_eth_spi_ethernet_dm9051,
+        esp_idf_comp_espressif__dm9051_enabled,
+        esp_idf_eth_spi_ethernet_w5500,
+        esp_idf_comp_espressif__w5500_enabled,
+        esp_idf_eth_spi_ethernet_ksz8851snl,
+        esp_idf_comp_espressif__ksz8851snl_enabled
+    )
+))]
 fn main() {
-    #[cfg(esp32)]
     example::main().unwrap();
+}
 
-    #[cfg(not(esp32))]
+#[cfg(not(esp32))]
+fn main() {
     panic!("This example is configured for esp32, please adjust pins to your module");
 }
 
-#[cfg(esp32)]
+#[cfg(all(
+    esp32,
+    not(any(
+        esp_idf_eth_spi_ethernet_dm9051,
+        esp_idf_comp_espressif__dm9051_enabled,
+        esp_idf_eth_spi_ethernet_w5500,
+        esp_idf_comp_espressif__w5500_enabled,
+        esp_idf_eth_spi_ethernet_ksz8851snl,
+        esp_idf_comp_espressif__ksz8851snl_enabled
+    ))
+))]
+fn main() {
+    panic!("No SPI Ethernet chipset enabled. See the note at the top of this file.");
+}
+
+#[cfg(all(
+    esp32,
+    any(
+        esp_idf_eth_spi_ethernet_dm9051,
+        esp_idf_comp_espressif__dm9051_enabled,
+        esp_idf_eth_spi_ethernet_w5500,
+        esp_idf_comp_espressif__w5500_enabled,
+        esp_idf_eth_spi_ethernet_ksz8851snl,
+        esp_idf_comp_espressif__ksz8851snl_enabled
+    )
+))]
 pub mod example {
     use esp_idf_svc::eth;
     use esp_idf_svc::eventloop::EspSystemEventLoop;

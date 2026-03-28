@@ -20,8 +20,11 @@ use embedded_svc::eth::*;
 use crate::hal::gpio;
 #[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_comp_espressif__dm9051_enabled,
     esp_idf_eth_spi_ethernet_w5500,
-    esp_idf_eth_spi_ethernet_ksz8851snl
+    esp_idf_comp_espressif__w5500_enabled,
+    esp_idf_eth_spi_ethernet_ksz8851snl,
+    esp_idf_comp_espressif__ksz8851snl_enabled
 ))]
 use crate::hal::{spi, units::Hertz};
 
@@ -38,15 +41,42 @@ use crate::private::*;
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum RmiiEthChipset {
+    /// Use the generic IEEE 802.3-compliant PHY driver.
+    /// Available since ESP-IDF v5.4. On v6.0+, this is the only built-in option
+    /// unless specific PHY components from esp-eth-drivers are included.
+    #[cfg(esp_idf_version_at_least_5_4_0)]
+    Generic,
+    #[cfg(any(
+        not(esp_idf_version_at_least_6_0_0),
+        esp_idf_comp_espressif__ip101_enabled
+    ))]
     IP101,
+    #[cfg(any(
+        not(esp_idf_version_at_least_6_0_0),
+        esp_idf_comp_espressif__rtl8201_enabled
+    ))]
     RTL8201,
+    #[cfg(any(
+        not(esp_idf_version_at_least_6_0_0),
+        esp_idf_comp_espressif__lan87xx_enabled
+    ))]
     LAN87XX,
+    #[cfg(any(
+        not(esp_idf_version_at_least_6_0_0),
+        esp_idf_comp_espressif__dp83848_enabled
+    ))]
     DP83848,
     #[cfg(esp_idf_version_major = "4")]
     KSZ8041,
     #[cfg(esp_idf_version = "4.4")]
     KSZ8081,
-    #[cfg(not(esp_idf_version_major = "4"))]
+    #[cfg(all(
+        not(esp_idf_version_major = "4"),
+        any(
+            not(esp_idf_version_at_least_6_0_0),
+            esp_idf_comp_espressif__ksz80xx_enabled
+        )
+    ))]
     KSZ80XX,
 }
 
@@ -62,6 +92,7 @@ pub enum RmiiClockConfig<'d> {
 #[cfg(all(esp32, esp_idf_eth_use_esp32_emac))]
 impl RmiiClockConfig<'_> {
     fn eth_mac_clock_config(&self) -> eth_mac_clock_config_t {
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
         let rmii = match self {
             Self::Input(_) => eth_mac_clock_config_t__bindgen_ty_2 {
                 clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_EXT_IN,
@@ -81,22 +112,52 @@ impl RmiiClockConfig<'_> {
             },
         };
 
+        // In v6.0, clock_gpio is a plain int (GPIO number) instead of an enum
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        let rmii = match self {
+            Self::Input(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_EXT_IN,
+                clock_gpio: 0,
+            },
+            Self::OutputGpio0(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: 0,
+            },
+            Self::OutputGpio16(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: 16,
+            },
+            Self::OutputInvertedGpio17(_) => eth_mac_clock_config_t__bindgen_ty_2 {
+                clock_mode: emac_rmii_clock_mode_t_EMAC_CLK_OUT,
+                clock_gpio: 17,
+            },
+        };
+
         eth_mac_clock_config_t { rmii }
     }
 }
 
 #[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_comp_espressif__dm9051_enabled,
     esp_idf_eth_spi_ethernet_w5500,
-    esp_idf_eth_spi_ethernet_ksz8851snl
+    esp_idf_comp_espressif__w5500_enabled,
+    esp_idf_eth_spi_ethernet_ksz8851snl,
+    esp_idf_comp_espressif__ksz8851snl_enabled
 ))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum SpiEthChipset {
-    #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
+    #[cfg(any(
+        esp_idf_eth_spi_ethernet_dm9051,
+        esp_idf_comp_espressif__dm9051_enabled
+    ))]
     DM9051,
-    #[cfg(esp_idf_eth_spi_ethernet_w5500)]
+    #[cfg(any(esp_idf_eth_spi_ethernet_w5500, esp_idf_comp_espressif__w5500_enabled))]
     W5500,
-    #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
+    #[cfg(any(
+        esp_idf_eth_spi_ethernet_ksz8851snl,
+        esp_idf_comp_espressif__ksz8851snl_enabled
+    ))]
     KSZ8851SNL,
 }
 
@@ -117,8 +178,11 @@ pub enum SpiEthChipset {
 /// - v5.3-dev: <https://github.com/espressif/esp-idf/blob/ea010f84ef878dda07146244e166930738c1c103/components/esp_eth/include/esp_eth_mac.h#L694-L700>
 #[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_comp_espressif__dm9051_enabled,
     esp_idf_eth_spi_ethernet_w5500,
-    esp_idf_eth_spi_ethernet_ksz8851snl
+    esp_idf_comp_espressif__w5500_enabled,
+    esp_idf_eth_spi_ethernet_ksz8851snl,
+    esp_idf_comp_espressif__ksz8851snl_enabled
 ))]
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct SpiEventSource<'d> {
@@ -143,8 +207,11 @@ pub struct SpiEventSource<'d> {
 
 #[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_comp_espressif__dm9051_enabled,
     esp_idf_eth_spi_ethernet_w5500,
-    esp_idf_eth_spi_ethernet_ksz8851snl
+    esp_idf_comp_espressif__w5500_enabled,
+    esp_idf_eth_spi_ethernet_ksz8851snl,
+    esp_idf_comp_espressif__ksz8851snl_enabled
 ))]
 impl<'d> SpiEventSource<'d> {
     /// Instead of getting informed by an interrupt pin about updates/changes from the emac, the
@@ -365,16 +432,44 @@ impl<'d> EthDriver<'d, RmiiEth> {
     ) -> Result<*mut esp_eth_phy_t, EspError> {
         let phy_cfg = Self::eth_phy_default_config(reset, phy_addr);
 
+        // In ESP-IDF v6.0+, specific PHY functions were moved to the external
+        // esp-eth-drivers component (https://github.com/espressif/esp-eth-drivers).
+        // If the component is included, use the specific function.
+        // A generic driver is always available since v5.4.0, and can be used as fallback.
         let phy = match chipset {
+            #[cfg(esp_idf_version_at_least_5_4_0)]
+            RmiiEthChipset::Generic => unsafe { esp_eth_phy_new_generic(&phy_cfg) },
+            #[cfg(any(
+                not(esp_idf_version_at_least_6_0_0),
+                esp_idf_comp_espressif__ip101_enabled
+            ))]
             RmiiEthChipset::IP101 => unsafe { esp_eth_phy_new_ip101(&phy_cfg) },
+            #[cfg(any(
+                not(esp_idf_version_at_least_6_0_0),
+                esp_idf_comp_espressif__rtl8201_enabled
+            ))]
             RmiiEthChipset::RTL8201 => unsafe { esp_eth_phy_new_rtl8201(&phy_cfg) },
+            #[cfg(any(
+                not(esp_idf_version_at_least_6_0_0),
+                esp_idf_comp_espressif__lan87xx_enabled
+            ))]
             RmiiEthChipset::LAN87XX => unsafe { esp_eth_phy_new_lan87xx(&phy_cfg) },
+            #[cfg(any(
+                not(esp_idf_version_at_least_6_0_0),
+                esp_idf_comp_espressif__dp83848_enabled
+            ))]
             RmiiEthChipset::DP83848 => unsafe { esp_eth_phy_new_dp83848(&phy_cfg) },
             #[cfg(esp_idf_version_major = "4")]
             RmiiEthChipset::KSZ8041 => unsafe { esp_eth_phy_new_ksz8041(&phy_cfg) },
             #[cfg(esp_idf_version = "4.4")]
             RmiiEthChipset::KSZ8081 => unsafe { esp_eth_phy_new_ksz8081(&phy_cfg) },
-            #[cfg(not(esp_idf_version_major = "4"))]
+            #[cfg(all(
+                not(esp_idf_version_major = "4"),
+                any(
+                    not(esp_idf_version_at_least_6_0_0),
+                    esp_idf_comp_espressif__ksz80xx_enabled
+                )
+            ))]
             RmiiEthChipset::KSZ80XX => unsafe { esp_eth_phy_new_ksz80xx(&phy_cfg) },
         };
 
@@ -432,13 +527,7 @@ impl<'d> EthDriver<'d, RmiiEth> {
         }
     }
 
-    #[cfg(not(any(
-        esp_idf_version_major = "4",
-        esp_idf_version = "5.0",
-        esp_idf_version = "5.1",
-        esp_idf_version = "5.2",
-        esp_idf_version = "5.3"
-    )))]
+    #[cfg(all(esp_idf_version_at_least_5_4_0, not(esp_idf_version_at_least_6_0_0)))]
     fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
         eth_esp32_emac_config_t {
             __bindgen_anon_1: eth_esp32_emac_config_t__bindgen_ty_1 {
@@ -446,6 +535,19 @@ impl<'d> EthDriver<'d, RmiiEth> {
                     mdc_num: mdc,
                     mdio_num: mdio,
                 },
+            },
+            interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
+            ..Default::default()
+        }
+    }
+
+    // In v6.0, __bindgen_anon_1 wrapper was removed; smi_gpio is a direct field
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    fn eth_esp32_emac_default_config(mdc: i32, mdio: i32) -> eth_esp32_emac_config_t {
+        eth_esp32_emac_config_t {
+            smi_gpio: emac_esp_smi_gpio_config_t {
+                mdc_num: mdc,
+                mdio_num: mdio,
             },
             interface: eth_data_interface_t_EMAC_DATA_INTERFACE_RMII,
             ..Default::default()
@@ -480,8 +582,11 @@ impl<'d> EthDriver<'d, OpenEth> {
 
 #[cfg(any(
     esp_idf_eth_spi_ethernet_dm9051,
+    esp_idf_comp_espressif__dm9051_enabled,
     esp_idf_eth_spi_ethernet_w5500,
-    esp_idf_eth_spi_ethernet_ksz8851snl
+    esp_idf_comp_espressif__w5500_enabled,
+    esp_idf_eth_spi_ethernet_ksz8851snl,
+    esp_idf_comp_espressif__ksz8851snl_enabled
 ))]
 impl<'d, T> EthDriver<'d, SpiEth<T>>
 where
@@ -618,7 +723,10 @@ where
         let phy_cfg = Self::eth_phy_default_config(rst, phy_addr);
 
         let (mac, phy, spi_handle) = match chipset {
-            #[cfg(esp_idf_eth_spi_ethernet_dm9051)]
+            #[cfg(any(
+                esp_idf_eth_spi_ethernet_dm9051,
+                esp_idf_comp_espressif__dm9051_enabled
+            ))]
             SpiEthChipset::DM9051 => {
                 let spi_devcfg = Self::get_spi_conf(cs, 1, 7, baudrate);
 
@@ -671,7 +779,7 @@ where
 
                 (mac, phy, spi_handle)
             }
-            #[cfg(esp_idf_eth_spi_ethernet_w5500)]
+            #[cfg(any(esp_idf_eth_spi_ethernet_w5500, esp_idf_comp_espressif__w5500_enabled))]
             SpiEthChipset::W5500 => {
                 let spi_devcfg = Self::get_spi_conf(cs, 16, 8, baudrate);
 
@@ -724,7 +832,10 @@ where
 
                 (mac, phy, spi_handle)
             }
-            #[cfg(esp_idf_eth_spi_ethernet_ksz8851snl)]
+            #[cfg(any(
+                esp_idf_eth_spi_ethernet_ksz8851snl,
+                esp_idf_comp_espressif__ksz8851snl_enabled
+            ))]
             SpiEthChipset::KSZ8851SNL => {
                 let spi_devcfg = Self::get_spi_conf(cs, 0, 0, baudrate);
 

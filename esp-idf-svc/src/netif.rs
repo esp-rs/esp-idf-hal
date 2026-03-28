@@ -363,6 +363,8 @@ impl EspNetif {
                     route_prio: conf.route_priority as _,
                     #[cfg(not(esp_idf_version_major = "4"))]
                     bridge_info: ptr::null_mut(),
+                    #[cfg(esp_idf_version_at_least_6_0_0)]
+                    mtu: 0,
                 },
                 match ip_conf {
                     ipv4::ClientConfiguration::DHCP(_) => None,
@@ -404,6 +406,8 @@ impl EspNetif {
                     route_prio: conf.route_priority as _,
                     #[cfg(not(esp_idf_version_major = "4"))]
                     bridge_info: ptr::null_mut(),
+                    #[cfg(esp_idf_version_at_least_6_0_0)]
+                    mtu: 0,
                 },
                 Some(esp_netif_ip_info_t {
                     ip: Newtype::<esp_ip4_addr_t>::from(ip_conf.subnet.gateway).0,
@@ -427,6 +431,8 @@ impl EspNetif {
                     route_prio: conf.route_priority as _,
                     #[cfg(not(esp_idf_version_major = "4"))]
                     bridge_info: ptr::null_mut(),
+                    #[cfg(esp_idf_version_at_least_6_0_0)]
+                    mtu: 0,
                 },
                 None,
                 false,

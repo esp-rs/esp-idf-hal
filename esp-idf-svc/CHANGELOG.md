@@ -17,10 +17,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `WifiEvent::DppCfgRecvd` / `DppCfgRecvdRef` (v5.5.0+)
   - `WifiEvent::DppFailed` / `DppFailedRef` (v5.5.0+)
 - Unknown event IDs on the ESP-IDF event bus now produce an `Other(i32)` variant and a `log::warn!` instead of panicking, for `WifiEvent`, `IpEvent`, `EthEvent`, `PppEvent`, and `ThreadEvent`, improving forward compatibility with future ESP-IDF releases
+- Note that in ESP-IDF V6.0, some drivers have been moved to external components (`mqtt`, ethernet PHY/SPI drivers). If the code fails to build, you may need to enable extra components in your `Cargo.toml`, e.g.:
+```toml
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/lan87xx", version = "1.*" }
+```
 
 ### Fixed
 - WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)
 - WebSocket: `EspWebSocketClient::drop()` no longer panics when `esp_websocket_client_close` returns `ESP_FAIL` (e.g. after a network disconnection); errors are now logged instead of unwrapped
+
+### Added
+- Compatibility with ESP-IDF V6.0.
+- Added support for the Generic Ethernet PHY driver: particularly useful on ESP-IDF 6.0+ as it is built-in.
 
 ## [0.52.1] - 2026-03-10
 

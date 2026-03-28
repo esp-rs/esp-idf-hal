@@ -1,6 +1,16 @@
 //! This example demonstrates how to configure an RMII based Ethernet adapter
 //!
 //! To use it, you need an RMII-capable Espressif MCU, like the original ESP32 chip
+//!
+//! Note: On ESP-IDF v6.0+, specific RMII PHY drivers were moved out of the main tree.
+//! This example uses `RmiiEthChipset::Generic` which is always available. To use a
+//! specific PHY, add the corresponding component to your `Cargo.toml`, e.g.:
+//! ```toml
+//! [[package.metadata.esp-idf-sys.extra_components]]
+//! remote_component = { name = "espressif/lan87xx", version = "1.*" }
+//! ```
+//! Other available PHY components: `espressif/ip101`, `espressif/dp83848`,
+//! `espressif/rtl8201`, `espressif/ksz80xx`.
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
@@ -37,7 +47,12 @@ fn main() -> anyhow::Result<()> {
         pins.gpio18,
         esp_idf_svc::eth::RmiiClockConfig::OutputInvertedGpio17(pins.gpio17),
         Some(pins.gpio5),
-        // Replace with IP101 if you have that variant, or with some of the others in the `RmiiEthChipset`` enum
+        // Replace with a specific PHY variant (e.g. LAN87XX, IP101) if you have it available.
+        // On ESP-IDF v6.0+ these require external components (see note at top of file).
+        // Generic is available since ESP-IDF v5.4; use LAN87XX for older versions.
+        #[cfg(esp_idf_version_at_least_5_4_0)]
+        esp_idf_svc::eth::RmiiEthChipset::Generic,
+        #[cfg(not(esp_idf_version_at_least_5_4_0))]
         esp_idf_svc::eth::RmiiEthChipset::LAN87XX,
         Some(0),
         sys_loop.clone(),

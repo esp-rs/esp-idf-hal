@@ -75,7 +75,7 @@ pub mod log;
 pub mod mdns;
 #[cfg(all(
     feature = "alloc",
-    esp_idf_comp_mqtt_enabled,
+    any(esp_idf_comp_mqtt_enabled, esp_idf_comp_espressif__mqtt_enabled),
     esp_idf_comp_esp_event_enabled
 ))]
 pub mod mqtt;

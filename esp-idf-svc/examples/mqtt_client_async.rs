@@ -1,10 +1,20 @@
 //! MQTT asynchronous client example which subscribes to an internet MQTT server and then sends
 //! and receives events in its own topic.
+//!
+//! Note: On ESP-IDF v6.0+, the MQTT component was moved out of the main tree. To enable it,
+//! add the following to your `Cargo.toml`:
+//! ```toml
+//! [[package.metadata.esp-idf-sys.extra_components]]
+//! remote_component = { name = "espressif/mqtt", version = "1.*" }
+//! ```
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
-#[cfg(not(any(esp32h2, esp32h4, esp32p4)))]
+#[cfg(all(
+    not(any(esp32h2, esp32h4, esp32p4)),
+    any(esp_idf_comp_mqtt_enabled, esp_idf_comp_espressif__mqtt_enabled)
+))]
 fn main() {
     example::main()
 }
@@ -14,7 +24,18 @@ fn main() {
     panic!("ESP32-H2, ESP32-H4 and ESP32-P4 do not have a Wifi radio (but you could enable the esp-wifi-remote component to use them with a WiFi co-processor)");
 }
 
-#[cfg(not(any(esp32h2, esp32h4, esp32p4)))]
+#[cfg(all(
+    not(any(esp32h2, esp32h4, esp32p4)),
+    not(any(esp_idf_comp_mqtt_enabled, esp_idf_comp_espressif__mqtt_enabled))
+))]
+fn main() {
+    panic!("MQTT component is not enabled. See the note at the top of this file.");
+}
+
+#[cfg(all(
+    not(any(esp32h2, esp32h4, esp32p4)),
+    any(esp_idf_comp_mqtt_enabled, esp_idf_comp_espressif__mqtt_enabled)
+))]
 mod example {
     use core::pin::pin;
     use core::time::Duration;
