@@ -1,10 +1,18 @@
 use core::marker::PhantomData;
 
+use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
+
 use esp_idf_sys::*;
 
 use crate::gpio::*;
 
 pub use embedded_hal::i2c::Operation;
+
+crate::embedded_hal_error!(
+    I2cError,
+    embedded_hal::i2c::Error,
+    embedded_hal::i2c::ErrorKind
+);
 
 pub type I2cMasterBusConfig = config::MasterBusConfig;
 pub type I2cMasterDeviceConfig = config::MasterDeviceConfig;
@@ -210,6 +218,7 @@ unsafe impl Sync for I2cMasterBus<'_> {}
 ///
 pub struct I2cMasterDevice<'d> {
     handle: i2c_master_dev_handle_t,
+    address: u8,
     timeout_ms: i32,
     _p: PhantomData<&'d ()>,
 }
@@ -233,6 +242,7 @@ impl<'d> I2cMasterDevice<'d> {
 
         Ok(Self {
             handle,
+            address,
             timeout_ms: config.timeout_ms,
             _p: PhantomData,
         })
@@ -303,6 +313,36 @@ impl Drop for I2cMasterDevice<'_> {
 }
 
 unsafe impl Send for I2cMasterDevice<'_> {}
+
+impl embedded_hal::i2c::ErrorType for I2cMasterDevice<'_> {
+    type Error = I2cError;
+}
+
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDevice<'_> {
+    fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
+        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        I2cMasterDevice::read(self, buffer).map_err(to_i2c_err)
+    }
+
+    fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
+        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        I2cMasterDevice::write(self, bytes).map_err(to_i2c_err)
+    }
+
+    fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
+        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        I2cMasterDevice::write_read(self, bytes, buffer).map_err(to_i2c_err)
+    }
+
+    fn transaction(
+        &mut self,
+        addr: u8,
+        operations: &mut [embedded_hal::i2c::Operation<'_>],
+    ) -> Result<(), Self::Error> {
+        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        I2cMasterDevice::transaction(self, operations).map_err(to_i2c_err)
+    }
+}
 
 /// I2C slave device using the new ESP-IDF driver (`driver/i2c_slave.h`).
 ///
@@ -385,6 +425,14 @@ impl Drop for I2cSlaveDevice<'_> {
 
 #[cfg(not(esp32c2))]
 unsafe impl Send for I2cSlaveDevice<'_> {}
+
+fn to_i2c_err(err: EspError) -> I2cError {
+    if err.code() == ESP_FAIL {
+        I2cError::new(ErrorKind::NoAcknowledge(NoAcknowledgeSource::Unknown), err)
+    } else {
+        I2cError::other(err)
+    }
+}
 
 macro_rules! impl_i2c {
     ($i2c:ident: $port:expr) => {
