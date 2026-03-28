@@ -706,38 +706,14 @@ impl<'d> I2cMasterDevice<'d> {
                 Operation::Write(bytes) => {
                     // If the next operation is a Read, use transmit_receive for repeated start
                     if let Some(Operation::Read(read_buf)) = iter.peek_mut() {
-                        esp!(unsafe {
-                            i2c_master_transmit_receive(
-                                self.handle,
-                                bytes.as_ptr(),
-                                bytes.len(),
-                                read_buf.as_mut_ptr(),
-                                read_buf.len(),
-                                self.timeout_ms,
-                            )
-                        })?;
-                        // Consume the peeked Read since we already handled it
+                        self.write_read(bytes, read_buf)?;
                         iter.next();
                     } else {
-                        esp!(unsafe {
-                            i2c_master_transmit(
-                                self.handle,
-                                bytes.as_ptr(),
-                                bytes.len(),
-                                self.timeout_ms,
-                            )
-                        })?;
+                        self.write(bytes)?;
                     }
                 }
                 Operation::Read(buf) => {
-                    esp!(unsafe {
-                        i2c_master_receive(
-                            self.handle,
-                            buf.as_mut_ptr(),
-                            buf.len(),
-                            self.timeout_ms,
-                        )
-                    })?;
+                    self.read(buf)?;
                 }
             }
         }
