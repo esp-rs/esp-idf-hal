@@ -37,6 +37,8 @@ fn main() -> anyhow::Result<()> {
 
 #[cfg(all(esp32, not(feature = "i2c-legacy")))]
 mod example {
+    use std::sync::{Arc, Mutex};
+
     use esp_idf_hal::delay::FreeRtos;
     use esp_idf_hal::i2c::*;
     use esp_idf_hal::peripherals::Peripherals;
@@ -72,22 +74,27 @@ mod example {
             &I2cSlaveConfig::new().send_buf_depth(256),
         )?;
 
-        // --- Test 1: Master writes, slave receives ---
+        // --- Test 1: Master writes, slave receives via callback ---
         println!("-------- TESTING MASTER WRITE -> SLAVE RECEIVE --------");
 
+        let received = Arc::new(Mutex::new(Vec::new()));
+        let received_clone = received.clone();
+
+        slave.subscribe(move |data: &[u8]| {
+            if let Ok(mut buf) = received_clone.lock() {
+                buf.extend_from_slice(data);
+            }
+        })?;
+
         let tx_buf: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef];
-        let mut rx_buf: [u8; 8] = [0; 8];
+        master.transmit(&tx_buf)?;
 
-        // Initiate non-blocking receive on slave first
-        slave.receive(&mut rx_buf)?;
-
-        // Master sends data
-        master.write(&tx_buf)?;
-
-        // Give the transfer time to complete
         FreeRtos::delay_ms(100);
+        let rx_data = received.lock().unwrap().clone();
         println!("Master sent:     {tx_buf:?}");
-        println!("Slave received:  {rx_buf:?}");
+        println!("Slave received:  {rx_data:?}");
+
+        slave.unsubscribe()?;
 
         // --- Test 2: Slave transmits, master reads ---
         println!("-------- TESTING SLAVE TRANSMIT -> MASTER READ --------");
@@ -95,11 +102,8 @@ mod example {
         let slave_tx: [u8; 8] = [0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10];
         let mut master_rx: [u8; 8] = [0; 8];
 
-        // Load data into slave TX buffer
         slave.transmit(&slave_tx)?;
-
-        // Master reads
-        master.read(&mut master_rx)?;
+        master.receive(&mut master_rx)?;
 
         println!("Slave sent:      {slave_tx:?}");
         println!("Master received: {master_rx:?}");
