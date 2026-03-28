@@ -7,17 +7,48 @@
 //! ESP32-C2/C3 does not have two I2C peripherals, so this example will not work.
 //!
 //! Description:
-//! 1. Master writes 8 bytes, slave receives them via callback
-//! 2. Slave loads TX buffer, master reads 8 bytes
+//! Consists of three parts:
+//! 1. Simple master write, master writes 8 bytes and print out what slave receives
+//! 2. Simple master read, master read 8 bytes and print out.
+//! 3. Read/write register, write a value to a register addr and read it back.
 //!
-//! This example uses the new I2C master/slave API. Build with:
-//! ```
-//! cargo build --example i2c_master_slave --no-default-features --features std,binstart
-//! ```
-
 #![allow(unused)]
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
+
+use esp_idf_hal::delay::BLOCK;
+use esp_idf_hal::gpio::{AnyIOPin, InputPin, OutputPin};
+use esp_idf_hal::i2c::{I2c, I2cConfig, I2cDriver, I2cSlaveConfig, I2cSlaveDriver};
+use esp_idf_hal::peripherals::Peripherals;
+use esp_idf_hal::units::*;
+
+const SLAVE_ADDR: u8 = 0x22;
+const SLAVE_BUFFER_SIZE: usize = 128;
+
+fn i2c_master_init<'d>(
+    i2c: impl I2c + 'd,
+    sda: AnyIOPin<'d>,
+    scl: AnyIOPin<'d>,
+    baudrate: Hertz,
+) -> anyhow::Result<I2cDriver<'d>> {
+    let config = I2cConfig::new().baudrate(baudrate);
+    let driver = I2cDriver::new(i2c, sda, scl, &config)?;
+    Ok(driver)
+}
+
+fn i2c_slave_init<'d>(
+    i2c: impl I2c + 'd,
+    sda: AnyIOPin<'d>,
+    scl: AnyIOPin<'d>,
+    buflen: usize,
+    slave_addr: u8,
+) -> anyhow::Result<I2cSlaveDriver<'d>> {
+    let config = I2cSlaveConfig::new()
+        .rx_buffer_length(buflen)
+        .tx_buffer_length(buflen);
+    let driver = I2cSlaveDriver::new(i2c, sda, scl, slave_addr, &config)?;
+    Ok(driver)
+}
 
 #[cfg(not(esp32))]
 fn main() -> anyhow::Result<()> {
@@ -25,92 +56,116 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[cfg(all(esp32, feature = "i2c-legacy"))]
+#[cfg(esp32)]
 fn main() -> anyhow::Result<()> {
-    println!("This example uses the new I2C API. Disable the `i2c-legacy` feature.");
-    loop {
-        std::thread::sleep(std::time::Duration::from_millis(1000));
+    esp_idf_hal::sys::link_patches();
+
+    println!("Starting I2C self test");
+
+    let peripherals = Peripherals::take()?;
+
+    let mut i2c_master = i2c_master_init(
+        peripherals.i2c0,
+        peripherals.pins.gpio21.into(),
+        peripherals.pins.gpio22.into(),
+        100.kHz().into(),
+    )?;
+
+    let mut i2c_slave = i2c_slave_init(
+        peripherals.i2c1,
+        peripherals.pins.gpio18.into(),
+        peripherals.pins.gpio19.into(),
+        SLAVE_BUFFER_SIZE,
+        SLAVE_ADDR,
+    )?;
+
+    let tx_buf: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef];
+
+    println!("-------- TESTING SIMPLE MASTER WRITE --------");
+    i2c_master.write(SLAVE_ADDR, &tx_buf, BLOCK)?;
+
+    let mut rx_buf: [u8; 8] = [0; 8];
+    match i2c_slave.read(&mut rx_buf, BLOCK) {
+        Ok(_) => println!("Master send {tx_buf:?} Slave receives {rx_buf:?}"),
+        Err(e) => println!("Error: {e:?}"),
     }
-}
 
-#[cfg(all(esp32, not(feature = "i2c-legacy")))]
-fn main() -> anyhow::Result<()> {
-    example::main()
-}
+    println!("-------- TESTING SIMPLE MASTER READ --------");
+    i2c_slave.write(&tx_buf, BLOCK)?; // fill slave buffer before master tries to read
 
-#[cfg(all(esp32, not(feature = "i2c-legacy")))]
-mod example {
-    use esp_idf_hal::delay::FreeRtos;
-    use esp_idf_hal::i2c::*;
-    use esp_idf_hal::peripherals::Peripherals;
-
-    const SLAVE_ADDR: u8 = 0x22;
-
-    pub fn main() -> anyhow::Result<()> {
-        esp_idf_hal::sys::link_patches();
-
-        println!("Starting I2C master/slave test (new API)");
-
-        let peripherals = Peripherals::take()?;
-
-        // Set up the master bus + device on I2C0
-        let bus_config = I2cMasterBusConfig::new();
-        let bus = I2cMasterBus::new(
-            peripherals.i2c0,
-            peripherals.pins.gpio21,
-            peripherals.pins.gpio22,
-            &bus_config,
-        )?;
-
-        let dev_config = I2cMasterDeviceConfig::new().scl_speed_hz(100_000);
-        let mut master = I2cMasterDevice::new(&bus, SLAVE_ADDR, &dev_config)?;
-
-        // Set up the slave on I2C1
-        let slave_config = I2cSlaveDeviceConfig::new().send_buf_depth(256);
-        let mut slave = I2cSlaveDevice::new(
-            peripherals.i2c1,
-            peripherals.pins.gpio18,
-            peripherals.pins.gpio19,
-            SLAVE_ADDR,
-            &slave_config,
-        )?;
-
-        // --- Test 1: Master writes, slave receives ---
-        println!("-------- TESTING MASTER WRITE -> SLAVE RECEIVE --------");
-
-        let tx_buf: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef];
-        let mut rx_buf: [u8; 8] = [0; 8];
-
-        // Initiate non-blocking receive on slave first
-        slave.receive(&mut rx_buf)?;
-
-        // Master sends data
-        master.write(&tx_buf)?;
-
-        // Give the transfer time to complete
-        FreeRtos::delay_ms(100);
-        println!("Master sent:     {tx_buf:?}");
-        println!("Slave received:  {rx_buf:?}");
-
-        // --- Test 2: Slave transmits, master reads ---
-        println!("-------- TESTING SLAVE TRANSMIT -> MASTER READ --------");
-
-        let slave_tx: [u8; 8] = [0xfe, 0xdc, 0xba, 0x98, 0x76, 0x54, 0x32, 0x10];
-        let mut master_rx: [u8; 8] = [0; 8];
-
-        // Load data into slave TX buffer
-        slave.transmit(&slave_tx)?;
-
-        // Master reads
-        master.read(&mut master_rx)?;
-
-        println!("Slave sent:      {slave_tx:?}");
-        println!("Master received: {master_rx:?}");
-
-        println!("-------- DONE --------");
-
-        loop {
-            FreeRtos::delay_ms(1000);
-        }
+    let mut rx_buf: [u8; 8] = [0; 8];
+    match i2c_master.read(SLAVE_ADDR, &mut rx_buf, BLOCK) {
+        Ok(_) => println!("Slave send {tx_buf:?} Master receives {rx_buf:?}"),
+        Err(e) => println!("Error: {e:?}"),
     }
+
+    println!("-------- TESTING READ/WRITE REGISTER --------");
+
+    let thread0 = std::thread::Builder::new()
+        .stack_size(7000)
+        .spawn(move || {
+            let mut data: [u8; 256] = [0; 256];
+            loop {
+                let mut reg_addr: [u8; 1] = [0];
+                let res = i2c_slave.read(&mut reg_addr, BLOCK);
+                if let Err(e) = res {
+                    println!("SLAVE: failed to read register address from master: Error: {e:?}");
+                    continue;
+                }
+                let mut rx_data: [u8; 1] = [0];
+                match i2c_slave.read(&mut rx_data, 0) {
+                    Ok(_) => {
+                        println!(
+                            "SLAVE: write operation {:#04x} to reg addr {:#04x}",
+                            rx_data[0], reg_addr[0]
+                        );
+                        data[reg_addr[0] as usize] = rx_data[0];
+                    }
+                    Err(_) => {
+                        let d = data[reg_addr[0] as usize];
+                        println!(
+                            "SLAVE: read operation {:#04x} from reg addr {:#04x}",
+                            d, reg_addr[0]
+                        );
+                        i2c_slave.write(&[d], BLOCK).unwrap();
+                    }
+                }
+            }
+        })?;
+
+    // allow thread to run
+    std::thread::yield_now();
+
+    let reg_addr: u8 = 0x05;
+    let new_value: u8 = 0x42;
+
+    println!("MASTER: read reg addr {reg_addr:#04x}");
+    let mut rx_buf: [u8; 1] = [0; 1];
+    // TODO: make write_read work
+    i2c_master.write(SLAVE_ADDR, &[reg_addr], BLOCK)?;
+    i2c_master.read(SLAVE_ADDR, &mut rx_buf, BLOCK)?;
+    println!(
+        "MASTER: value of reg addr {:#04x} is {:#04x}",
+        reg_addr, rx_buf[0]
+    );
+
+    println!("---------------------");
+
+    println!("MASTER: write {new_value:#04x} to reg addr {reg_addr:#04x}");
+    i2c_master.write(SLAVE_ADDR, &[reg_addr, new_value], BLOCK)?;
+
+    println!("---------------------");
+
+    println!("MASTER: read reg addr {reg_addr:#04x}");
+    let mut rx_buf: [u8; 1] = [0; 1];
+    // TODO: make write_read work
+    i2c_master.write(SLAVE_ADDR, &[reg_addr], BLOCK)?;
+    i2c_master.read(SLAVE_ADDR, &mut rx_buf, BLOCK)?;
+    println!(
+        "MASTER: value of reg addr {:#04x} is {:#04x}",
+        reg_addr, rx_buf[0]
+    );
+
+    thread0.join().unwrap();
+    Ok(())
 }
