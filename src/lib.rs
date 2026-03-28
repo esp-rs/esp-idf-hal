@@ -30,7 +30,14 @@ pub mod can;
 pub mod cpu;
 pub mod delay;
 pub mod gpio;
+#[cfg(not(feature = "i2c-legacy"))]
 pub mod i2c;
+#[cfg(feature = "i2c-legacy")]
+mod i2c_legacy;
+#[cfg(feature = "i2c-legacy")]
+pub mod i2c {
+    pub use crate::i2c_legacy::*;
+}
 #[cfg_attr(
     feature = "nightly",
     doc(cfg(all(esp_idf_soc_i2s_supported, esp_idf_comp_driver_enabled)))
