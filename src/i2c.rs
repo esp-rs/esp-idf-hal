@@ -28,8 +28,11 @@ pub mod config {
     }
 
     impl BusConfig {
-        pub fn new() -> Self {
-            Default::default()
+        pub const fn new() -> Self {
+            Self {
+                glitch_ignore_cnt: 7,
+                enable_internal_pullup: true,
+            }
         }
 
         #[must_use]
@@ -47,10 +50,7 @@ pub mod config {
 
     impl Default for BusConfig {
         fn default() -> Self {
-            Self {
-                glitch_ignore_cnt: 7,
-                enable_internal_pullup: true,
-            }
+            Self::new()
         }
     }
 
@@ -63,8 +63,12 @@ pub mod config {
     }
 
     impl DeviceConfig {
-        pub fn new() -> Self {
-            Default::default()
+        pub const fn new() -> Self {
+            Self {
+                scl_speed_hz: 100_000,
+                scl_wait_us: 0,
+                timeout_ms: -1,
+            }
         }
 
         #[must_use]
@@ -89,11 +93,7 @@ pub mod config {
 
     impl Default for DeviceConfig {
         fn default() -> Self {
-            Self {
-                scl_speed_hz: 100_000,
-                scl_wait_us: 0,
-                timeout_ms: -1,
-            }
+            Self::new()
         }
     }
 
@@ -107,8 +107,11 @@ pub mod config {
 
     #[cfg(not(esp32c2))]
     impl SlaveDeviceConfig {
-        pub fn new() -> Self {
-            Default::default()
+        pub const fn new() -> Self {
+            Self {
+                send_buf_depth: 256,
+                timeout_ms: -1,
+            }
         }
 
         #[must_use]
@@ -128,10 +131,7 @@ pub mod config {
     #[cfg(not(esp32c2))]
     impl Default for SlaveDeviceConfig {
         fn default() -> Self {
-            Self {
-                send_buf_depth: 256,
-                timeout_ms: -1,
-            }
+            Self::new()
         }
     }
 }
