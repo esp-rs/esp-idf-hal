@@ -208,7 +208,12 @@ impl<'d> I2cMasterDevice<'d> {
 
     pub fn read(&mut self, buffer: &mut [u8]) -> Result<(), EspError> {
         esp!(unsafe {
-            i2c_master_receive(self.handle, buffer.as_mut_ptr(), buffer.len(), self.timeout_ms)
+            i2c_master_receive(
+                self.handle,
+                buffer.as_mut_ptr(),
+                buffer.len(),
+                self.timeout_ms,
+            )
         })
     }
 
