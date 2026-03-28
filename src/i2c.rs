@@ -329,6 +329,16 @@ where
     pub fn handle(&self) -> i2c_master_dev_handle_t {
         self.handle
     }
+
+    fn check_address(&self, addr: u8) -> Result<(), I2cError> {
+        if addr != self.address {
+            Err(I2cError::other(EspError::from_infallible::<
+                ESP_ERR_INVALID_ARG,
+            >()))
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl<'d, T> Drop for I2cDriver<'d, T>
@@ -354,17 +364,17 @@ where
     T: Borrow<I2cBusDriver<'d>> + 'd,
 {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
-        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        self.check_address(addr)?;
         I2cDriver::read(self, buffer).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
-        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        self.check_address(addr)?;
         I2cDriver::write(self, bytes).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
-        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        self.check_address(addr)?;
         I2cDriver::write_read(self, bytes, buffer).map_err(to_i2c_err)
     }
 
@@ -373,7 +383,7 @@ where
         addr: u8,
         operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
-        assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
+        self.check_address(addr)?;
         I2cDriver::transaction(self, operations).map_err(to_i2c_err)
     }
 }
