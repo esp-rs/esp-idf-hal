@@ -30,7 +30,7 @@ pub type I2cSlaveConfig = config::SlaveConfig;
 
 pub mod config {
     /// Configuration for the I2C bus (driver/i2c_master.h)
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct BusConfig {
         pub glitch_ignore_cnt: u8,
         pub enable_internal_pullup: bool,
@@ -64,7 +64,7 @@ pub mod config {
     }
 
     /// Configuration for an I2C device on the bus
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct DeviceConfig {
         pub scl_speed_hz: u32,
         pub scl_wait_us: u32,
@@ -108,7 +108,7 @@ pub mod config {
 
     /// Configuration for the new I2C slave device (driver/i2c_slave.h)
     #[cfg(not(esp32c2))]
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct SlaveConfig {
         pub send_buf_depth: u32,
         pub recv_buf_size: usize,
