@@ -51,25 +51,25 @@ mod example {
         let peripherals = Peripherals::take()?;
 
         // Set up the master bus + device on I2C0
-        let bus = I2cBus::new(
+        let bus = I2cBusDriver::new(
             peripherals.i2c0,
             peripherals.pins.gpio21,
             peripherals.pins.gpio22,
             &I2cBusConfig::new(),
         )?;
-        let mut master = I2cDevice::new(
+        let mut master = I2cDeviceDriver::new(
             &bus,
             SLAVE_ADDR,
             &I2cDeviceConfig::new().scl_speed_hz(100_000),
         )?;
 
         // Set up the slave on I2C1
-        let mut slave = I2cSlaveDevice::new(
+        let mut slave = I2cSlaveDriver::new(
             peripherals.i2c1,
             peripherals.pins.gpio18,
             peripherals.pins.gpio19,
             SLAVE_ADDR,
-            &I2cSlaveDeviceConfig::new().send_buf_depth(256),
+            &I2cSlaveConfig::new().send_buf_depth(256),
         )?;
 
         // --- Test 1: Master writes, slave receives ---

@@ -17,7 +17,7 @@ crate::embedded_hal_error!(
 pub type I2cBusConfig = config::BusConfig;
 pub type I2cDeviceConfig = config::DeviceConfig;
 #[cfg(not(esp32c2))]
-pub type I2cSlaveDeviceConfig = config::SlaveDeviceConfig;
+pub type I2cSlaveConfig = config::SlaveDeviceConfig;
 
 pub mod config {
     /// Configuration for the I2C bus (driver/i2c_master.h)
@@ -144,13 +144,13 @@ pub trait I2c: Send {
 ///
 /// This replaces the legacy command-link based API with the bus/device model
 /// introduced in ESP-IDF v5.0. Create a bus, then add devices to it via
-/// [`I2cDevice::new`].
-pub struct I2cBus<'d> {
+/// [`I2cDeviceDriver::new`].
+pub struct I2cBusDriver<'d> {
     handle: i2c_master_bus_handle_t,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> I2cBus<'d> {
+impl<'d> I2cBusDriver<'d> {
     pub fn new<I2C: I2c + 'd>(
         _i2c: I2C,
         sda: impl InputPin + OutputPin + 'd,
@@ -198,34 +198,34 @@ impl<'d> I2cBus<'d> {
     }
 }
 
-impl Drop for I2cBus<'_> {
+impl Drop for I2cBusDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_del_master_bus(self.handle) }).unwrap();
     }
 }
 
 // SAFETY: The bus handle is not tied to a specific thread
-unsafe impl Send for I2cBus<'_> {}
+unsafe impl Send for I2cBusDriver<'_> {}
 // SAFETY: All data transfer operations (transmit, receive, probe) are serialized
 // by an internal bus_lock_mux semaphore in the ESP-IDF driver
-unsafe impl Sync for I2cBus<'_> {}
+unsafe impl Sync for I2cBusDriver<'_> {}
 
 /// I2C device on a bus, wrapping `i2c_master_dev_handle_t`.
 ///
-/// Created from an [`I2cBus`] with a device address and speed.
+/// Created from an [`I2cBusDriver`] with a device address and speed.
 /// Implements [`embedded_hal::i2c::I2c`] so it works with ecosystem device
 /// drivers (e.g. `ina228`, `ssd1306`).
 ///
-pub struct I2cDevice<'d> {
+pub struct I2cDeviceDriver<'d> {
     handle: i2c_master_dev_handle_t,
     address: u8,
     timeout_ms: i32,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d> I2cDevice<'d> {
+impl<'d> I2cDeviceDriver<'d> {
     pub fn new(
-        bus: &'d I2cBus<'_>,
+        bus: &'d I2cBusDriver<'_>,
         address: u8,
         config: &config::DeviceConfig,
     ) -> Result<Self, EspError> {
@@ -306,32 +306,32 @@ impl<'d> I2cDevice<'d> {
     }
 }
 
-impl Drop for I2cDevice<'_> {
+impl Drop for I2cDeviceDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
     }
 }
 
-unsafe impl Send for I2cDevice<'_> {}
+unsafe impl Send for I2cDeviceDriver<'_> {}
 
-impl embedded_hal::i2c::ErrorType for I2cDevice<'_> {
+impl embedded_hal::i2c::ErrorType for I2cDeviceDriver<'_> {
     type Error = I2cError;
 }
 
-impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDevice<'_> {
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDeviceDriver<'_> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDevice::read(self, buffer).map_err(to_i2c_err)
+        I2cDeviceDriver::read(self, buffer).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDevice::write(self, bytes).map_err(to_i2c_err)
+        I2cDeviceDriver::write(self, bytes).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDevice::write_read(self, bytes, buffer).map_err(to_i2c_err)
+        I2cDeviceDriver::write_read(self, bytes, buffer).map_err(to_i2c_err)
     }
 
     fn transaction(
@@ -340,7 +340,7 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDevice<'_
         operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDevice::transaction(self, operations).map_err(to_i2c_err)
+        I2cDeviceDriver::transaction(self, operations).map_err(to_i2c_err)
     }
 }
 
@@ -349,18 +349,18 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDevice<'_
 /// Wraps `i2c_slave_dev_handle_t`. The slave listens on a configured address
 /// and communicates with an external master.
 ///
-/// Note: [`I2cSlaveDevice::receive`] is non-blocking — it initiates a receive
+/// Note: [`I2cSlaveDriver::receive`] is non-blocking — it initiates a receive
 /// job. Use the `on_recv_done` callback (via [`i2c_slave_register_event_callbacks`])
 /// to be notified when data arrives.
 #[cfg(not(esp32c2))]
-pub struct I2cSlaveDevice<'d> {
+pub struct I2cSlaveDriver<'d> {
     handle: i2c_slave_dev_handle_t,
     timeout_ms: i32,
     _p: PhantomData<&'d mut ()>,
 }
 
 #[cfg(not(esp32c2))]
-impl<'d> I2cSlaveDevice<'d> {
+impl<'d> I2cSlaveDriver<'d> {
     pub fn new<I2C: I2c + 'd>(
         _i2c: I2C,
         sda: impl InputPin + OutputPin + 'd,
@@ -417,14 +417,14 @@ impl<'d> I2cSlaveDevice<'d> {
 }
 
 #[cfg(not(esp32c2))]
-impl Drop for I2cSlaveDevice<'_> {
+impl Drop for I2cSlaveDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_del_slave_device(self.handle) }).unwrap();
     }
 }
 
 #[cfg(not(esp32c2))]
-unsafe impl Send for I2cSlaveDevice<'_> {}
+unsafe impl Send for I2cSlaveDriver<'_> {}
 
 fn to_i2c_err(err: EspError) -> I2cError {
     if err.code() == ESP_FAIL {

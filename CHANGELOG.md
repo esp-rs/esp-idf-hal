@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The I2C module now exposes the new bus/device API (`driver/i2c_master.h`) by default. The old `I2cDriver` and `I2cSlaveDriver` are available via the `i2c-legacy` feature.
 
 ### Added
-- New I2C API: `I2cBus` and `I2cDevice` wrapping ESP-IDF's `driver/i2c_master.h`
-- New I2C slave API: `I2cSlaveDevice` wrapping ESP-IDF's `driver/i2c_slave.h`
+- New I2C API: `I2cBusDriver` and `I2cDeviceDriver` wrapping ESP-IDF's `driver/i2c_master.h`
+- New I2C slave API: `I2cSlaveDriver` wrapping ESP-IDF's `driver/i2c_slave.h`
 - `i2c-legacy` cargo feature to opt into the deprecated legacy I2C driver
 
 ### Deprecated
