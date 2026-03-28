@@ -1,3 +1,4 @@
+use core::borrow::Borrow;
 use core::marker::PhantomData;
 
 use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
@@ -17,7 +18,7 @@ crate::embedded_hal_error!(
 pub type I2cBusConfig = config::BusConfig;
 pub type I2cDeviceConfig = config::DeviceConfig;
 #[cfg(not(esp32c2))]
-pub type I2cSlaveConfig = config::SlaveDeviceConfig;
+pub type I2cSlaveConfig = config::SlaveConfig;
 
 pub mod config {
     /// Configuration for the I2C bus (driver/i2c_master.h)
@@ -100,13 +101,13 @@ pub mod config {
     /// Configuration for the new I2C slave device (driver/i2c_slave.h)
     #[cfg(not(esp32c2))]
     #[derive(Debug, Clone)]
-    pub struct SlaveDeviceConfig {
+    pub struct SlaveConfig {
         pub send_buf_depth: u32,
         pub timeout_ms: i32,
     }
 
     #[cfg(not(esp32c2))]
-    impl SlaveDeviceConfig {
+    impl SlaveConfig {
         pub const fn new() -> Self {
             Self {
                 send_buf_depth: 256,
@@ -129,7 +130,7 @@ pub mod config {
     }
 
     #[cfg(not(esp32c2))]
-    impl Default for SlaveDeviceConfig {
+    impl Default for SlaveConfig {
         fn default() -> Self {
             Self::new()
         }
@@ -215,20 +216,41 @@ unsafe impl Sync for I2cBusDriver<'_> {}
 /// Created from an [`I2cBusDriver`] with a device address and speed.
 /// Implements [`embedded_hal::i2c::I2c`] so it works with ecosystem device
 /// drivers (e.g. `ina228`, `ssd1306`).
-///
-pub struct I2cDriver<'d> {
+pub struct I2cDriver<'d, T = I2cBusDriver<'d>>
+where
+    T: Borrow<I2cBusDriver<'d>> + 'd,
+{
     handle: i2c_master_dev_handle_t,
     address: u8,
     timeout_ms: i32,
+    _bus: T,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d> I2cDriver<'d> {
-    pub fn new(
-        bus: &'d I2cBusDriver<'_>,
+impl<'d> I2cDriver<'d, I2cBusDriver<'d>> {
+    /// Create a device driver that owns the bus. Convenient when there is
+    /// only a single device on the bus.
+    pub fn new_single<I2C: I2c + 'd>(
+        i2c: I2C,
+        sda: impl InputPin + OutputPin + 'd,
+        scl: impl InputPin + OutputPin + 'd,
         address: u8,
-        config: &config::DeviceConfig,
+        bus_config: &config::BusConfig,
+        dev_config: &config::DeviceConfig,
     ) -> Result<Self, EspError> {
+        Self::new(
+            I2cBusDriver::new(i2c, sda, scl, bus_config)?,
+            address,
+            dev_config,
+        )
+    }
+}
+
+impl<'d, T> I2cDriver<'d, T>
+where
+    T: Borrow<I2cBusDriver<'d>> + 'd,
+{
+    pub fn new(bus: T, address: u8, config: &config::DeviceConfig) -> Result<Self, EspError> {
         let dev_config = i2c_device_config_t {
             dev_addr_length: i2c_addr_bit_len_t_I2C_ADDR_BIT_LEN_7,
             device_address: address as u16,
@@ -238,12 +260,15 @@ impl<'d> I2cDriver<'d> {
         };
 
         let mut handle: i2c_master_dev_handle_t = core::ptr::null_mut();
-        esp!(unsafe { i2c_master_bus_add_device(bus.handle(), &dev_config, &mut handle) })?;
+        esp!(unsafe {
+            i2c_master_bus_add_device(bus.borrow().handle(), &dev_config, &mut handle)
+        })?;
 
         Ok(Self {
             handle,
             address,
             timeout_ms: config.timeout_ms,
+            _bus: bus,
             _p: PhantomData,
         })
     }
@@ -306,19 +331,28 @@ impl<'d> I2cDriver<'d> {
     }
 }
 
-impl Drop for I2cDriver<'_> {
+impl<'d, T> Drop for I2cDriver<'d, T>
+where
+    T: Borrow<I2cBusDriver<'d>> + 'd,
+{
     fn drop(&mut self) {
         esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
     }
 }
 
-unsafe impl Send for I2cDriver<'_> {}
+unsafe impl<'d, T> Send for I2cDriver<'d, T> where T: Borrow<I2cBusDriver<'d>> + 'd {}
 
-impl embedded_hal::i2c::ErrorType for I2cDriver<'_> {
+impl<'d, T> embedded_hal::i2c::ErrorType for I2cDriver<'d, T>
+where
+    T: Borrow<I2cBusDriver<'d>> + 'd,
+{
     type Error = I2cError;
 }
 
-impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'_> {
+impl<'d, T> embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'d, T>
+where
+    T: Borrow<I2cBusDriver<'d>> + 'd,
+{
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
         I2cDriver::read(self, buffer).map_err(to_i2c_err)
@@ -366,7 +400,7 @@ impl<'d> I2cSlaveDriver<'d> {
         sda: impl InputPin + OutputPin + 'd,
         scl: impl InputPin + OutputPin + 'd,
         slave_addr: u8,
-        config: &config::SlaveDeviceConfig,
+        config: &config::SlaveConfig,
     ) -> Result<Self, EspError> {
         let slave_config = i2c_slave_config_t {
             i2c_port: I2C::port() as _,
