@@ -535,34 +535,33 @@ impl<'d> I2cSlaveDriver<'d> {
         Ok(())
     }
 
-    /// Write data to the internal TX ringbuffer. The hardware FIFO is filled
+    /// Write data to the internal TX buffer. The hardware FIFO is filled
     /// from this buffer when the master clocks in a read.
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     pub fn transmit(&mut self, bytes: &[u8]) -> Result<(), EspError> {
-        esp!(unsafe {
-            i2c_slave_transmit(
-                self.handle,
-                bytes.as_ptr(),
-                bytes.len() as _,
-                self.timeout_ms,
-            )
-        })
-    }
-
-    /// Write data to the internal TX FIFO. The hardware sends this data
-    /// when the master clocks in a read.
-    #[cfg(esp_idf_version_at_least_6_0_0)]
-    pub fn transmit(&mut self, bytes: &[u8]) -> Result<(), EspError> {
-        let mut write_len: u32 = 0;
-        esp!(unsafe {
-            i2c_slave_write(
-                self.handle,
-                bytes.as_ptr(),
-                bytes.len() as _,
-                &mut write_len,
-                self.timeout_ms,
-            )
-        })
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
+        {
+            esp!(unsafe {
+                i2c_slave_transmit(
+                    self.handle,
+                    bytes.as_ptr(),
+                    bytes.len() as _,
+                    self.timeout_ms,
+                )
+            })
+        }
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        {
+            let mut write_len: u32 = 0;
+            esp!(unsafe {
+                i2c_slave_write(
+                    self.handle,
+                    bytes.as_ptr(),
+                    bytes.len() as _,
+                    &mut write_len,
+                    self.timeout_ms,
+                )
+            })
+        }
     }
 
     pub fn handle(&self) -> i2c_slave_dev_handle_t {
