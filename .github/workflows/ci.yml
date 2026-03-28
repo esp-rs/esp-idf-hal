@@ -33,6 +33,7 @@ jobs:
           - v5.3.4
           - v5.4.3
           - v5.5.3
+          - v6.0
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
@@ -59,7 +60,7 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo clippy --features experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Compile, all
@@ -67,7 +68,7 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --target ${{ matrix.target }} --features nightly,experimental,critical-section,embassy-sync -Zbuild-std=std,panic_abort
 
       - name: Build | Compile, no_std
@@ -75,7 +76,7 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --no-default-features --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Build | Compile, no_std, alloc
@@ -83,7 +84,7 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --features alloc --no-default-features --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Setup | ldproxy
@@ -98,7 +99,7 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo clippy --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Examples
@@ -106,5 +107,5 @@ jobs:
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
           ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
-          RUSTFLAGS: "${{ matrix.idf-version != 'release/v4.4' && '--cfg espidf_time64' || matrix.idf-version == 'release/v4.4' && '--cfg espidf_time32' }}"
+          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort

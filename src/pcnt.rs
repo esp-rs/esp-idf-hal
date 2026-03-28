@@ -55,6 +55,11 @@
 //! - Maximum number of units: [`SOC_PCNT_UNITS_PER_GROUP`]
 //! - Maximum number of channels per unit: [`SOC_PCNT_CHANNELS_PER_UNIT`]
 //! - Maximum number of extra watchpoints: [`SOC_PCNT_THRES_POINT_PER_UNIT`]
+//!
+//! These 3 constants disappeared in ESP-IDF 6.0, as they were required by the
+//! pcnt-legacy API which was removed.
+//! The API rejects additional `new_*` calls beyond the maximum number of supported
+//! channels. We do hardcode the maximum to 2 if alloc is not enabled, though.
 
 use core::marker::PhantomData;
 #[cfg(feature = "alloc")]
@@ -63,9 +68,19 @@ use core::ptr;
 
 #[cfg(feature = "alloc")]
 use alloc::boxed::Box;
+#[cfg(feature = "alloc")]
+use alloc::vec::Vec;
+#[cfg(not(feature = "alloc"))]
 use heapless::Vec;
 
 use esp_idf_sys::*;
+
+// SOC_PCNT_CHANNELS_PER_UNIT was removed in IDF 6.0; the value is 2 for all supported chips,
+// and we support more channels in the alloc case.
+#[cfg(esp_idf_version_at_least_6_0_0)]
+const PCNT_CHANNELS_PER_UNIT: usize = 2;
+#[cfg(not(esp_idf_version_at_least_6_0_0))]
+const PCNT_CHANNELS_PER_UNIT: usize = SOC_PCNT_CHANNELS_PER_UNIT as usize;
 
 use crate::gpio::InputPin;
 #[cfg(feature = "alloc")]
@@ -166,6 +181,11 @@ pub mod config {
     impl From<&UnitConfig> for pcnt_unit_config_t {
         fn from(value: &UnitConfig) -> Self {
             pcnt_unit_config_t {
+                // TODO: Do we want to make this configurable?
+                // Most chips have only 1 option (APB==DEFAULT), but
+                // esp32h4 supports XTAL(==DEFAULT) or RC_FAST.
+                #[cfg(esp_idf_version_at_least_6_0_0)]
+                clk_src: soc_periph_pcnt_clk_src_t_PCNT_CLK_SRC_DEFAULT,
                 low_limit: value.low_limit,
                 high_limit: value.high_limit,
                 intr_priority: value.intr_priority,
@@ -573,7 +593,10 @@ struct DelegateUserData<'d> {
 /// that have to be added with [`PcntUnitDriver::add_channel`].
 pub struct PcntUnitDriver<'d> {
     handle: pcnt_unit_handle_t,
-    channels: Vec<PcntChannel<'d>, { SOC_PCNT_CHANNELS_PER_UNIT as usize }>,
+    #[cfg(feature = "alloc")]
+    channels: alloc::vec::Vec<PcntChannel<'d>>,
+    #[cfg(not(feature = "alloc"))]
+    channels: Vec<PcntChannel<'d>, PCNT_CHANNELS_PER_UNIT>,
     #[cfg(feature = "alloc")]
     user_data: Option<Pin<Box<DelegateUserData<'d>>>>,
     _p: PhantomData<&'d mut ()>,
@@ -596,6 +619,9 @@ impl<'d> PcntUnitDriver<'d> {
 
         Ok(Self {
             handle,
+            #[cfg(feature = "alloc")] // Pre-allocate to usual maximum size
+            channels: Vec::with_capacity(PCNT_CHANNELS_PER_UNIT),
+            #[cfg(not(feature = "alloc"))] // Fixed size
             channels: Vec::new(),
             #[cfg(feature = "alloc")]
             user_data: None,
@@ -785,6 +811,10 @@ impl<'d> PcntUnitDriver<'d> {
         level_pin: Option<impl InputPin + 'd>,
         config: &ChannelConfig,
     ) -> Result<&mut PcntChannel<'d>, EspError> {
+        #[cfg(feature = "alloc")]
+        self.channels
+            .push(unsafe { PcntChannel::new(self.handle, edge_pin, level_pin, config)? });
+        #[cfg(not(feature = "alloc"))]
         self.channels
             .push(unsafe { PcntChannel::new(self.handle, edge_pin, level_pin, config)? })
             .expect("Not enough channels available.");
