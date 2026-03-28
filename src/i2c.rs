@@ -131,8 +131,9 @@ pub mod config {
             self
         }
 
-        /// Size of the internal receive buffer used for slave receive callbacks.
-        /// Only used on ESP-IDF < 6.0.
+        /// Size of the receive buffer. On ESP-IDF < 6.0 this is used for the
+        /// internal buffer in subscribe callbacks. On v6.0+ it sets
+        /// `receive_buf_depth` in the hardware config.
         #[must_use]
         pub fn recv_buf_size(mut self, size: usize) -> Self {
             self.recv_buf_size = size;
@@ -427,7 +428,6 @@ struct I2cSlaveRecvUserData<'d> {
 pub struct I2cSlaveDriver<'d> {
     handle: i2c_slave_dev_handle_t,
     timeout_ms: i32,
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
     recv_buf_size: usize,
     on_recv: Option<Box<I2cSlaveRecvUserData<'d>>>,
     _p: PhantomData<&'d mut ()>,
@@ -442,7 +442,7 @@ impl<'d> I2cSlaveDriver<'d> {
         slave_addr: u8,
         config: &config::SlaveConfig,
     ) -> Result<Self, EspError> {
-        let slave_config = i2c_slave_config_t {
+        let mut slave_config = i2c_slave_config_t {
             i2c_port: I2C::port() as _,
             sda_io_num: sda.pin() as _,
             scl_io_num: scl.pin() as _,
@@ -453,6 +453,10 @@ impl<'d> I2cSlaveDriver<'d> {
             intr_priority: 0,
             ..Default::default()
         };
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        {
+            slave_config.receive_buf_depth = config.recv_buf_size as u32;
+        }
 
         let mut handle: i2c_slave_dev_handle_t = core::ptr::null_mut();
         esp!(unsafe { i2c_new_slave_device(&slave_config, &mut handle) })?;
@@ -460,7 +464,6 @@ impl<'d> I2cSlaveDriver<'d> {
         Ok(Self {
             handle,
             timeout_ms: config.timeout_ms,
-            #[cfg(not(esp_idf_version_at_least_6_0_0))]
             recv_buf_size: config.recv_buf_size,
             on_recv: None,
             _p: PhantomData,
