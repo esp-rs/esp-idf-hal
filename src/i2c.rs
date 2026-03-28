@@ -14,20 +14,20 @@ crate::embedded_hal_error!(
     embedded_hal::i2c::ErrorKind
 );
 
-pub type I2cMasterBusConfig = config::MasterBusConfig;
-pub type I2cMasterDeviceConfig = config::MasterDeviceConfig;
+pub type I2cBusConfig = config::BusConfig;
+pub type I2cDeviceConfig = config::DeviceConfig;
 #[cfg(not(esp32c2))]
 pub type I2cSlaveDeviceConfig = config::SlaveDeviceConfig;
 
 pub mod config {
-    /// Configuration for the I2C master bus (driver/i2c_master.h)
+    /// Configuration for the I2C bus (driver/i2c_master.h)
     #[derive(Debug, Clone)]
-    pub struct MasterBusConfig {
+    pub struct BusConfig {
         pub glitch_ignore_cnt: u8,
         pub enable_internal_pullup: bool,
     }
 
-    impl MasterBusConfig {
+    impl BusConfig {
         pub fn new() -> Self {
             Default::default()
         }
@@ -45,7 +45,7 @@ pub mod config {
         }
     }
 
-    impl Default for MasterBusConfig {
+    impl Default for BusConfig {
         fn default() -> Self {
             Self {
                 glitch_ignore_cnt: 7,
@@ -54,15 +54,15 @@ pub mod config {
         }
     }
 
-    /// Configuration for an I2C device on the master bus
+    /// Configuration for an I2C device on the bus
     #[derive(Debug, Clone)]
-    pub struct MasterDeviceConfig {
+    pub struct DeviceConfig {
         pub scl_speed_hz: u32,
         pub scl_wait_us: u32,
         pub timeout_ms: i32,
     }
 
-    impl MasterDeviceConfig {
+    impl DeviceConfig {
         pub fn new() -> Self {
             Default::default()
         }
@@ -87,7 +87,7 @@ pub mod config {
         }
     }
 
-    impl Default for MasterDeviceConfig {
+    impl Default for DeviceConfig {
         fn default() -> Self {
             Self {
                 scl_speed_hz: 100_000,
@@ -140,22 +140,22 @@ pub trait I2c: Send {
     fn port() -> i2c_port_t;
 }
 
-/// I2C master bus using the new ESP-IDF driver (`driver/i2c_master.h`).
+/// I2C bus using the new ESP-IDF driver (`driver/i2c_master.h`).
 ///
 /// This replaces the legacy command-link based API with the bus/device model
 /// introduced in ESP-IDF v5.0. Create a bus, then add devices to it via
-/// [`I2cMasterDevice::new`].
-pub struct I2cMasterBus<'d> {
+/// [`I2cDevice::new`].
+pub struct I2cBus<'d> {
     handle: i2c_master_bus_handle_t,
     _p: PhantomData<&'d mut ()>,
 }
 
-impl<'d> I2cMasterBus<'d> {
+impl<'d> I2cBus<'d> {
     pub fn new<I2C: I2c + 'd>(
         _i2c: I2C,
         sda: impl InputPin + OutputPin + 'd,
         scl: impl InputPin + OutputPin + 'd,
-        config: &config::MasterBusConfig,
+        config: &config::BusConfig,
     ) -> Result<Self, EspError> {
         let mut bus_config = i2c_master_bus_config_t {
             i2c_port: I2C::port() as _,
@@ -198,36 +198,36 @@ impl<'d> I2cMasterBus<'d> {
     }
 }
 
-impl Drop for I2cMasterBus<'_> {
+impl Drop for I2cBus<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_del_master_bus(self.handle) }).unwrap();
     }
 }
 
 // SAFETY: The bus handle is not tied to a specific thread
-unsafe impl Send for I2cMasterBus<'_> {}
+unsafe impl Send for I2cBus<'_> {}
 // SAFETY: All data transfer operations (transmit, receive, probe) are serialized
 // by an internal bus_lock_mux semaphore in the ESP-IDF driver
-unsafe impl Sync for I2cMasterBus<'_> {}
+unsafe impl Sync for I2cBus<'_> {}
 
-/// I2C device on a master bus, wrapping `i2c_master_dev_handle_t`.
+/// I2C device on a bus, wrapping `i2c_master_dev_handle_t`.
 ///
-/// Created from an [`I2cMasterBus`] with a specific device address and speed.
+/// Created from an [`I2cBus`] with a device address and speed.
 /// Implements [`embedded_hal::i2c::I2c`] so it works with ecosystem device
 /// drivers (e.g. `ina228`, `ssd1306`).
 ///
-pub struct I2cMasterDevice<'d> {
+pub struct I2cDevice<'d> {
     handle: i2c_master_dev_handle_t,
     address: u8,
     timeout_ms: i32,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d> I2cMasterDevice<'d> {
+impl<'d> I2cDevice<'d> {
     pub fn new(
-        bus: &'d I2cMasterBus<'_>,
+        bus: &'d I2cBus<'_>,
         address: u8,
-        config: &config::MasterDeviceConfig,
+        config: &config::DeviceConfig,
     ) -> Result<Self, EspError> {
         let dev_config = i2c_device_config_t {
             dev_addr_length: i2c_addr_bit_len_t_I2C_ADDR_BIT_LEN_7,
@@ -306,32 +306,32 @@ impl<'d> I2cMasterDevice<'d> {
     }
 }
 
-impl Drop for I2cMasterDevice<'_> {
+impl Drop for I2cDevice<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
     }
 }
 
-unsafe impl Send for I2cMasterDevice<'_> {}
+unsafe impl Send for I2cDevice<'_> {}
 
-impl embedded_hal::i2c::ErrorType for I2cMasterDevice<'_> {
+impl embedded_hal::i2c::ErrorType for I2cDevice<'_> {
     type Error = I2cError;
 }
 
-impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDevice<'_> {
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDevice<'_> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cMasterDevice::read(self, buffer).map_err(to_i2c_err)
+        I2cDevice::read(self, buffer).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cMasterDevice::write(self, bytes).map_err(to_i2c_err)
+        I2cDevice::write(self, bytes).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cMasterDevice::write_read(self, bytes, buffer).map_err(to_i2c_err)
+        I2cDevice::write_read(self, bytes, buffer).map_err(to_i2c_err)
     }
 
     fn transaction(
@@ -340,7 +340,7 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cMasterDev
         operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cMasterDevice::transaction(self, operations).map_err(to_i2c_err)
+        I2cDevice::transaction(self, operations).map_err(to_i2c_err)
     }
 }
 

@@ -1,5 +1,5 @@
 //! Test communication between a master and a slave I2C on the same device
-//! using the new master bus/device and slave APIs.
+//! using the new bus/device and slave APIs.
 //!
 //! Wiring required, but can be changed in main():
 //! - GPIO21 to GPIO18
@@ -51,16 +51,16 @@ mod example {
         let peripherals = Peripherals::take()?;
 
         // Set up the master bus + device on I2C0
-        let bus = I2cMasterBus::new(
+        let bus = I2cBus::new(
             peripherals.i2c0,
             peripherals.pins.gpio21,
             peripherals.pins.gpio22,
-            &I2cMasterBusConfig::new(),
+            &I2cBusConfig::new(),
         )?;
-        let mut master = I2cMasterDevice::new(
+        let mut master = I2cDevice::new(
             &bus,
             SLAVE_ADDR,
-            &I2cMasterDeviceConfig::new().scl_speed_hz(100_000),
+            &I2cDeviceConfig::new().scl_speed_hz(100_000),
         )?;
 
         // Set up the slave on I2C1
