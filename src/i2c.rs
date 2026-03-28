@@ -144,7 +144,7 @@ pub trait I2c: Send {
 ///
 /// This replaces the legacy command-link based API with the bus/device model
 /// introduced in ESP-IDF v5.0. Create a bus, then add devices to it via
-/// [`I2cDeviceDriver::new`].
+/// [`I2cDriver::new`].
 pub struct I2cBusDriver<'d> {
     handle: i2c_master_bus_handle_t,
     _p: PhantomData<&'d mut ()>,
@@ -216,14 +216,14 @@ unsafe impl Sync for I2cBusDriver<'_> {}
 /// Implements [`embedded_hal::i2c::I2c`] so it works with ecosystem device
 /// drivers (e.g. `ina228`, `ssd1306`).
 ///
-pub struct I2cDeviceDriver<'d> {
+pub struct I2cDriver<'d> {
     handle: i2c_master_dev_handle_t,
     address: u8,
     timeout_ms: i32,
     _p: PhantomData<&'d ()>,
 }
 
-impl<'d> I2cDeviceDriver<'d> {
+impl<'d> I2cDriver<'d> {
     pub fn new(
         bus: &'d I2cBusDriver<'_>,
         address: u8,
@@ -306,32 +306,32 @@ impl<'d> I2cDeviceDriver<'d> {
     }
 }
 
-impl Drop for I2cDeviceDriver<'_> {
+impl Drop for I2cDriver<'_> {
     fn drop(&mut self) {
         esp!(unsafe { i2c_master_bus_rm_device(self.handle) }).unwrap();
     }
 }
 
-unsafe impl Send for I2cDeviceDriver<'_> {}
+unsafe impl Send for I2cDriver<'_> {}
 
-impl embedded_hal::i2c::ErrorType for I2cDeviceDriver<'_> {
+impl embedded_hal::i2c::ErrorType for I2cDriver<'_> {
     type Error = I2cError;
 }
 
-impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDeviceDriver<'_> {
+impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDriver<'_> {
     fn read(&mut self, addr: u8, buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDeviceDriver::read(self, buffer).map_err(to_i2c_err)
+        I2cDriver::read(self, buffer).map_err(to_i2c_err)
     }
 
     fn write(&mut self, addr: u8, bytes: &[u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDeviceDriver::write(self, bytes).map_err(to_i2c_err)
+        I2cDriver::write(self, bytes).map_err(to_i2c_err)
     }
 
     fn write_read(&mut self, addr: u8, bytes: &[u8], buffer: &mut [u8]) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDeviceDriver::write_read(self, bytes, buffer).map_err(to_i2c_err)
+        I2cDriver::write_read(self, bytes, buffer).map_err(to_i2c_err)
     }
 
     fn transaction(
@@ -340,7 +340,7 @@ impl embedded_hal::i2c::I2c<embedded_hal::i2c::SevenBitAddress> for I2cDeviceDri
         operations: &mut [embedded_hal::i2c::Operation<'_>],
     ) -> Result<(), Self::Error> {
         assert_eq!(addr, self.address, "I2C address mismatch: trait called with {addr:#04x} but device is configured for {:#04x}", self.address);
-        I2cDeviceDriver::transaction(self, operations).map_err(to_i2c_err)
+        I2cDriver::transaction(self, operations).map_err(to_i2c_err)
     }
 }
 

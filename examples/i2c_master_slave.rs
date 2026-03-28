@@ -57,7 +57,7 @@ mod example {
             peripherals.pins.gpio22,
             &I2cBusConfig::new(),
         )?;
-        let mut master = I2cDeviceDriver::new(
+        let mut master = I2cDriver::new(
             &bus,
             SLAVE_ADDR,
             &I2cDeviceConfig::new().scl_speed_hz(100_000),
