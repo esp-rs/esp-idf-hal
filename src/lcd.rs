@@ -113,6 +113,10 @@ pub mod config {
         pub(crate) dbi_config: esp_lcd_dbi_io_config_t,
         pub(crate) dpi_config: esp_lcd_dpi_panel_config_t,
         pixel_format: PixelFormat,
+        // In IDF >=6.0, use_dma2d was removed from dpi_config.flags; we store it here
+        // and call esp_lcd_dpi_panel_enable_dma2d() after panel creation instead.
+        #[cfg(esp_idf_version_at_least_6_0_0)]
+        pub(super) use_dma2d: bool,
     }
 
     impl LcdConfig {
@@ -150,10 +154,13 @@ pub mod config {
 
             let color_format: lcd_color_format_t = pixel_format.to_color_format();
             let esp_timing: esp_lcd_video_timing_t = video_timing.into();
+            let use_dma2d = true;
 
+            #[cfg_attr(esp_idf_version_at_least_6_0_0, allow(unused_mut))]
             let mut dpi_config = esp_lcd_dpi_panel_config_t {
                 virtual_channel: 0,
                 dpi_clk_src: soc_periph_mipi_dsi_dpi_clk_src_t_MIPI_DSI_DPI_CLK_SRC_DEFAULT,
+                #[cfg(not(esp_idf_version_at_least_6_0_0))]
                 pixel_format: pixel_format.to_rgb_pixel_format(),
                 in_color_format: color_format,
                 out_color_format: color_format,
@@ -162,13 +169,16 @@ pub mod config {
                 dpi_clock_freq_mhz: dpi_clock_freq_mhz as _,
                 ..unsafe { core::mem::zeroed() }
             };
-            dpi_config.flags.set_use_dma2d(1);
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            dpi_config.flags.set_use_dma2d(use_dma2d as u32);
 
             Self {
                 bus_config,
                 dbi_config,
                 dpi_config,
                 pixel_format,
+                #[cfg(esp_idf_version_at_least_6_0_0)]
+                use_dma2d,
             }
         }
 
@@ -229,7 +239,15 @@ pub mod config {
         /// Enable or disable DMA2D for pixel data transfer (default: enabled)
         #[must_use]
         pub fn use_dma2d(mut self, use_dma2d: bool) -> Self {
-            self.dpi_config.flags.set_use_dma2d(use_dma2d as u32);
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            {
+                self.dpi_config.flags.set_use_dma2d(use_dma2d as u32);
+            }
+            #[cfg(esp_idf_version_at_least_6_0_0)]
+            {
+                self.use_dma2d = use_dma2d;
+            }
+
             self
         }
 
@@ -263,6 +281,8 @@ pub mod config {
                 dbi_config: self.dbi_config,
                 dpi_config: self.dpi_config,
                 pixel_format: self.pixel_format,
+                #[cfg(esp_idf_version_at_least_6_0_0)]
+                use_dma2d: self.use_dma2d,
             }
         }
     }
@@ -288,7 +308,14 @@ pub mod config {
             let mut panel_config: esp_lcd_panel_dev_config_t = unsafe { core::mem::zeroed() };
 
             panel_config.bits_per_pixel = bits_per_pixel;
-            panel_config.__bindgen_anon_1.rgb_ele_order = rgb_order.into();
+            #[cfg(not(esp_idf_version_at_least_6_0_0))]
+            {
+                panel_config.__bindgen_anon_1.rgb_ele_order = rgb_order.into();
+            }
+            #[cfg(esp_idf_version_at_least_6_0_0)]
+            {
+                panel_config.rgb_ele_order = rgb_order.into();
+            }
 
             panel_config
         }
@@ -389,9 +416,11 @@ pub mod config {
         Rgb565,
         /// 16-bit RGB format with BGR component order
         Bgr565,
-        /// 18-bit RGB format with RGB component order
+        /// 18-bit RGB format with RGB component order (IDF < 6.0 only)
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
         Rgb666,
-        /// 18-bit RGB format with BGR component order
+        /// 18-bit RGB format with BGR component order (IDF < 6.0 only)
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
         Bgr666,
     }
 
@@ -401,6 +430,7 @@ pub mod config {
             match self {
                 PixelFormat::Rgb888 | PixelFormat::Bgr888 => 24,
                 PixelFormat::Rgb565 | PixelFormat::Bgr565 => 16,
+                #[cfg(not(esp_idf_version_at_least_6_0_0))]
                 PixelFormat::Rgb666 | PixelFormat::Bgr666 => 18,
             }
         }
@@ -408,27 +438,27 @@ pub mod config {
         /// Get the bytes per pixel for this format
         pub const fn bytes_per_pixel(&self) -> usize {
             match self {
-                PixelFormat::Rgb888
-                | PixelFormat::Bgr888
-                | PixelFormat::Rgb666
-                | PixelFormat::Bgr666 => 3,
+                PixelFormat::Rgb888 | PixelFormat::Bgr888 => 3,
                 PixelFormat::Rgb565 | PixelFormat::Bgr565 => 2,
+                #[cfg(not(esp_idf_version_at_least_6_0_0))]
+                PixelFormat::Rgb666 | PixelFormat::Bgr666 => 3,
             }
         }
 
         /// Get the RGB element order for this format
         pub const fn rgb_element_order(&self) -> RgbElementOrder {
             match self {
-                PixelFormat::Rgb888 | PixelFormat::Rgb565 | PixelFormat::Rgb666 => {
-                    RgbElementOrder::Rgb
-                }
-                PixelFormat::Bgr888 | PixelFormat::Bgr565 | PixelFormat::Bgr666 => {
-                    RgbElementOrder::Bgr
-                }
+                PixelFormat::Rgb888 | PixelFormat::Rgb565 => RgbElementOrder::Rgb,
+                PixelFormat::Bgr888 | PixelFormat::Bgr565 => RgbElementOrder::Bgr,
+                #[cfg(not(esp_idf_version_at_least_6_0_0))]
+                PixelFormat::Rgb666 => RgbElementOrder::Rgb,
+                #[cfg(not(esp_idf_version_at_least_6_0_0))]
+                PixelFormat::Bgr666 => RgbElementOrder::Bgr,
             }
         }
 
-        /// Convert to `lcd_color_rgb_pixel_format_t`
+        /// Convert to `lcd_color_rgb_pixel_format_t` (IDF < 6.0 only)
+        #[cfg(not(esp_idf_version_at_least_6_0_0))]
         pub fn to_rgb_pixel_format(&self) -> lcd_color_rgb_pixel_format_t {
             match self {
                 PixelFormat::Rgb888 | PixelFormat::Bgr888 => {
@@ -452,6 +482,7 @@ pub mod config {
                 PixelFormat::Rgb565 | PixelFormat::Bgr565 => {
                     lcd_color_format_t_LCD_COLOR_FMT_RGB565
                 }
+                #[cfg(not(esp_idf_version_at_least_6_0_0))]
                 PixelFormat::Rgb666 | PixelFormat::Bgr666 => {
                     lcd_color_format_t_LCD_COLOR_FMT_RGB666
                 }
@@ -821,7 +852,7 @@ impl<'d, S: DpiPanelState> LcdDriver<'d, S> {
     /// Requires that `set_control_panel()` has been called first.
     pub fn set_display_off(&self, off: bool) -> Result<(), EspError> {
         let panel = self.require_control_panel()?;
-        unsafe { esp!(esp_lcd_panel_disp_off(panel, off)) }
+        unsafe { esp!(esp_lcd_panel_disp_on_off(panel, !off)) }
     }
 
     /// Enter or exit sleep mode (low power mode)
@@ -933,6 +964,16 @@ impl<'d> LcdDriver<'d, NoDpiPanel> {
                 let _ = Box::from_raw(dpi_config_ptr);
                 return Err(e);
                 // self drops here, cleaning up bus + DBI IO + control panel
+            }
+
+            // In IDF 6.0, use_dma2d was removed from dpi_config flags; call API instead
+            #[cfg(esp_idf_version_at_least_6_0_0)]
+            if self.config.use_dma2d {
+                if let Err(e) = esp!(esp_lcd_dpi_panel_enable_dma2d(panel_handle)) {
+                    let _ = esp_lcd_panel_del(panel_handle);
+                    let _ = Box::from_raw(dpi_config_ptr);
+                    return Err(e);
+                }
             }
 
             let handle = match NonNull::new(panel_handle as *mut c_void) {

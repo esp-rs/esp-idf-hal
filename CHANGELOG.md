@@ -8,9 +8,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking
+- Dropped support for RGB/BGR666 format on ESP-IDF 6.0.
 - The I2C module now exposes the new bus/device API (`driver/i2c_master.h`) by default. The old `I2cDriver` and `I2cSlaveDriver` are available via the `i2c-legacy` feature.
 
 ### Added
+- `QueueSet2`, `QueueSet3`, `QueueSet4` for waiting on multiple heterogeneous queues
+- Basic compatibility for ESP-IDF release 6.0.
 - New I2C API: `I2cBusDriver` and `I2cDriver` wrapping ESP-IDF's `driver/i2c_master.h`
 - New I2C slave API: `I2cSlaveDriver` wrapping ESP-IDF's `driver/i2c_slave.h`
 - `i2c-legacy` cargo feature to opt into the deprecated legacy I2C driver

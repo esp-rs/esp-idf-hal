@@ -1150,6 +1150,39 @@ pub mod queue {
             }
         }
 
+        /// Returns the number of items currently waiting in the queue.
+        ///
+        /// # ISR safety
+        ///
+        /// This function is safe to use in ISR contexts.
+        #[inline]
+        pub fn messages_waiting(&self) -> usize {
+            unsafe { sys::uxQueueMessagesWaiting(self.ptr) as usize }
+        }
+
+        /// Returns the number of messages currently available in the queue.
+        #[inline]
+        pub fn len(&self) -> usize {
+            self.messages_waiting()
+        }
+
+        /// Returns the total capacity of the queue (maximum number of items it can hold).
+        ///
+        /// This is computed as `messages_waiting() + spaces_available()`.
+        #[inline]
+        pub fn capacity(&self) -> usize {
+            unsafe {
+                (sys::uxQueueMessagesWaiting(self.ptr) + sys::uxQueueSpacesAvailable(self.ptr))
+                    as usize
+            }
+        }
+
+        /// Returns `true` if the queue is currently empty.
+        #[inline]
+        pub fn is_empty(&self) -> bool {
+            self.len() == 0
+        }
+
         /// Copy the first message from the queue without removing it.
         ///
         /// # ISR safety
@@ -1194,6 +1227,191 @@ pub mod queue {
             }
         }
     }
+
+    /// Macro that generates a typed FreeRTOS queue-set struct and its
+    /// associated selected-item enum for a fixed arity.
+    ///
+    /// # Why a macro?
+    ///
+    /// Each `QueueSetN` holds N queue references with *different* item types
+    /// — e.g. `QueueSet2<T0, T1>` where `T0` and `T1` can be completely
+    /// different types, `QueueSet3<T0, T1, T2>` where all three can differ,
+    /// and so on.Once the language gains variadic-generic support,
+    /// this macro should be replaceable with a single generic definition.
+    ///
+    /// # Invocation syntax
+    ///
+    /// ```text
+    /// impl_queue_set!(StructName, EnumName, (T0, field0, Variant0), (T1, field1, Variant1), …);
+    /// ```
+    ///
+    /// Each tuple `(TypeIdent, fieldIdent, VariantIdent)` describes one member
+    /// queue.  The macro expands to:
+    ///
+    /// - `pub enum EnumName<T0, T1, …>` — one variant per queue, carrying the
+    ///   received item.
+    /// - `pub struct StructName<'a, T0, T1, …>` — borrows each queue for
+    ///   lifetime `'a`, owns the raw `QueueSetHandle_t`.
+    /// - `impl StructName { fn new(…) }` — creates the FreeRTOS set, adds all
+    ///   queues with rollback on failure.
+    /// - `impl StructName { fn select_from_set(timeout) }` — ISR-aware select
+    ///   that auto-receives the item.
+    /// - `unsafe impl Send/Sync` — forwarded from the item types.
+    /// - `impl Drop` — removes all queues then deletes the handle.
+    macro_rules! impl_queue_set {
+        (
+            $struct_name:ident,
+            $enum_name:ident,
+            $(($ty:ident, $field:ident, $variant:ident)),+
+        ) => {
+            /// Indicates which queue in the set was selected and carries the
+            /// received item.
+            pub enum $enum_name<$($ty),+> {
+                $(
+                    /// An item was received from the corresponding queue.
+                    $variant($ty),
+                )+
+            }
+
+            /// A FreeRTOS queue set that monitors a fixed number of queues of
+            /// (potentially) different item types.
+            ///
+            /// Construct with `new`, then call `select_from_set` to block
+            /// until any member queue has an item ready.  The item is
+            /// automatically received and returned inside the typed enum.
+            ///
+            /// # FreeRTOS constraints
+            ///
+            /// - All queues must be **empty** when `new` is called.
+            /// - A queue may only belong to **one** queue set at a time.
+            /// - The combined capacity of all queues must not be zero.
+            pub struct $struct_name<'a, $($ty),+>
+            where
+                $($ty: Copy,)+
+            {
+                set_ptr: sys::QueueSetHandle_t,
+                $($field: &'a Queue<$ty>,)+
+            }
+
+            unsafe impl<$($ty),+> Send for $struct_name<'_, $($ty),+>
+            where
+                $($ty: Send + Sync + Copy,)+
+            {}
+
+            unsafe impl<$($ty),+> Sync for $struct_name<'_, $($ty),+>
+            where
+                $($ty: Send + Sync + Copy,)+
+            {}
+
+            impl<'a, $($ty),+> $struct_name<'a, $($ty),+>
+            where
+                $($ty: Copy,)+
+            {
+                /// Create a new queue set monitoring all supplied queues.
+                ///
+                /// The FreeRTOS event-queue length is computed as the sum of
+                /// the capacities of all member queues.  All queues must be
+                /// empty at the time of the call.  On failure (queue not
+                /// empty, already in a set, etc.) all previously added queues
+                /// are removed and the set handle is deleted before returning
+                /// the error.
+                pub fn new($($field: &'a Queue<$ty>),+) -> Result<Self, EspError> {
+                    let event_queue_length = 0usize $(+ $field.capacity())+;
+                    let set_ptr = unsafe { sys::xQueueCreateSet(event_queue_length as u32) };
+
+                    // Add each queue in order.  On the first failure, remove
+                    // every queue that was already added (by attempting to
+                    // remove all of them — removals of queues not yet added
+                    // are harmless no-ops at the FreeRTOS level), delete the
+                    // set handle, and return an error.
+                    let mut ok = true;
+                    $(
+                        if ok && unsafe { sys::xQueueAddToSet($field.as_raw(), set_ptr) } != 1 {
+                            ok = false;
+                        }
+                    )+
+                    if !ok {
+                        unsafe {
+                            $( sys::xQueueRemoveFromSet($field.as_raw(), set_ptr); )+
+                            sys::vQueueDelete(set_ptr);
+                        }
+                        return Err(EspError::from_infallible::<ESP_FAIL>());
+                    }
+
+                    Ok($struct_name { set_ptr, $($field,)+ })
+                }
+
+                /// Block until one of the member queues has an item available,
+                /// or until `timeout` ticks elapse.
+                ///
+                /// On success the item is **automatically received** from the
+                /// ready queue and returned inside the enum variant.
+                /// Returns `None` on timeout.
+                ///
+                /// # ISR safety
+                ///
+                /// Dispatches to `xQueueSelectFromSetFromISR` when called from
+                /// an ISR context, otherwise uses `xQueueSelectFromSet`.
+                pub fn select_from_set(
+                    &self,
+                    timeout: sys::TickType_t,
+                ) -> Option<$enum_name<$($ty),+>> {
+                    let member = unsafe {
+                        if crate::interrupt::active() {
+                            sys::xQueueSelectFromSetFromISR(self.set_ptr)
+                        } else {
+                            sys::xQueueSelectFromSet(self.set_ptr, timeout)
+                        }
+                    };
+
+                    if member.is_null() {
+                        return None;
+                    }
+
+                    $(
+                        if member == self.$field.as_raw() {
+                            return self.$field
+                                .recv_front(0)
+                                .map(|(item, _)| $enum_name::$variant(item));
+                        }
+                    )+
+
+                    // Should never be reached; member handle matches no queue.
+                    None
+                }
+            }
+
+            impl<$($ty),+> Drop for $struct_name<'_, $($ty),+>
+            where
+                $($ty: Copy,)+
+            {
+                fn drop(&mut self) {
+                    // Queues must be removed before the set handle is deleted.
+                    unsafe {
+                        $(sys::xQueueRemoveFromSet(self.$field.as_raw(), self.set_ptr);)+
+                        sys::vQueueDelete(self.set_ptr);
+                    }
+                }
+            }
+        };
+    }
+
+    impl_queue_set!(QueueSet2, QueueSet2Selected, (T0, q0, Q0), (T1, q1, Q1));
+    impl_queue_set!(
+        QueueSet3,
+        QueueSet3Selected,
+        (T0, q0, Q0),
+        (T1, q1, Q1),
+        (T2, q2, Q2)
+    );
+    impl_queue_set!(
+        QueueSet4,
+        QueueSet4Selected,
+        (T0, q0, Q0),
+        (T1, q1, Q1),
+        (T2, q2, Q2),
+        (T3, q3, Q3)
+    );
 }
 
 pub mod asynch {

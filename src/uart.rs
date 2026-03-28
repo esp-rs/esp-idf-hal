@@ -228,6 +228,11 @@ pub mod config {
     }
 
     /// UART source clock
+    //
+    // esp-idf 6.0 only exposes SOC_UART_SUPPORT_*_CLK config options for APB,
+    // RTC (a.k.a RC_FAST), XTAL, REF_TICK, and surprisingly PLL_F40M (esp32c2 only).
+    // For PLL_F48M and PLL_F80M support, we would need to rely on SOC_UART_CLKS array,
+    // which is tricky to extract from the bindings, so we hardcode supported chips.
     #[derive(PartialEq, Eq, Copy, Clone, Debug)]
     pub enum SourceClock {
         /// UART source clock from `APB`
@@ -245,17 +250,28 @@ pub mod config {
         Crystal,
         /// UART source clock from `PLL_F80M`
         #[allow(non_camel_case_types)]
-        #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
-        PLL_F80M,
-        /// UART source clock from `PLL_F48M` (ESP32-H2)
-        #[allow(non_camel_case_types)]
-        #[cfg(not(any(
-            esp_idf_soc_uart_support_apb_clk,
-            esp_idf_soc_uart_support_pll_f40m_clk,
+        #[cfg(any(
             esp_idf_soc_uart_support_pll_f80m_clk,
-            esp_idf_soc_uart_support_ref_tick,
-            esp_idf_version_major = "4"
-        )))]
+            all(
+                esp_idf_version_at_least_6_0_0,
+                any(esp32c5, esp32c6, esp32c61, esp32p4)
+            )
+        ))]
+        PLL_F80M,
+        /// UART source clock from `PLL_F48M` (ESP32-H2, ESP32-H4, ESP32-H21)
+        #[allow(non_camel_case_types)]
+        #[cfg(any(
+            // IDF < 6: rely on soc caps flags
+            all(not(esp_idf_version_at_least_6_0_0), not(any(
+                esp_idf_soc_uart_support_apb_clk,
+                esp_idf_soc_uart_support_pll_f40m_clk,
+                esp_idf_soc_uart_support_pll_f80m_clk,
+                esp_idf_soc_uart_support_ref_tick,
+                esp_idf_version_major = "4",
+            ))),
+            // IDF >= 6: only H-series chips have PLL_F48M
+            all(esp_idf_version_at_least_6_0_0, any(esp32h2, esp32h4, esp32h21)),
+        ))]
         PLL_F48M,
         /// UART source clock from `REF_TICK`
         #[cfg(esp_idf_soc_uart_support_ref_tick)]
@@ -283,15 +299,27 @@ pub mod config {
                 RTC_SCLK => SourceClock::RTC,
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
                 XTAL_SCLK => SourceClock::Crystal,
-                #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
-                PLL_F80M_SCLK => SourceClock::PLL_F80M,
-                #[cfg(not(any(
-                    esp_idf_soc_uart_support_apb_clk,
-                    esp_idf_soc_uart_support_pll_f40m_clk,
+                #[cfg(any(
                     esp_idf_soc_uart_support_pll_f80m_clk,
-                    esp_idf_soc_uart_support_ref_tick,
-                    esp_idf_version_major = "4"
-                )))]
+                    all(
+                        esp_idf_version_at_least_6_0_0,
+                        any(esp32c5, esp32c6, esp32c61, esp32p4)
+                    )
+                ))]
+                PLL_F80M_SCLK => SourceClock::PLL_F80M,
+                #[cfg(any(
+                    all(
+                        not(esp_idf_version_at_least_6_0_0),
+                        not(any(
+                            esp_idf_soc_uart_support_apb_clk,
+                            esp_idf_soc_uart_support_pll_f40m_clk,
+                            esp_idf_soc_uart_support_pll_f80m_clk,
+                            esp_idf_soc_uart_support_ref_tick,
+                            esp_idf_version_major = "4",
+                        ))
+                    ),
+                    all(esp_idf_version_at_least_6_0_0, any(esp32h2, esp32h4, esp32h21)),
+                ))]
                 PLL_F48M_SCLK => SourceClock::PLL_F48M,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 REF_TICK_SCLK => SourceClock::RefTick,
@@ -332,20 +360,30 @@ pub mod config {
 
     #[cfg(all(
         not(esp_idf_version_major = "4"),
-        esp_idf_soc_uart_support_pll_f80m_clk
+        any(
+            esp_idf_soc_uart_support_pll_f80m_clk,
+            all(
+                esp_idf_version_at_least_6_0_0,
+                any(esp32c5, esp32c6, esp32c61, esp32p4)
+            )
+        )
     ))]
     const PLL_F80M_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_PLL_F80M;
     #[cfg(all(esp_idf_version_major = "4", esp_idf_soc_uart_support_pll_f80m_clk))]
     const PLL_F80M_SCLK: uart_sclk_t = uart_sclk_t_UART_SCLK_PLL_F80M;
 
-    #[cfg(all(
-        not(esp_idf_version_major = "4"),
-        not(any(
-            esp_idf_soc_uart_support_apb_clk,
-            esp_idf_soc_uart_support_pll_f40m_clk,
-            esp_idf_soc_uart_support_pll_f80m_clk,
-            esp_idf_soc_uart_support_ref_tick
-        ))
+    #[cfg(any(
+        all(
+            not(esp_idf_version_major = "4"),
+            not(esp_idf_version_at_least_6_0_0),
+            not(any(
+                esp_idf_soc_uart_support_apb_clk,
+                esp_idf_soc_uart_support_pll_f40m_clk,
+                esp_idf_soc_uart_support_pll_f80m_clk,
+                esp_idf_soc_uart_support_ref_tick,
+            ))
+        ),
+        all(esp_idf_version_at_least_6_0_0, any(esp32h2, esp32h4, esp32h21)),
     ))]
     const PLL_F48M_SCLK: uart_sclk_t = soc_periph_uart_clk_src_legacy_t_UART_SCLK_PLL_F48M;
 
@@ -373,15 +411,27 @@ pub mod config {
                 SourceClock::RTC => RTC_SCLK,
                 #[cfg(esp_idf_soc_uart_support_xtal_clk)]
                 SourceClock::Crystal => XTAL_SCLK,
-                #[cfg(esp_idf_soc_uart_support_pll_f80m_clk)]
-                SourceClock::PLL_F80M => PLL_F80M_SCLK,
-                #[cfg(not(any(
-                    esp_idf_soc_uart_support_apb_clk,
-                    esp_idf_soc_uart_support_pll_f40m_clk,
+                #[cfg(any(
                     esp_idf_soc_uart_support_pll_f80m_clk,
-                    esp_idf_soc_uart_support_ref_tick,
-                    esp_idf_version_major = "4"
-                )))]
+                    all(
+                        esp_idf_version_at_least_6_0_0,
+                        any(esp32c5, esp32c6, esp32c61, esp32p4)
+                    )
+                ))]
+                SourceClock::PLL_F80M => PLL_F80M_SCLK,
+                #[cfg(any(
+                    all(
+                        not(esp_idf_version_at_least_6_0_0),
+                        not(any(
+                            esp_idf_soc_uart_support_apb_clk,
+                            esp_idf_soc_uart_support_pll_f40m_clk,
+                            esp_idf_soc_uart_support_pll_f80m_clk,
+                            esp_idf_soc_uart_support_ref_tick,
+                            esp_idf_version_major = "4",
+                        ))
+                    ),
+                    all(esp_idf_version_at_least_6_0_0, any(esp32h2, esp32h4, esp32h21)),
+                ))]
                 SourceClock::PLL_F48M => PLL_F48M_SCLK,
                 #[cfg(esp_idf_soc_uart_support_ref_tick)]
                 SourceClock::RefTick => REF_TICK_SCLK,
