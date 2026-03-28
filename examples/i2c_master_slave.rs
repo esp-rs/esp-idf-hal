@@ -9,6 +9,11 @@
 //! Description:
 //! 1. Master writes 8 bytes, slave receives them via callback
 //! 2. Slave loads TX buffer, master reads 8 bytes
+//!
+//! This example uses the new I2C master/slave API. Build with:
+//! ```
+//! cargo build --example i2c_master_slave --no-default-features --features std,binstart
+//! ```
 
 #![allow(unused)]
 #![allow(unknown_lints)]

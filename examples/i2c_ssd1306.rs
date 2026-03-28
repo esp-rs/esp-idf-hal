@@ -8,6 +8,11 @@
 //!
 //! For this example you need to hook up an SSD1306 I2C display.
 //! The display will flash black and white.
+//!
+//! This example uses the new I2C master API. Build with:
+//! ```
+//! cargo build --example i2c_ssd1306 --no-default-features --features std,binstart
+//! ```
 
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
