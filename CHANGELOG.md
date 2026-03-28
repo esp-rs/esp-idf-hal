@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - New I2C master API: `I2cMasterBus` and `I2cMasterDevice` wrapping ESP-IDF's `driver/i2c_master.h`
+- New I2C slave API: `I2cSlaveDevice` wrapping ESP-IDF's `driver/i2c_slave.h`
 - `i2c-legacy` cargo feature to opt into the deprecated legacy I2C driver
 
 ### Deprecated
