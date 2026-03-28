@@ -205,7 +205,10 @@ impl Drop for I2cMasterBus<'_> {
     }
 }
 
+// SAFETY: The bus handle is not tied to a specific thread
 unsafe impl Send for I2cMasterBus<'_> {}
+// SAFETY: All data transfer operations (transmit, receive, probe) are serialized
+// by an internal bus_lock_mux semaphore in the ESP-IDF driver
 unsafe impl Sync for I2cMasterBus<'_> {}
 
 /// I2C device on a master bus, wrapping `i2c_master_dev_handle_t`.
