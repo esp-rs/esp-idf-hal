@@ -633,6 +633,7 @@ impl Drop for I2cMasterBus<'_> {
 }
 
 unsafe impl Send for I2cMasterBus<'_> {}
+unsafe impl Sync for I2cMasterBus<'_> {}
 
 /// I2C device on a master bus, wrapping `i2c_master_dev_handle_t`.
 ///
