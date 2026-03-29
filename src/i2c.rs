@@ -516,6 +516,7 @@ impl<'d> I2cSlaveDriver<'d> {
             on_recv: Box::new(on_recv),
         });
 
+        #[allow(clippy::needless_update)]
         let cbs = i2c_slave_event_callbacks_t {
             on_receive: Some(Self::handle_recv_isr),
             ..Default::default()
@@ -578,6 +579,7 @@ impl<'d> I2cSlaveDriver<'d> {
             recv_buf: vec![0u8; buf_size],
         });
 
+        #[allow(clippy::needless_update)]
         let cbs = i2c_slave_event_callbacks_t {
             on_recv_done: Some(Self::handle_recv_isr),
             ..Default::default()
