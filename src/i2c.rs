@@ -1,13 +1,20 @@
 use core::borrow::Borrow;
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 use core::ffi::c_void;
 use core::marker::PhantomData;
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 use core::ptr;
 
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 use alloc::boxed::Box;
-#[cfg(not(any(
-    esp_idf_i2c_enable_slave_driver_version_2,
-    esp_idf_version_at_least_6_0_0
-)))]
+#[cfg(all(
+    feature = "alloc",
+    not(esp32c2),
+    not(any(
+        esp_idf_i2c_enable_slave_driver_version_2,
+        esp_idf_version_at_least_6_0_0
+    ))
+))]
 use alloc::vec;
 
 use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
@@ -15,6 +22,7 @@ use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
 use esp_idf_sys::*;
 
 use crate::gpio::*;
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 use crate::interrupt;
 
 pub use embedded_hal::i2c::Operation;
@@ -27,7 +35,7 @@ crate::embedded_hal_error!(
 
 pub type I2cBusConfig = config::BusConfig;
 pub type I2cDeviceConfig = config::DeviceConfig;
-#[cfg(not(esp32c2))]
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 pub type I2cSlaveConfig = config::SlaveConfig;
 
 pub mod config {
@@ -109,7 +117,7 @@ pub mod config {
     }
 
     /// Configuration for the new I2C slave device (driver/i2c_slave.h)
-    #[cfg(not(esp32c2))]
+    #[cfg(all(feature = "alloc", not(esp32c2)))]
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct SlaveConfig {
         pub send_buf_depth: u32,
@@ -121,7 +129,7 @@ pub mod config {
         pub timeout_ms: i32,
     }
 
-    #[cfg(not(esp32c2))]
+    #[cfg(all(feature = "alloc", not(esp32c2)))]
     impl SlaveConfig {
         pub const fn new() -> Self {
             Self {
@@ -163,7 +171,7 @@ pub mod config {
         }
     }
 
-    #[cfg(not(esp32c2))]
+    #[cfg(all(feature = "alloc", not(esp32c2)))]
     impl Default for SlaveConfig {
         fn default() -> Self {
             Self::new()
@@ -422,7 +430,7 @@ where
     }
 }
 
-#[cfg(not(esp32c2))]
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 #[allow(clippy::type_complexity)]
 struct I2cSlaveRecvUserData {
     on_recv: Box<dyn FnMut(&[u8]) + Send + 'static>,
@@ -437,7 +445,7 @@ struct I2cSlaveRecvUserData {
 ///
 /// Wraps `i2c_slave_dev_handle_t`. The slave listens on a configured address
 /// and communicates with an external master.
-#[cfg(not(esp32c2))]
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 pub struct I2cSlaveDriver<'d> {
     handle: i2c_slave_dev_handle_t,
     timeout_ms: i32,
@@ -445,7 +453,7 @@ pub struct I2cSlaveDriver<'d> {
     _p: PhantomData<&'d ()>,
 }
 
-#[cfg(not(esp32c2))]
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 impl<'d> I2cSlaveDriver<'d> {
     pub fn new<I2C: I2c + 'd>(
         _i2c: I2C,
@@ -700,7 +708,7 @@ impl<'d> I2cSlaveDriver<'d> {
     }
 }
 
-#[cfg(not(esp32c2))]
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 impl Drop for I2cSlaveDriver<'_> {
     fn drop(&mut self) {
         let _ = self.deregister_recv();
@@ -708,7 +716,7 @@ impl Drop for I2cSlaveDriver<'_> {
     }
 }
 
-#[cfg(not(esp32c2))]
+#[cfg(all(feature = "alloc", not(esp32c2)))]
 unsafe impl Send for I2cSlaveDriver<'_> {}
 
 fn to_i2c_err(err: EspError) -> I2cError {
