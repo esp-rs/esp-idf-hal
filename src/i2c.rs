@@ -182,7 +182,7 @@ pub trait I2c: Send {
 /// [`I2cDriver::new`].
 pub struct I2cBusDriver<'d> {
     handle: i2c_master_bus_handle_t,
-    _p: PhantomData<&'d mut ()>,
+    _p: PhantomData<&'d ()>,
 }
 
 impl<'d> I2cBusDriver<'d> {
@@ -442,7 +442,7 @@ pub struct I2cSlaveDriver<'d> {
     handle: i2c_slave_dev_handle_t,
     timeout_ms: i32,
     on_recv: Option<Box<I2cSlaveRecvUserData>>,
-    _p: PhantomData<&'d mut ()>,
+    _p: PhantomData<&'d ()>,
 }
 
 #[cfg(not(esp32c2))]
