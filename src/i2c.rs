@@ -337,26 +337,27 @@ where
         })
     }
 
+    /// Execute a sequence of I2C operations.
+    ///
+    /// Supported patterns (executed as a single bus transaction):
+    /// - `[]` (empty)
+    /// - `[Write]`
+    /// - `[Read]`
+    /// - `[Write, Read]` (uses repeated START via `i2c_master_transmit_receive`)
+    ///
+    /// Returns `ESP_ERR_NOT_SUPPORTED` for any other combination. The ESP-IDF
+    /// new-driver API does not expose a raw repeated-START primitive, so
+    /// sequences like `[Write, Write, Read]` or `[Read, Write]` cannot be
+    /// sent as a single I2C transaction. Use the legacy I2C driver for
+    /// arbitrary command-link sequences.
     pub fn transaction(&mut self, operations: &mut [Operation<'_>]) -> Result<(), EspError> {
-        let mut iter = operations.iter_mut().peekable();
-
-        while let Some(op) = iter.next() {
-            match op {
-                Operation::Write(bytes) => {
-                    if let Some(Operation::Read(read_buf)) = iter.peek_mut() {
-                        self.transmit_receive(bytes, read_buf)?;
-                        iter.next();
-                    } else {
-                        self.transmit(bytes)?;
-                    }
-                }
-                Operation::Read(buf) => {
-                    self.receive(buf)?;
-                }
-            }
+        match operations {
+            [] => Ok(()),
+            [Operation::Write(bytes)] => self.transmit(bytes),
+            [Operation::Read(buf)] => self.receive(buf),
+            [Operation::Write(bytes), Operation::Read(buf)] => self.transmit_receive(bytes, buf),
+            _ => Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>()),
         }
-
-        Ok(())
     }
 
     pub fn handle(&self) -> i2c_master_dev_handle_t {
