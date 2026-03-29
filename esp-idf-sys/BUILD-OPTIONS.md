@@ -347,6 +347,37 @@ The following configuration options are available:
    > [!WARNING]
    > [Older ESP-IDF versions might not support all MCUs from above.](https://github.com/espressif/esp-idf#esp-idf-release-and-soc-compatibility)
    
+- ### `$ESP_IDF_SYS_EXTRA_COMPONENTS_FILE` (*native* builder only)
+
+    A comma-separated list of paths to TOML files that each specify additional
+    [`extra_components`](#extra-esp-idf-components) entries. This is useful for
+    conditionally enabling extra components without modifying `Cargo.toml`,
+    for example in CI.
+
+    Each file uses the same syntax as `Cargo.toml` metadata, but without the
+    `[package.metadata.esp-idf-sys]` wrapper:
+
+    ```toml
+    [[extra_components]]
+    remote_component = { name = "espressif/mqtt", version = "1.*" }
+    ```
+
+    Multiple files can be specified with comma separation:
+
+    ```bash
+    ESP_IDF_SYS_EXTRA_COMPONENTS_FILE="extra_mqtt.toml,extra_eth.toml" cargo build ...
+    ```
+
+    Relative paths are resolved relative to the *workspace directory*. Use absolute paths
+    if unsure.
+
+    When set, this takes precedence over `extra_components` in the root crate's `Cargo.toml`.
+    Extra components from direct dependencies are still merged in regardless.
+
+    > [!NOTE]
+    > This option is only available as an environment variable; there is no `Cargo.toml`
+    > equivalent (use `extra_components` directly instead).
+
 - ### *`esp_idf_components`*, `$ESP_IDF_COMPONENTS` (*native* builder only)
 
     > **Note**  
@@ -393,6 +424,9 @@ This is possible by adding an object to the
 `package.metadata.esp-idf-sys.extra_components` array of the `Cargo.toml`. *esp-idf-sys*
 will honor all such extra components in the *root crate*'s and all **direct**
 dependencies' `Cargo.toml`.
+
+Alternatively, extra components can be specified via the `$ESP_IDF_SYS_EXTRA_COMPONENTS_FILE`
+environment variable (see above).
 
 > [!NOTE]
 > By only specifying the `bindings_header` field, one can extend the set of *esp-idf*

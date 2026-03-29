@@ -10,11 +10,13 @@ use embuild::utils::PathExt;
 use embuild::{cmake, git};
 use serde::Deserialize;
 
+use crate::common::workspace_dir;
 use crate::config::utils::{parse_from_env, set_when_none};
 use crate::config::EspIdfSys;
 
 pub const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 pub const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
+pub const ESP_IDF_EXTRA_COMPONENTS_FILE_VAR: &str = "ESP_IDF_SYS_EXTRA_COMPONENTS_FILE";
 
 pub const DEFAULT_ESP_IDF_VERSION: &str = "v5.2.3";
 pub const DEFAULT_CMAKE_GENERATOR: cmake::Generator = {
@@ -47,12 +49,11 @@ pub struct NativeConfig {
 
     /// Additional components to build and maybe generate bindings for.
     ///
-    /// Can be specified in the root crate's `package.metadata.esp-idf-sys` and all direct
-    /// dependencies'.
-    ///
-    /// This option is not available as an environment variable.
-    #[serde(alias = "extra-components")]
-    pub extra_components: Vec<ExtraComponent>,
+    /// Can be specified in the root crate's `package.metadata.esp-idf-sys`
+    /// (or using `ESP_IDF_SYS_EXTRA_COMPONENTS_FILE`) and all direct dependencies'
+    /// `package.metadata.esp-idf-sys`.
+    #[serde(default, alias = "extra-components")]
+    pub extra_components: Option<Vec<ExtraComponent>>,
 
     /// A list of esp-idf components (names) that should be built. This list is used to
     /// trim the esp-idf build. Any component that is a dependency of a component in this
@@ -71,7 +72,28 @@ pub struct NativeConfig {
 
 impl NativeConfig {
     pub fn try_from_env() -> Result<NativeConfig> {
-        Ok(parse_from_env(&["extra_components"])?)
+        let mut cfg: NativeConfig = parse_from_env(&["extra_components"])?;
+
+        // `extra_components` cannot easily be expressed as a single env var (it's a
+        // complex array), so instead we support pointing to one or more TOML files via
+        // this environment variable.
+        embuild::cargo::track_env_var(ESP_IDF_EXTRA_COMPONENTS_FILE_VAR);
+        if let Ok(val) = std::env::var(ESP_IDF_EXTRA_COMPONENTS_FILE_VAR) {
+            let workspace = workspace_dir()?;
+            let mut components = Vec::new();
+            for file in val.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                // Path::join replaces the base if `file` is absolute.
+                let path = workspace.join(file);
+                let contents = std::fs::read_to_string(&path)
+                    .with_context(|| format!("failed to read '{}'", path.display()))?;
+                let file_cfg: NativeConfig = toml::from_str(&contents)
+                    .with_context(|| format!("failed to parse '{}'", path.display()))?;
+                components.extend(file_cfg.extra_components.unwrap_or_default());
+            }
+            cfg.extra_components = Some(components);
+        }
+
+        Ok(cfg)
     }
 
     /// Get the value for the `IDF_COMPONENT_MANAGER` variable passed to cmake. The
@@ -100,6 +122,7 @@ impl NativeConfig {
     pub fn extra_component_dirs(&self) -> Result<Vec<PathBuf>> {
         self.extra_components
             .iter()
+            .flatten()
             .flat_map(|extra_comp| {
                 extra_comp
                     .component_dirs
@@ -145,6 +168,7 @@ impl NativeConfig {
         let remote_components = self
             .extra_components
             .iter()
+            .flatten()
             .filter_map(|c| c.remote_component.as_ref())
             .collect::<Vec<_>>();
         if remote_components.is_empty() {
@@ -182,7 +206,7 @@ impl NativeConfig {
     #[cfg(any(feature = "native", not(feature = "pio")))]
     pub fn combined_bindings_headers(&self) -> Result<Vec<PathBuf>> {
         let mut results = Vec::new();
-        for comp in &self.extra_components {
+        for comp in self.extra_components.iter().flatten() {
             // Skip all extra components with separate bindings.
             if comp.bindings_module.is_some() {
                 continue;
@@ -209,7 +233,7 @@ impl NativeConfig {
     /// module name only contains ACII alphanumeric and `_` characters.
     #[cfg(any(feature = "native", not(feature = "pio")))]
     pub fn module_bindings_headers(&self) -> Result<HashMap<&str, Vec<PathBuf>>> {
-        let headers = self.extra_components.iter().filter_map(|comp| {
+        let headers = self.extra_components.iter().flatten().filter_map(|comp| {
             match (&comp.bindings_header, &comp.bindings_module) {
                 (Some(header), Some(module)) => {
                     Some((header.abspath_relative_to(&comp.manifest_dir), module, comp))
@@ -281,13 +305,19 @@ impl NativeConfig {
             }
         }
 
-        self.extra_components.extend(
-            extra_components
-                .into_iter()
-                .filter_map(make_processor(root)),
-        );
+        // Only load extra_components from the root crate's Cargo.toml if not already set
+        // (e.g. via ESP_IDF_SYS_EXTRA_COMPONENTS_FILE), following the set_when_none convention.
+        if self.extra_components.is_none() {
+            self.extra_components = Some(
+                extra_components
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(make_processor(root))
+                    .collect(),
+            );
+        }
 
-        // Get extra components from all _direct_ dependencies of the root crate.
+        // Always load extra_components from direct dependencies regardless.
         let dependencies = metadata
             .resolve
             .as_ref()
@@ -313,9 +343,10 @@ impl NativeConfig {
                 .into_warning();
 
             if let Some(cfg) = cfg {
-                self.extra_components.extend(
+                self.extra_components.get_or_insert_with(Vec::new).extend(
                     cfg.v
                         .extra_components
+                        .unwrap_or_default()
                         .into_iter()
                         .filter_map(make_processor(dep_package)),
                 );

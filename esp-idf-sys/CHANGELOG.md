@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Basic compatibility for ESP-IDF release 6.0
+- Added ESP_IDF_SYS_EXTRA_COMPONENTS_FILE env variable support, allows to select `extra_components` from command line. Probably only useful for CI.
 
 ## [0.37.2] - 2026-03-10
 
