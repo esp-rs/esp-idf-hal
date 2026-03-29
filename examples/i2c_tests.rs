@@ -140,7 +140,7 @@ mod tests {
     // ---------------------------------------------------------------
 
     /// Arm the slave to receive, run `f`, drain the result, disarm.
-    fn with_slave_receive<F>(slave: &mut I2cSlaveDriver, buf_size: usize, f: F) -> Vec<u8>
+    fn with_slave_receive<F>(slave: &mut I2cSlaveDriver, _buf_size: usize, f: F) -> Vec<u8>
     where
         F: FnOnce(),
     {
@@ -156,7 +156,7 @@ mod tests {
             esp_idf_i2c_enable_slave_driver_version_2,
             esp_idf_version_at_least_6_0_0
         )))]
-        slave.receive(buf_size, callback).unwrap();
+        slave.receive(_buf_size, callback).unwrap();
         #[cfg(any(
             esp_idf_i2c_enable_slave_driver_version_2,
             esp_idf_version_at_least_6_0_0
