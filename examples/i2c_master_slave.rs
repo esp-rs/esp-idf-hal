@@ -80,7 +80,7 @@ mod example {
         let received = Arc::new(Mutex::new(Vec::new()));
         let received_clone = received.clone();
 
-        slave.subscribe(move |data: &[u8]| {
+        slave.receive(128, move |data: &[u8]| {
             if let Ok(mut buf) = received_clone.lock() {
                 buf.extend_from_slice(data);
             }
@@ -93,8 +93,6 @@ mod example {
         let rx_data = received.lock().unwrap().clone();
         println!("Master sent:     {tx_buf:?}");
         println!("Slave received:  {rx_data:?}");
-
-        slave.unsubscribe()?;
 
         // --- Test 2: Slave transmits, master reads ---
         println!("-------- TESTING SLAVE TRANSMIT -> MASTER READ --------");
