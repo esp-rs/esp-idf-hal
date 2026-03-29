@@ -12,8 +12,6 @@
 //! Flash and monitor:
 //!   cargo espflash flash --example i2c_master_slave --monitor
 
-#![allow(unused)]
-#![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
 #[cfg(not(esp32))]
