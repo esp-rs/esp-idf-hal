@@ -4,7 +4,10 @@ use core::marker::PhantomData;
 use core::ptr;
 
 use alloc::boxed::Box;
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(not(any(
+    esp_idf_i2c_enable_slave_driver_version_2,
+    esp_idf_version_at_least_6_0_0
+)))]
 use alloc::vec;
 
 use embedded_hal::i2c::{ErrorKind, NoAcknowledgeSource};
@@ -110,7 +113,10 @@ pub mod config {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
     pub struct SlaveConfig {
         pub send_buf_depth: u32,
-        #[cfg(esp_idf_version_at_least_6_0_0)]
+        #[cfg(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        ))]
         pub recv_buf_depth: u32,
         pub timeout_ms: i32,
     }
@@ -120,7 +126,10 @@ pub mod config {
         pub const fn new() -> Self {
             Self {
                 send_buf_depth: 256,
-                #[cfg(esp_idf_version_at_least_6_0_0)]
+                #[cfg(any(
+                    esp_idf_i2c_enable_slave_driver_version_2,
+                    esp_idf_version_at_least_6_0_0
+                ))]
                 recv_buf_depth: 256,
                 timeout_ms: -1,
             }
@@ -132,8 +141,14 @@ pub mod config {
             self
         }
 
-        /// Depth of the internal receive ring buffer (ESP-IDF v6.0+ only).
-        #[cfg(esp_idf_version_at_least_6_0_0)]
+        /// Depth of the internal receive ring buffer.
+        ///
+        /// Available on ESP-IDF v6.0+ or v5.x with
+        /// `CONFIG_I2C_ENABLE_SLAVE_DRIVER_VERSION_2=y`.
+        #[cfg(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        ))]
         #[must_use]
         pub fn recv_buf_depth(mut self, depth: u32) -> Self {
             self.recv_buf_depth = depth;
@@ -410,7 +425,10 @@ where
 #[allow(clippy::type_complexity)]
 struct I2cSlaveRecvUserData {
     on_recv: Box<dyn FnMut(&[u8]) + Send + 'static>,
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[cfg(not(any(
+        esp_idf_i2c_enable_slave_driver_version_2,
+        esp_idf_version_at_least_6_0_0
+    )))]
     recv_buf: alloc::vec::Vec<u8>,
 }
 
@@ -447,7 +465,10 @@ impl<'d> I2cSlaveDriver<'d> {
             intr_priority: 0,
             ..Default::default()
         };
-        #[cfg(esp_idf_version_at_least_6_0_0)]
+        #[cfg(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        ))]
         {
             slave_config.receive_buf_depth = config.recv_buf_depth;
         }
@@ -469,9 +490,13 @@ impl<'d> I2cSlaveDriver<'d> {
     /// transaction. The `&[u8]` slice is borrowed from ESP-IDF's internal
     /// ring buffer — copy any data you need before returning.
     ///
-    /// Only available on ESP-IDF v6.0+. On earlier versions, use
-    /// [`receive`](Self::receive).
-    #[cfg(esp_idf_version_at_least_6_0_0)]
+    /// Requires the slave driver v2 API: ESP-IDF v6.0+, or v5.x with
+    /// `CONFIG_I2C_ENABLE_SLAVE_DRIVER_VERSION_2=y`. On v5.x without that
+    /// option, use [`receive`](Self::receive) instead.
+    #[cfg(any(
+        esp_idf_i2c_enable_slave_driver_version_2,
+        esp_idf_version_at_least_6_0_0
+    ))]
     pub fn subscribe(
         &mut self,
         on_recv: impl FnMut(&[u8]) + Send + 'static,
@@ -500,7 +525,10 @@ impl<'d> I2cSlaveDriver<'d> {
     }
 
     /// Unregister the previously registered receive callback.
-    #[cfg(esp_idf_version_at_least_6_0_0)]
+    #[cfg(any(
+        esp_idf_i2c_enable_slave_driver_version_2,
+        esp_idf_version_at_least_6_0_0
+    ))]
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
         if self.on_recv.is_some() {
             esp!(unsafe {
@@ -516,13 +544,23 @@ impl<'d> I2cSlaveDriver<'d> {
     /// Allocates a buffer of `buf_size` bytes and arms the slave to receive.
     /// When data arrives, `on_recv` fires in ISR context with a `&[u8]`.
     ///
+    /// **Limitation:** the v1 slave driver does not report the actual number
+    /// of bytes received. The callback always receives a slice of `buf_size`
+    /// bytes — any bytes beyond what the master actually sent will be zero.
+    /// Use a fixed-length protocol or length-prefix framing to determine the
+    /// real payload.
+    ///
     /// Returns `ESP_ERR_INVALID_STATE` if a receive is already pending.
     /// Call [`cancel_receive`](Self::cancel_receive) after the callback fires,
     /// then call `receive` again for the next transfer.
     ///
-    /// Only available on ESP-IDF < 6.0. On v6.0+, use
-    /// [`subscribe`](Self::subscribe).
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    /// Only available with the v1 slave driver (ESP-IDF v5.x without
+    /// `CONFIG_I2C_ENABLE_SLAVE_DRIVER_VERSION_2`). When the v2 driver is
+    /// available, use [`subscribe`](Self::subscribe) instead.
+    #[cfg(not(any(
+        esp_idf_i2c_enable_slave_driver_version_2,
+        esp_idf_version_at_least_6_0_0
+    )))]
     pub fn receive(
         &mut self,
         buf_size: usize,
@@ -569,7 +607,10 @@ impl<'d> I2cSlaveDriver<'d> {
 
     /// Cancel the pending receive, allowing a new [`receive`](Self::receive)
     /// call. Deregisters the callback and frees the internal buffer.
-    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    #[cfg(not(any(
+        esp_idf_i2c_enable_slave_driver_version_2,
+        esp_idf_version_at_least_6_0_0
+    )))]
     pub fn cancel_receive(&mut self) -> Result<(), EspError> {
         if self.on_recv.is_some() {
             // Deregister callback first — this disables the RX interrupt,
@@ -589,7 +630,10 @@ impl<'d> I2cSlaveDriver<'d> {
     /// nothing. On v6.0+ it returns the number of bytes actually written,
     /// which may be less than `bytes.len()` if the ring buffer is full.
     pub fn transmit(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
-        #[cfg(not(esp_idf_version_at_least_6_0_0))]
+        #[cfg(not(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        )))]
         {
             esp!(unsafe {
                 i2c_slave_transmit(
@@ -601,7 +645,10 @@ impl<'d> I2cSlaveDriver<'d> {
             })?;
             Ok(bytes.len())
         }
-        #[cfg(esp_idf_version_at_least_6_0_0)]
+        #[cfg(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        ))]
         {
             let mut write_len: u32 = 0;
             esp!(unsafe {
@@ -629,9 +676,15 @@ impl<'d> I2cSlaveDriver<'d> {
         let user_data = &mut *(arg as *mut I2cSlaveRecvUserData);
         let data = &*evt_data;
 
-        #[cfg(not(esp_idf_version_at_least_6_0_0))]
+        #[cfg(not(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        )))]
         let slice = core::slice::from_raw_parts(data.buffer, user_data.recv_buf.len());
-        #[cfg(esp_idf_version_at_least_6_0_0)]
+        #[cfg(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        ))]
         let slice = core::slice::from_raw_parts(data.buffer, data.length as usize);
 
         interrupt::with_isr_yield_signal(|| {
