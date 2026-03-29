@@ -584,7 +584,11 @@ impl<'d> I2cSlaveDriver<'d> {
 
     /// Write data to the internal TX buffer. The hardware FIFO is filled
     /// from this buffer when the master clocks in a read.
-    pub fn transmit(&mut self, bytes: &[u8]) -> Result<(), EspError> {
+    ///
+    /// On ESP-IDF v5.x this blocks until all bytes are queued and returns
+    /// nothing. On v6.0+ it returns the number of bytes actually written,
+    /// which may be less than `bytes.len()` if the ring buffer is full.
+    pub fn transmit(&mut self, bytes: &[u8]) -> Result<usize, EspError> {
         #[cfg(not(esp_idf_version_at_least_6_0_0))]
         {
             esp!(unsafe {
@@ -594,7 +598,8 @@ impl<'d> I2cSlaveDriver<'d> {
                     bytes.len() as _,
                     self.timeout_ms,
                 )
-            })
+            })?;
+            Ok(bytes.len())
         }
         #[cfg(esp_idf_version_at_least_6_0_0)]
         {
@@ -607,7 +612,8 @@ impl<'d> I2cSlaveDriver<'d> {
                     &mut write_len,
                     self.timeout_ms,
                 )
-            })
+            })?;
+            Ok(write_len as usize)
         }
     }
 
