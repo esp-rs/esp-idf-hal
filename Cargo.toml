@@ -87,3 +87,4 @@ embedded-graphics = "0.7.1"
 # TODO: Remove this before next release, needed for IDF 6.0+ support
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", branch = "master" }
+embuild = { git = "https://github.com/esp-rs/embuild", branch = "master" } # IDF >6.0.0 strictly
