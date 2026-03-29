@@ -550,13 +550,18 @@ impl<'d> I2cSlaveDriver<'d> {
             )
         })?;
 
-        esp!(unsafe {
+        if let Err(e) = esp!(unsafe {
             i2c_slave_receive(
                 self.handle,
                 user_data.recv_buf.as_mut_ptr(),
                 user_data.recv_buf.len(),
             )
-        })?;
+        }) {
+            let _ = esp!(unsafe {
+                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
+            });
+            return Err(e);
+        }
 
         self.on_recv = Some(user_data);
         Ok(())
