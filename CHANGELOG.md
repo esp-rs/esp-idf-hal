@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New I2C API: `I2cBusDriver` and `I2cDriver` wrapping ESP-IDF's `driver/i2c_master.h`
 - New I2C slave API: `I2cSlaveDriver` wrapping ESP-IDF's `driver/i2c_slave.h`
 - `i2c-legacy` cargo feature to opt into the deprecated legacy I2C driver
+- `i2c_tests` example: hardware validation suite for the I2C driver (27/31 tests on v5/v6)
 
 ### Deprecated
 - The old I2C API (only available with the `i2c-legacy` feature)
