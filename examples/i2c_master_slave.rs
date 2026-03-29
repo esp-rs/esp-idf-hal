@@ -25,7 +25,6 @@ fn main() -> anyhow::Result<()> {
 #[cfg(all(esp32, feature = "i2c-legacy"))]
 fn main() -> anyhow::Result<()> {
     println!("This example requires the new I2C API. Disable the `i2c-legacy` feature.");
-
     loop {
         std::thread::sleep(std::time::Duration::from_millis(1000));
     }
@@ -40,6 +39,8 @@ fn main() -> anyhow::Result<()> {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use embedded_hal::i2c::I2c as I2cTrait;
+
     use esp_idf_hal::delay::FreeRtos;
     use esp_idf_hal::i2c::*;
     use esp_idf_hal::peripherals::Peripherals;
@@ -47,6 +48,8 @@ mod tests {
 
     const SLAVE_ADDR: u8 = 0x22;
     const UNUSED_ADDR: u8 = 0x7E;
+
+    type Master<'a> = I2cDriver<'a, &'a I2cBusDriver<'a>>;
 
     // ---------------------------------------------------------------
     // Test runner
@@ -93,11 +96,7 @@ mod tests {
             }
         }
 
-        fn assert_err<T: core::fmt::Debug>(
-            &mut self,
-            name: &str,
-            result: &Result<T, esp_idf_hal::sys::EspError>,
-        ) {
+        fn assert_err<T: core::fmt::Debug, E>(&mut self, name: &str, result: &Result<T, E>) {
             match result {
                 Err(_) => self.pass(name),
                 Ok(v) => self.fail(name, &format!("expected error, got {v:?}")),
@@ -183,105 +182,118 @@ mod tests {
         data
     }
 
-    // ---------------------------------------------------------------
-    // Common tests (work on both v1 and v2)
-    // ---------------------------------------------------------------
-
-    fn test_probe_ack(t: &mut TestRunner, bus: &I2cBusDriver) {
-        let result = bus.probe(SLAVE_ADDR, 100);
-        t.assert_ok("probe: ACK at slave address", &result);
+    /// Master writes `tx`, slave receives — assert round-trip matches.
+    fn assert_master_write<'a>(
+        t: &mut TestRunner,
+        name: &str,
+        master: &mut Master<'a>,
+        slave: &mut I2cSlaveDriver,
+        tx: &[u8],
+    ) {
+        let rx = with_slave_receive(slave, tx.len(), || {
+            master.transmit(tx).unwrap();
+        });
+        t.assert_eq(name, tx, &rx);
     }
 
-    fn test_probe_nack(t: &mut TestRunner, bus: &I2cBusDriver) {
-        let result = bus.probe(UNUSED_ADDR, 100);
-        t.assert_err("probe: NACK at unused address", &result);
+    /// Slave loads `tx` into TX buffer, master reads — assert round-trip matches.
+    fn assert_slave_transmit<'a>(
+        t: &mut TestRunner,
+        name: &str,
+        master: &mut Master<'a>,
+        slave: &mut I2cSlaveDriver,
+        tx: &[u8],
+    ) {
+        slave.transmit(tx).unwrap();
+        let mut rx = vec![0u8; tx.len()];
+        master.receive(&mut rx).unwrap();
+        t.assert_eq(name, tx, &rx);
     }
 
-    fn test_bus_reset(t: &mut TestRunner, bus: &I2cBusDriver) {
-        let result = bus.reset();
-        t.assert_ok("bus reset: succeeds", &result);
+    // ---------------------------------------------------------------
+    // Tests
+    // ---------------------------------------------------------------
+
+    fn test_bus<'a>(t: &mut TestRunner, bus: &I2cBusDriver<'a>) {
+        t.assert_ok("probe: ACK at slave address", &bus.probe(SLAVE_ADDR, 100));
+        t.assert_err(
+            "probe: NACK at unused address",
+            &bus.probe(UNUSED_ADDR, 100),
+        );
+        t.assert_ok("bus reset", &bus.reset());
     }
 
     fn test_master_write_slave_receive<'a>(
         t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
+        master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
     ) {
-        let tx: [u8; 8] = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF];
-        let rx = with_slave_receive(slave, tx.len(), || {
-            master.transmit(&tx).unwrap();
-        });
-        t.assert_eq("master write -> slave receive", &tx, &rx);
+        assert_master_write(
+            t,
+            "8 bytes",
+            master,
+            slave,
+            &[0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF],
+        );
+        assert_master_write(t, "1 byte", master, slave, &[0x42]);
+
+        let large: Vec<u8> = (0..128).collect();
+        assert_master_write(t, "128 bytes", master, slave, &large);
     }
 
     fn test_slave_transmit_master_read<'a>(
         t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
+        master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
     ) {
-        let tx: [u8; 8] = [0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
-        let mut rx: [u8; 8] = [0; 8];
-
-        let written = slave.transmit(&tx).unwrap();
-        master.receive(&mut rx).unwrap();
-        t.assert_eq("slave transmit -> master read", &tx, &rx);
-
-        if written == tx.len() {
-            t.pass("slave transmit: write_len matches");
-        } else {
-            t.fail(
-                "slave transmit: write_len matches",
-                &format!("expected {}, got {written}", tx.len()),
-            );
-        }
+        assert_slave_transmit(
+            t,
+            "8 bytes",
+            master,
+            slave,
+            &[0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10],
+        );
+        assert_slave_transmit(t, "1 byte", master, slave, &[0x99]);
     }
 
-    fn test_master_write_read<'a>(
+    fn test_write_read<'a>(
         t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
+        master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
     ) {
-        let slave_tx: [u8; 4] = [0xAA, 0xBB, 0xCC, 0xDD];
+        let slave_tx = [0xAA, 0xBB, 0xCC, 0xDD];
         slave.transmit(&slave_tx).unwrap();
 
-        let master_tx: [u8; 1] = [0x42];
-        let mut master_rx: [u8; 4] = [0; 4];
-
+        let mut master_rx = [0u8; 4];
         let _rx = with_slave_receive(slave, 8, || {
-            master.transmit_receive(&master_tx, &mut master_rx).unwrap();
+            master.transmit_receive(&[0x42], &mut master_rx).unwrap();
         });
+        t.assert_eq("transmit_receive", &slave_tx, &master_rx);
 
-        t.assert_eq("write_read: read data matches", &slave_tx, &master_rx);
-    }
-
-    fn test_transaction_write_read<'a>(
-        t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
-        slave: &mut I2cSlaveDriver,
-    ) {
-        let slave_tx: [u8; 4] = [0x11, 0x22, 0x33, 0x44];
+        // Same via transaction API
+        let slave_tx = [0x11, 0x22, 0x33, 0x44];
         slave.transmit(&slave_tx).unwrap();
 
-        let write_buf: [u8; 1] = [0x10];
-        let mut read_buf: [u8; 4] = [0; 4];
-
+        let mut read_buf = [0u8; 4];
         let _rx = with_slave_receive(slave, 8, || {
             master
-                .transaction(&mut [Operation::Write(&write_buf), Operation::Read(&mut read_buf)])
+                .transaction(&mut [Operation::Write(&[0x10]), Operation::Read(&mut read_buf)])
                 .unwrap();
         });
-
-        t.assert_eq(
-            "transaction [Write, Read]: data matches",
-            &slave_tx,
-            &read_buf,
-        );
+        t.assert_eq("transaction [Write, Read]", &slave_tx, &read_buf);
     }
 
-    fn test_transaction_unsupported<'a>(
+    fn test_transaction_single_ops<'a>(
         t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
+        master: &mut Master<'a>,
+        slave: &mut I2cSlaveDriver,
     ) {
+        assert_master_write(t, "transaction [Write]", master, slave, &[0xAA]);
+        assert_slave_transmit(t, "transaction [Read]", master, slave, &[0xBB]);
+        t.assert_ok("transaction []", &master.transaction(&mut []));
+    }
+
+    fn test_transaction_unsupported<'a>(t: &mut TestRunner, master: &mut Master<'a>) {
         let mut buf1 = [0u8; 4];
         let mut buf2 = [0u8; 4];
 
@@ -290,103 +302,94 @@ mod tests {
             Operation::Write(&[0x02]),
             Operation::Read(&mut buf1),
         ]);
-        t.assert_err_code(
-            "transaction [W, W, R]: returns NOT_SUPPORTED",
-            &result,
-            ESP_ERR_NOT_SUPPORTED,
-        );
+        t.assert_err_code("[W, W, R]", &result, ESP_ERR_NOT_SUPPORTED);
 
         let result =
             master.transaction(&mut [Operation::Read(&mut buf1), Operation::Write(&[0x01])]);
-        t.assert_err_code(
-            "transaction [R, W]: returns NOT_SUPPORTED",
-            &result,
-            ESP_ERR_NOT_SUPPORTED,
-        );
+        t.assert_err_code("[R, W]", &result, ESP_ERR_NOT_SUPPORTED);
 
         let result =
             master.transaction(&mut [Operation::Read(&mut buf1), Operation::Read(&mut buf2)]);
-        t.assert_err_code(
-            "transaction [R, R]: returns NOT_SUPPORTED",
-            &result,
-            ESP_ERR_NOT_SUPPORTED,
-        );
+        t.assert_err_code("[R, R]", &result, ESP_ERR_NOT_SUPPORTED);
+
+        let result =
+            master.transaction(&mut [Operation::Write(&[0x01]), Operation::Write(&[0x02])]);
+        t.assert_err_code("[W, W]", &result, ESP_ERR_NOT_SUPPORTED);
     }
 
-    fn test_transaction_single_ops<'a>(
+    fn test_receive_lifecycle<'a>(
         t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
+        master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
     ) {
-        // Single write
-        let _rx = with_slave_receive(slave, 8, || {
-            master
-                .transaction(&mut [Operation::Write(&[0xAA])])
-                .unwrap();
-        });
-        t.pass("transaction [Write]: succeeds");
-
-        // Single read
-        slave.transmit(&[0xBB]).unwrap();
-        let mut buf = [0u8; 1];
-        let result = master.transaction(&mut [Operation::Read(&mut buf)]);
-        t.assert_ok("transaction [Read]: succeeds", &result);
-        t.assert_eq("transaction [Read]: data matches", &[0xBB], &buf);
-
-        // Empty
-        let result = master.transaction(&mut []);
-        t.assert_ok("transaction []: succeeds", &result);
-    }
-
-    fn test_single_byte_transfer<'a>(
-        t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
-        slave: &mut I2cSlaveDriver,
-    ) {
-        let rx = with_slave_receive(slave, 1, || {
-            master.transmit(&[0x42]).unwrap();
-        });
-        t.assert_eq("single byte: master write", &[0x42], &rx);
-
-        slave.transmit(&[0x99]).unwrap();
-        let mut rx = [0u8; 1];
-        master.receive(&mut rx).unwrap();
-        t.assert_eq("single byte: slave transmit", &[0x99], &rx);
-    }
-
-    fn test_large_transfer<'a>(
-        t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
-        slave: &mut I2cSlaveDriver,
-    ) {
-        let tx: Vec<u8> = (0..128).collect();
-        let rx = with_slave_receive(slave, tx.len(), || {
-            master.transmit(&tx).unwrap();
-        });
-        t.assert_eq("large transfer: 128 bytes master -> slave", &tx, &rx);
-    }
-
-    fn test_receive_cycle<'a>(
-        t: &mut TestRunner,
-        master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
-        slave: &mut I2cSlaveDriver,
-    ) {
-        let rx1 = with_slave_receive(slave, 4, || {
-            master.transmit(&[0x01, 0x02, 0x03, 0x04]).unwrap();
-        });
-        t.assert_eq(
-            "receive cycle: first receive",
-            &[0x01, 0x02, 0x03, 0x04],
-            &rx1,
-        );
-
-        let rx2 = with_slave_receive(slave, 4, || {
-            master.transmit(&[0x05, 0x06, 0x07, 0x08]).unwrap();
-        });
-        t.assert_eq(
-            "receive cycle: second receive after disarm",
+        // arm -> use -> disarm -> arm again
+        assert_master_write(t, "first arm", master, slave, &[0x01, 0x02, 0x03, 0x04]);
+        assert_master_write(
+            t,
+            "re-arm after disarm",
+            master,
+            slave,
             &[0x05, 0x06, 0x07, 0x08],
-            &rx2,
+        );
+
+        // disarm when idle is a no-op
+        #[cfg(not(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        )))]
+        let result = slave.cancel_receive();
+        #[cfg(any(
+            esp_idf_i2c_enable_slave_driver_version_2,
+            esp_idf_version_at_least_6_0_0
+        ))]
+        let result = slave.unsubscribe();
+        t.assert_ok("disarm when idle", &result);
+    }
+
+    fn test_embedded_hal_trait<'a>(
+        t: &mut TestRunner,
+        master: &mut Master<'a>,
+        slave: &mut I2cSlaveDriver,
+    ) {
+        // write
+        let tx = [0xDE, 0xAD];
+        let rx = with_slave_receive(slave, tx.len(), || {
+            I2cTrait::write(master, SLAVE_ADDR, &tx).unwrap();
+        });
+        t.assert_eq("trait write", &tx, &rx);
+
+        // read
+        slave.transmit(&[0xBE, 0xEF]).unwrap();
+        let mut rx = [0u8; 2];
+        I2cTrait::read(master, SLAVE_ADDR, &mut rx).unwrap();
+        t.assert_eq("trait read", &[0xBE, 0xEF], &rx);
+
+        // write_read
+        let slave_tx = [0xCA, 0xFE];
+        slave.transmit(&slave_tx).unwrap();
+        let mut master_rx = [0u8; 2];
+        let _rx = with_slave_receive(slave, 8, || {
+            I2cTrait::write_read(master, SLAVE_ADDR, &[0x01], &mut master_rx).unwrap();
+        });
+        t.assert_eq("trait write_read", &slave_tx, &master_rx);
+
+        // wrong address
+        t.assert_err(
+            "wrong addr: write",
+            &I2cTrait::write(master, UNUSED_ADDR, &[0x00]),
+        );
+        let mut buf = [0u8; 1];
+        t.assert_err(
+            "wrong addr: read",
+            &I2cTrait::read(master, UNUSED_ADDR, &mut buf),
+        );
+        t.assert_err(
+            "wrong addr: write_read",
+            &I2cTrait::write_read(master, UNUSED_ADDR, &[0x00], &mut buf),
+        );
+        t.assert_err(
+            "wrong addr: transaction",
+            &I2cTrait::transaction(master, UNUSED_ADDR, &mut [Operation::Write(&[0x00])]),
         );
     }
 
@@ -418,53 +421,44 @@ mod tests {
             received.lock().unwrap().drain(..).collect()
         }
 
-        pub fn test_resubscribe<'a>(
+        pub fn test_subscribe<'a>(
             t: &mut TestRunner,
-            master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
+            master: &mut Master<'a>,
             slave: &mut I2cSlaveDriver,
         ) {
+            // resubscribe replaces callback
             let received1 = slave_subscribe(slave);
             master.transmit(&[0xAA]).unwrap();
-            let rx1 = drain(&received1);
-            t.assert_eq("resubscribe: first callback receives data", &[0xAA], &rx1);
+            t.assert_eq("first callback", &[0xAA], &drain(&received1));
 
-            // Resubscribe replaces the callback
             let received2 = slave_subscribe(slave);
             master.transmit(&[0xBB]).unwrap();
-            let rx2 = drain(&received2);
+            t.assert_eq(
+                "second callback after resubscribe",
+                &[0xBB],
+                &drain(&received2),
+            );
+
             slave.unsubscribe().unwrap();
-
-            t.assert_eq("resubscribe: second callback receives data", &[0xBB], &rx2);
-
-            let stale = drain(&received1);
-            if stale.is_empty() {
-                t.pass("resubscribe: old callback did not fire after resubscribe");
+            if drain(&received1).is_empty() {
+                t.pass("old callback silent after resubscribe");
             } else {
                 t.fail(
-                    "resubscribe: old callback did not fire after resubscribe",
-                    &format!("old callback received {stale:02x?}"),
+                    "old callback silent after resubscribe",
+                    "received stale data",
                 );
             }
-        }
 
-        pub fn test_multiple_writes<'a>(
-            t: &mut TestRunner,
-            master: &mut I2cDriver<'a, &'a I2cBusDriver<'a>>,
-            slave: &mut I2cSlaveDriver,
-        ) {
+            // multiple writes accumulate
             let received = slave_subscribe(slave);
-
             master.transmit(&[0x01, 0x02]).unwrap();
             master.transmit(&[0x03, 0x04]).unwrap();
             master.transmit(&[0x05, 0x06]).unwrap();
-
-            let rx = drain(&received);
             slave.unsubscribe().unwrap();
-
             t.assert_eq(
-                "subscribe: accumulates multiple master writes",
+                "accumulates multiple writes",
                 &[0x01, 0x02, 0x03, 0x04, 0x05, 0x06],
-                &rx,
+                &drain(&received),
             );
         }
     }
@@ -505,28 +499,26 @@ mod tests {
         let mut t = TestRunner::new();
 
         println!("[bus]");
-        test_probe_ack(&mut t, &bus);
-        test_probe_nack(&mut t, &bus);
-        test_bus_reset(&mut t, &bus);
+        test_bus(&mut t, &bus);
 
-        println!("[master write / slave receive]");
+        println!("[master write -> slave receive]");
         test_master_write_slave_receive(&mut t, &mut master, &mut slave);
-        test_single_byte_transfer(&mut t, &mut master, &mut slave);
-        test_large_transfer(&mut t, &mut master, &mut slave);
 
-        println!("[slave transmit / master read]");
+        println!("[slave transmit -> master read]");
         test_slave_transmit_master_read(&mut t, &mut master, &mut slave);
 
-        println!("[master write_read]");
-        test_master_write_read(&mut t, &mut master, &mut slave);
+        println!("[write_read]");
+        test_write_read(&mut t, &mut master, &mut slave);
 
         println!("[transaction]");
         test_transaction_single_ops(&mut t, &mut master, &mut slave);
-        test_transaction_write_read(&mut t, &mut master, &mut slave);
         test_transaction_unsupported(&mut t, &mut master);
 
         println!("[receive lifecycle]");
-        test_receive_cycle(&mut t, &mut master, &mut slave);
+        test_receive_lifecycle(&mut t, &mut master, &mut slave);
+
+        println!("[embedded-hal trait]");
+        test_embedded_hal_trait(&mut t, &mut master, &mut slave);
 
         #[cfg(any(
             esp_idf_i2c_enable_slave_driver_version_2,
@@ -534,8 +526,7 @@ mod tests {
         ))]
         {
             println!("[v2 subscribe]");
-            v2_tests::test_resubscribe(&mut t, &mut master, &mut slave);
-            v2_tests::test_multiple_writes(&mut t, &mut master, &mut slave);
+            v2_tests::test_subscribe(&mut t, &mut master, &mut slave);
         }
 
         t.summary();
