@@ -513,10 +513,12 @@ impl<'d> I2cSlaveDriver<'d> {
 
     /// Initiate a one-shot receive with a callback.
     ///
-    /// Arms the slave to receive up to `recv_buf_size` bytes. When data
-    /// arrives from the master, `on_recv` fires in ISR context with a
-    /// `&[u8]` slice of the received data. Call this method again from
-    /// task context to receive the next transfer.
+    /// Allocates a buffer of `buf_size` bytes and arms the slave to receive.
+    /// When data arrives, `on_recv` fires in ISR context with a `&[u8]`.
+    ///
+    /// Returns `ESP_ERR_INVALID_STATE` if a receive is already pending.
+    /// Call [`cancel_receive`](Self::cancel_receive) after the callback fires,
+    /// then call `receive` again for the next transfer.
     ///
     /// Only available on ESP-IDF < 6.0. On v6.0+, use
     /// [`subscribe`](Self::subscribe).
@@ -527,10 +529,7 @@ impl<'d> I2cSlaveDriver<'d> {
         on_recv: impl FnMut(&[u8]) + Send + 'static,
     ) -> Result<(), EspError> {
         if self.on_recv.is_some() {
-            esp!(unsafe {
-                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
-            })?;
-            self.on_recv = None;
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_STATE>());
         }
 
         let mut user_data = Box::new(I2cSlaveRecvUserData {
@@ -560,6 +559,21 @@ impl<'d> I2cSlaveDriver<'d> {
         })?;
 
         self.on_recv = Some(user_data);
+        Ok(())
+    }
+
+    /// Cancel the pending receive, allowing a new [`receive`](Self::receive)
+    /// call. Deregisters the callback and frees the internal buffer.
+    #[cfg(not(esp_idf_version_at_least_6_0_0))]
+    pub fn cancel_receive(&mut self) -> Result<(), EspError> {
+        if self.on_recv.is_some() {
+            // Deregister callback first — this disables the RX interrupt,
+            // ensuring ESP-IDF no longer references the buffer
+            esp!(unsafe {
+                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
+            })?;
+            self.on_recv = None;
+        }
         Ok(())
     }
 

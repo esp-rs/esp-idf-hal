@@ -90,6 +90,7 @@ mod example {
         master.transmit(&tx_buf)?;
 
         FreeRtos::delay_ms(100);
+        slave.cancel_receive();
         let rx_data = received.lock().unwrap().clone();
         println!("Master sent:     {tx_buf:?}");
         println!("Slave received:  {rx_data:?}");
