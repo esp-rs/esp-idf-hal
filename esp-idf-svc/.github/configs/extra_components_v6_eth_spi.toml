@@ -1,0 +1,12 @@
+# Ethernet SPI drivers, moved out of the ESP-IDF main tree in v6.0.
+# Supported on all targets.
+# This fragment is appended to Cargo.toml by CI when testing with remote components.
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/dm9051", version = "1.*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/w5500", version = "1.*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/ksz8851snl", version = "1.*" }

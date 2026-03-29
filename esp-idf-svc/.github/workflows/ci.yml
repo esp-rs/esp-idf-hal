@@ -15,7 +15,7 @@ env:
 
 jobs:
   compile:
-    name: Compile
+    name: "${{ matrix.target }} / ${{ matrix.idf-version }}${{ matrix.extra-components-label != '' && format(' (+{0})', matrix.extra-components-label) || '' }}"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -34,6 +34,29 @@ jobs:
           - v5.4.3
           - v5.5.3
           - v6.0
+        extra-components-label:
+          - ""
+        extra-components-files:
+          - ""
+        include:
+          # Also test v6.0 with remote components that were moved out of the main tree
+          # mqtt and eth SPI drivers work on all targets; eth PHY drivers only support esp32 and esp32p4
+          - target: riscv32imc-esp-espidf
+            idf-version: v6.0
+            extra-components-label: v6_mqtt
+            # We could add v6_eth_spi here, but example is esp32-only.
+            extra-components-files: ".github/configs/extra_components_v6_mqtt.toml"
+          - target: xtensa-esp32-espidf
+            idf-version: v6.0
+            extra-components-label: v6_mqtt v6_eth_spi v6_eth_phy
+            extra-components-files: ".github/configs/extra_components_v6_mqtt.toml,.github/configs/extra_components_v6_eth_spi.toml,.github/configs/extra_components_v6_eth_phy.toml"
+          # esp32p4 also supports eth, but examples are esp32-only for now
+          #- target: riscv32imafc-esp-espidf
+          #  idf-version: v6.0
+          #  extra-components-label: v6_mqtt v6_eth_spi v6_eth_phy
+          #  extra-components-files: ".github/configs/extra_components_v6_mqtt.toml,.github/configs/extra_components_v6_eth_spi.toml,.github/configs/extra_components_v6_eth_phy.toml"
+    env:
+      ESP_IDF_SYS_EXTRA_COMPONENTS_FILE: ${{ matrix.extra-components-files }}
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
