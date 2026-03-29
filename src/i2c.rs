@@ -531,13 +531,7 @@ impl<'d> I2cSlaveDriver<'d> {
         esp_idf_version_at_least_6_0_0
     ))]
     pub fn unsubscribe(&mut self) -> Result<(), EspError> {
-        if self.on_recv.is_some() {
-            esp!(unsafe {
-                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
-            })?;
-            self.on_recv = None;
-        }
-        Ok(())
+        self.deregister_recv()
     }
 
     /// Initiate a one-shot receive with a callback.
@@ -597,7 +591,11 @@ impl<'d> I2cSlaveDriver<'d> {
             )
         }) {
             let _ = esp!(unsafe {
-                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
+                i2c_slave_register_event_callbacks(
+                    self.handle,
+                    &i2c_slave_event_callbacks_t::default(),
+                    ptr::null_mut(),
+                )
             });
             return Err(e);
         }
@@ -613,15 +611,7 @@ impl<'d> I2cSlaveDriver<'d> {
         esp_idf_version_at_least_6_0_0
     )))]
     pub fn cancel_receive(&mut self) -> Result<(), EspError> {
-        if self.on_recv.is_some() {
-            // Deregister callback first — this disables the RX interrupt,
-            // ensuring ESP-IDF no longer references the buffer
-            esp!(unsafe {
-                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
-            })?;
-            self.on_recv = None;
-        }
-        Ok(())
+        self.deregister_recv()
     }
 
     /// Write data to the internal TX buffer. The hardware FIFO is filled
@@ -670,6 +660,21 @@ impl<'d> I2cSlaveDriver<'d> {
         self.handle
     }
 
+    /// Deregister the receive callback (if any) and free internal state.
+    fn deregister_recv(&mut self) -> Result<(), EspError> {
+        if self.on_recv.is_some() {
+            esp!(unsafe {
+                i2c_slave_register_event_callbacks(
+                    self.handle,
+                    &i2c_slave_event_callbacks_t::default(),
+                    ptr::null_mut(),
+                )
+            })?;
+            self.on_recv = None;
+        }
+        Ok(())
+    }
+
     unsafe extern "C" fn handle_recv_isr(
         _i2c_slave: i2c_slave_dev_handle_t,
         evt_data: *const i2c_slave_rx_done_event_data_t,
@@ -698,12 +703,7 @@ impl<'d> I2cSlaveDriver<'d> {
 #[cfg(not(esp32c2))]
 impl Drop for I2cSlaveDriver<'_> {
     fn drop(&mut self) {
-        if self.on_recv.is_some() {
-            let _ = esp!(unsafe {
-                i2c_slave_register_event_callbacks(self.handle, ptr::null(), ptr::null_mut())
-            });
-            self.on_recv = None;
-        }
+        let _ = self.deregister_recv();
         esp!(unsafe { i2c_del_slave_device(self.handle) }).unwrap();
     }
 }
