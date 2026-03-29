@@ -45,3 +45,7 @@ strum = { version = "0.24", features = ["derive"] }
 envy = "0.4.2"
 toml = "0.8"
 which = "4.4"
+
+# TODO: Remove this before next release, needed for IDF >6.0.0 support
+[patch.crates-io]
+embuild = { git = "https://github.com/esp-rs/embuild", branch = "master" }
