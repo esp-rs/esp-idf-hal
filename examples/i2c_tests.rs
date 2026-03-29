@@ -180,8 +180,8 @@ mod tests {
         data
     }
 
-    /// Master writes `tx`, slave receives — assert round-trip matches.
-    fn assert_master_write<'a>(
+    /// Master transmits `tx`, slave receives — assert round-trip matches.
+    fn assert_master_transmit<'a>(
         t: &mut TestRunner,
         name: &str,
         master: &mut Master<'a>,
@@ -194,7 +194,7 @@ mod tests {
         t.assert_eq(name, tx, &rx);
     }
 
-    /// Slave loads `tx` into TX buffer, master reads — assert round-trip matches.
+    /// Slave loads `tx` into TX buffer, master receives — assert round-trip matches.
     fn assert_slave_transmit<'a>(
         t: &mut TestRunner,
         name: &str,
@@ -221,25 +221,25 @@ mod tests {
         t.assert_ok("bus reset", &bus.reset());
     }
 
-    fn test_master_write_slave_receive<'a>(
+    fn test_master_transmit_slave_receive<'a>(
         t: &mut TestRunner,
         master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
     ) {
-        assert_master_write(
+        assert_master_transmit(
             t,
             "8 bytes",
             master,
             slave,
             &[0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF],
         );
-        assert_master_write(t, "1 byte", master, slave, &[0x42]);
+        assert_master_transmit(t, "1 byte", master, slave, &[0x42]);
 
         let large: Vec<u8> = (0..128).collect();
-        assert_master_write(t, "128 bytes", master, slave, &large);
+        assert_master_transmit(t, "128 bytes", master, slave, &large);
     }
 
-    fn test_slave_transmit_master_read<'a>(
+    fn test_slave_transmit_master_receive<'a>(
         t: &mut TestRunner,
         master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
@@ -254,7 +254,7 @@ mod tests {
         assert_slave_transmit(t, "1 byte", master, slave, &[0x99]);
     }
 
-    fn test_write_read<'a>(
+    fn test_transmit_receive<'a>(
         t: &mut TestRunner,
         master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
@@ -286,7 +286,7 @@ mod tests {
         master: &mut Master<'a>,
         slave: &mut I2cSlaveDriver,
     ) {
-        assert_master_write(t, "transaction [Write]", master, slave, &[0xAA]);
+        assert_master_transmit(t, "transaction [Write]", master, slave, &[0xAA]);
         assert_slave_transmit(t, "transaction [Read]", master, slave, &[0xBB]);
         t.assert_ok("transaction []", &master.transaction(&mut []));
     }
@@ -321,8 +321,8 @@ mod tests {
         slave: &mut I2cSlaveDriver,
     ) {
         // arm -> use -> disarm -> arm again
-        assert_master_write(t, "first arm", master, slave, &[0x01, 0x02, 0x03, 0x04]);
-        assert_master_write(
+        assert_master_transmit(t, "first arm", master, slave, &[0x01, 0x02, 0x03, 0x04]);
+        assert_master_transmit(
             t,
             "re-arm after disarm",
             master,
@@ -499,14 +499,14 @@ mod tests {
         println!("[bus]");
         test_bus(&mut t, &bus);
 
-        println!("[master write -> slave receive]");
-        test_master_write_slave_receive(&mut t, &mut master, &mut slave);
+        println!("[master transmit -> slave receive]");
+        test_master_transmit_slave_receive(&mut t, &mut master, &mut slave);
 
-        println!("[slave transmit -> master read]");
-        test_slave_transmit_master_read(&mut t, &mut master, &mut slave);
+        println!("[slave transmit -> master receive]");
+        test_slave_transmit_master_receive(&mut t, &mut master, &mut slave);
 
-        println!("[write_read]");
-        test_write_read(&mut t, &mut master, &mut slave);
+        println!("[transmit_receive]");
+        test_transmit_receive(&mut t, &mut master, &mut slave);
 
         println!("[transaction]");
         test_transaction_single_ops(&mut t, &mut master, &mut slave);

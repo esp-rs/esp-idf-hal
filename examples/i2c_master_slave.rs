@@ -102,8 +102,8 @@ mod example {
             &I2cSlaveConfig::new().send_buf_depth(256),
         )?;
 
-        // -- Master writes, slave receives via subscribe callback --
-        println!("\n--- Master write -> Slave receive ---");
+        // -- Master transmits, slave receives via subscribe callback --
+        println!("\n--- Master transmit -> Slave receive ---");
 
         let received = Arc::new(Mutex::new(Vec::new()));
         let clone = received.clone();
@@ -122,8 +122,8 @@ mod example {
 
         slave.unsubscribe()?;
 
-        // -- Slave transmits, master reads --
-        println!("\n--- Slave transmit -> Master read ---");
+        // -- Slave transmits, master receives --
+        println!("\n--- Slave transmit -> Master receive ---");
 
         let slave_tx = [0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10];
         let mut master_rx = [0u8; 8];
@@ -134,8 +134,8 @@ mod example {
         println!("Slave sent:      {slave_tx:02x?}");
         println!("Master received: {master_rx:02x?}");
 
-        // -- Write+Read (repeated START) --
-        println!("\n--- Master write_read (repeated START) ---");
+        // -- Transmit+Receive (repeated START) --
+        println!("\n--- Master transmit_receive (repeated START) ---");
 
         let reg_addr = [0x42];
         let response = [0xCA, 0xFE];
@@ -145,7 +145,7 @@ mod example {
         master.transmit_receive(&reg_addr, &mut read_back)?;
 
         println!("Register addr:   {reg_addr:02x?}");
-        println!("Read back:       {read_back:02x?}");
+        println!("Received:        {read_back:02x?}");
 
         println!("\nDone.");
 
