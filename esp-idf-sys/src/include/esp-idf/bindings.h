@@ -82,7 +82,7 @@
 #include "esp_spi_flash.h"
 #endif
 #endif
-#ifdef ESP_IDF_COMP_ESP_PARTITION
+#ifdef ESP_IDF_COMP_ESP_PARTITION_ENABLED
 #include "esp_partition.h"
 #endif
 #else
@@ -251,7 +251,9 @@
 
 #ifdef ESP_IDF_COMP_VFS_ENABLED
 #include "esp_vfs.h"
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "esp_vfs_cdcacm.h"
+#endif
 #include "esp_vfs_dev.h"
 #include "esp_vfs_semihost.h"
 #ifdef SOC_USB_SERIAL_JTAG_SUPPORTED
@@ -291,9 +293,15 @@
 #endif
 #endif
 
+#ifdef ESP_IDF_COMP_ESP_USB_CDC_ROM_CONSOLE_ENABLED
+#include "esp_vfs_cdcacm.h"
+#endif
+
 #ifdef ESP_IDF_COMP_LWIP_ENABLED
 #include "lwip/dns.h"
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "lwip/lwip_napt.h"
+#endif
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 #if ESP_IDF_VERSION_MAJOR > 4
@@ -309,9 +317,8 @@
 #endif
 
 #ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
-#include "mbedtls/build_info.h"
 #include "mbedtls/ssl.h"
-#if MBEDTLS_VERSION_MAJOR < 4
+#if ESP_IDF_VERSION_MAJOR < 6
 #include "mbedtls/aes.h"
 #include "mbedtls/cipher.h"
 #include "mbedtls/entropy.h"
@@ -422,6 +429,11 @@
 // TWAI
 #if OLD_DRIVER_COMP_TWAI || defined(ESP_IDF_COMP_ESP_DRIVER_TWAI_ENABLED)
 #include "driver/twai.h"
+#endif
+#if ESP_IDF_VERSION_MAJOR > 5 && defined(ESP_IDF_COMP_ESP_DRIVER_TWAI_ENABLED)
+#include "esp_twai.h"
+#include "esp_twai_types.h"
+#include "esp_twai_onchip.h"
 #endif
 
 // DAC
@@ -553,9 +565,12 @@
 #include "sdmmc_cmd.h"
 #endif
 
-// Sigma-delta
+// Sigma-delta / SDM
 #if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/sigmadelta.h"
+#endif
+#ifdef ESP_IDF_COMP_ESP_DRIVER_SDM_ENABLED
+#include "driver/sdm.h"
 #endif
 
 // SPI
@@ -576,7 +591,7 @@
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_UART_ENABLED)
 #include "driver/uart.h"
 #include "driver/uart_select.h"
-#if ESP_IDF_VERSION_MAJOR >= 5 && defined(ESP_IDF_COMP_VFS_ENABLED)
+#if defined(ESP_IDF_COMP_VFS_ENABLED) && (ESP_IDF_VERSION_MAJOR > 5 || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 3))
 #include "driver/uart_vfs.h"
 #endif
 #endif
@@ -587,6 +602,58 @@
 #include "driver/temperature_sensor.h"
 #endif
 #endif
+
+// New drivers (ESP-IDF v6.0+)
+#if ESP_IDF_VERSION_MAJOR > 5
+
+#ifdef ESP_IDF_COMP_ESP_DRIVER_CAM_ENABLED
+#include "esp_cam_ctlr.h"
+#include "esp_cam_ctlr_types.h"
+#ifdef SOC_MIPI_CSI_SUPPORTED
+#include "esp_cam_ctlr_csi.h"
+#endif
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_DRIVER_ISP_ENABLED
+#ifdef SOC_ISP_SUPPORTED
+#include "driver/isp.h"
+#include "driver/isp_core.h"
+#include "driver/isp_types.h"
+#include "driver/isp_af.h"
+#include "driver/isp_ae.h"
+#include "driver/isp_awb.h"
+#include "driver/isp_bf.h"
+#include "driver/isp_ccm.h"
+#include "driver/isp_gamma.h"
+#include "driver/isp_hist.h"
+#include "driver/isp_sharpen.h"
+#endif
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_DRIVER_JPEG_ENABLED
+#ifdef SOC_JPEG_CODEC_SUPPORTED
+#include "driver/jpeg_types.h"
+#ifdef SOC_JPEG_DECODE_SUPPORTED
+#include "driver/jpeg_decode.h"
+#endif
+#ifdef SOC_JPEG_ENCODE_SUPPORTED
+#include "driver/jpeg_encode.h"
+#endif
+#endif
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_DRIVER_ANA_CMPR_ENABLED
+#include "driver/ana_cmpr.h"
+#include "driver/ana_cmpr_types.h"
+#endif
+
+#ifdef ESP_IDF_COMP_ESP_DRIVER_PARLIO_ENABLED
+#include "driver/parlio_types.h"
+#include "driver/parlio_tx.h"
+#include "driver/parlio_rx.h"
+#endif
+
+#endif // ESP_IDF_VERSION_MAJOR > 5
 
 #ifdef ESP_IDF_COMP_ESPCOREDUMP_ENABLED
 #ifdef CONFIG_ESP_COREDUMP_ENABLE
@@ -749,10 +816,8 @@
 #include "esp_lcd_types.h"
 #include "esp_lcd_panel_interface.h"
 #include "esp_lcd_panel_io_interface.h"
-#if ESP_IDF_VERSION_MAJOR < 6
-#if ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4 || (ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR <= 2 || SOC_LCD_RGB_SUPPORTED)
+#if (ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4) || (ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR <= 2) || defined(SOC_LCD_RGB_SUPPORTED)
 #include "esp_lcd_panel_rgb.h"
-#endif //(ESP_IDF_VERSION_MAJOR == 4 && ESP_IDF_VERSION_MINOR >= 4) || ((ESP_IDF_VERSION_MAJOR >= 5 && ESP_IDF_VERSION_MINOR <= 2) || SOC_LCD_RGB_SUPPORTED)
 #endif
 #if ESP_IDF_VERSION_MAJOR > 5 || ESP_IDF_VERSION_MAJOR == 5 && ESP_IDF_VERSION_MINOR >= 3
 #include "esp_lcd_panel_dev.h"

@@ -28,14 +28,29 @@ jobs:
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
         idf-version:
-#          - v4.4.8
-#          - v5.0.9
-#          - v5.1.6
-#          - v5.2.5
+          - v4.4.8
+          - v5.0.9
+          - v5.1.6
+          - v5.2.5
           - v5.3.4
           - v5.4.3
           - v5.5.3
           - v6.0
+        exclude:
+          # ESP32-C6/H2 (riscv32imac) not supported before v5.1
+          - target: riscv32imac-esp-espidf
+            idf-version: v4.4.8
+          - target: riscv32imac-esp-espidf
+            idf-version: v5.0.9
+          # ESP32-P4 (riscv32imafc) not supported before v5.3
+          - target: riscv32imafc-esp-espidf
+            idf-version: v4.4.8
+          - target: riscv32imafc-esp-espidf
+            idf-version: v5.0.9
+          - target: riscv32imafc-esp-espidf
+            idf-version: v5.1.6
+          - target: riscv32imafc-esp-espidf
+            idf-version: v5.2.5
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
