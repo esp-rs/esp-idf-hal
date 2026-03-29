@@ -28,7 +28,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 - WebSocket: `EspWebSocketClient::drop()` no longer panics when `esp_websocket_client_close` returns `ESP_FAIL` (e.g. after a network disconnection); errors are now logged instead of unwrapped
 
 ### Added
-- Compatibility with ESP-IDF V6.0.
+- Compatibility with ESP-IDF V6.0, and some pre-release 6.0.x.
 - Added support for the Generic Ethernet PHY driver: particularly useful on ESP-IDF 6.0+ as it is built-in.
 
 ## [0.52.1] - 2026-03-10

@@ -74,3 +74,4 @@ async-io = "2"
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", branch = "master" }
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal", branch = "master" }
+embuild = { git = "https://github.com/esp-rs/embuild", branch = "master" } # IDF >6.0.0 strictly
