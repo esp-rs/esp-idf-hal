@@ -7,14 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Fixed issue 502 - some ADC/RTC pins for esp32c5 and esp32c6 had mapping errors
+
 ### Added
 - `QueueSet2`, `QueueSet3`, `QueueSet4` for waiting on multiple heterogeneous queues
 - Basic compatibility for ESP-IDF release 6.0.
 
 ### Breaking
  - Dropped support for RGB/BGR666 format on ESP-IDF 6.0.
-
-### Added
 
 ## [0.46.2] - 2026-03-10
 

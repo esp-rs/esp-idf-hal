@@ -2236,14 +2236,14 @@ mod chip {
     // NOTE: Gpio26 - Gpio32 (and Gpio33 - Gpio37 if using Octal RAM/Flash) are used
     //       by SPI0/SPI1 for external PSRAM/SPI Flash and are not recommended for
     //       other uses
-    pin!(Gpio0:0, IO, RTC:0, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio1:1, IO, RTC:1, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
-    pin!(Gpio2:2, IO, RTC:2, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
-    pin!(Gpio3:3, IO, RTC:3, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
-    pin!(Gpio4:4, IO, RTC:4, ADC1:ADCCH4, NODAC:0, NOTOUCH:0);
-    pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
-    pin!(Gpio6:6, IO, RTC:6, ADC1:ADCCH6, NODAC:0, NOTOUCH:0);
-    pin!(Gpio7:7, IO, RTC:7, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio0:0, IO, RTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2, IO, RTC:2, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6, IO, RTC:6, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio8:8, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio9:9, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio10:10, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
@@ -2361,14 +2361,14 @@ mod chip {
     #[allow(clippy::type_complexity)]
     pub(crate) static PIN_NOTIF: [HalIsrNotification; 31] = [PIN_NOTIF_INIT; 31];
 
-    pin!(Gpio0:0, IO, RTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
-    pin!(Gpio1:1, IO, RTC:1, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
-    pin!(Gpio2:2, IO, RTC:2, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
-    pin!(Gpio3:3, IO, RTC:3, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
-    pin!(Gpio4:4, IO, RTC:4, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
-    pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH4, NODAC:0, NOTOUCH:0);
-    pin!(Gpio6:6, IO, RTC:6, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
-    pin!(Gpio7:7, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
+    pin!(Gpio0:0, IO, RTC:0, ADC1:ADCCH0, NODAC:0, NOTOUCH:0);
+    pin!(Gpio1:1, IO, RTC:1, ADC1:ADCCH1, NODAC:0, NOTOUCH:0);
+    pin!(Gpio2:2, IO, RTC:2, ADC1:ADCCH2, NODAC:0, NOTOUCH:0);
+    pin!(Gpio3:3, IO, RTC:3, ADC1:ADCCH3, NODAC:0, NOTOUCH:0);
+    pin!(Gpio4:4, IO, RTC:4, ADC1:ADCCH4, NODAC:0, NOTOUCH:0);
+    pin!(Gpio5:5, IO, RTC:5, ADC1:ADCCH5, NODAC:0, NOTOUCH:0);
+    pin!(Gpio6:6, IO, RTC:6, ADC1:ADCCH6, NODAC:0, NOTOUCH:0);
+    pin!(Gpio7:7, IO, RTC:7, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio8:8, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio9:9, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
     pin!(Gpio10:10, IO, NORTC:0, NOADC:NOADC, NODAC:0, NOTOUCH:0);
