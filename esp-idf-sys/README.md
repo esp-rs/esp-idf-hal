@@ -85,3 +85,7 @@ For more information, check out:
 ## Known limitations
 
 * ESP IDF can’t be compiled on filesystems without support for symbolic links (e.g. FAT)
+* projects that use a custom `partitions.csv`:
+
+	- do not define `CONFIG_PARTITION_TABLE_CUSTOM=y`, `CONFIG_PARTITION_TABLE_[CUSTOM_]FILENAME` in your `sdkconfig.defaults`. The build would not use your custom partitions - nor does it need to.
+	- for flashing use `espflash flash [...] --partition-table partitions.csv`
