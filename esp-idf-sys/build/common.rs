@@ -96,7 +96,7 @@ impl EspIdfComponents {
         if path.is_dir() {
             path.file_name()
                 .and_then(|file_name| file_name.to_str())
-                .and_then(|c| if c.starts_with('.') { None } else { Some(c) })
+                .filter(|c| !c.starts_with('.'))
         } else {
             None
         }
