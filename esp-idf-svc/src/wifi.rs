@@ -1219,9 +1219,9 @@ impl<'d> WifiDriver<'d> {
     }
 
     //TODO: add safe wrappers for these three functions
-    //https://docs.esp-rs.org/esp-idf-sys/esp_idf_sys/fn.esp_wifi_set_promiscuous_ctrl_filter.html
-    //https://docs.esp-rs.org/esp-idf-sys/esp_idf_sys/fn.esp_wifi_set_promiscuous_filter.html
-    //https://docs.esp-rs.org/esp-idf-sys/esp_idf_sys/fn.esp_wifi_set_promiscuous_rx_cb.html
+    //https://docs.rs/esp-idf-sys/latest/esp_idf_sys/fn.esp_wifi_set_promiscuous_ctrl_filter.html
+    //https://docs.rs/esp-idf-sys/latest/esp_idf_sys/fn.esp_wifi_set_promiscuous_filter.html
+    //https://docs.rs/esp-idf-sys/latest/esp_idf_sys/fn.esp_wifi_set_promiscuous_rx_cb.html
 
     /// Gets the WPS status as a [`WPS Event`] and disables WPS.
     fn stop_wps(&mut self) -> Result<WpsStatus, EspError> {
