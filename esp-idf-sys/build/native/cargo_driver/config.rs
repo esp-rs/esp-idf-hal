@@ -337,7 +337,7 @@ impl NativeConfig {
                 .with_context(|| {
                     anyhow!(
                         "failed to parse `package.metadata.esp-idf-sys` of dependency '{}'",
-                        &dep_package.name
+                        dep_package.name
                     )
                 })
                 .into_warning();

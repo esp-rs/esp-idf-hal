@@ -280,7 +280,7 @@ pub fn list_specific_sdkconfigs(
         .map(|filename| {
             let profile_specific = format!("{filename}.{profile}");
             let chip_specific = format!("{filename}.{chip}");
-            let profile_chip_specific = format!("{}.{}", &profile_specific, chip);
+            let profile_chip_specific = format!("{}.{}", profile_specific, chip);
 
             [
                 profile_chip_specific,
