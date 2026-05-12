@@ -157,7 +157,7 @@ impl EspPing {
 
         esp!(unsafe { esp_ping_delete_session(handle) })?;
 
-        info!("Ping session {:?} removed", &handle);
+        info!("Ping session {:?} removed", handle);
 
         Ok(())
     }

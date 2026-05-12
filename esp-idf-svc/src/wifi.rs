@@ -777,7 +777,7 @@ impl<'d> WifiDriver<'d> {
             _ => panic!(),
         };
 
-        ::log::debug!("Configuration gotten: {:?}", &conf);
+        ::log::debug!("Configuration gotten: {:?}", conf);
 
         Ok(conf)
     }
@@ -1244,7 +1244,7 @@ impl<'d> WifiDriver<'d> {
 
         let result: ClientConfiguration = unsafe { Newtype(wifi_config.sta).into() };
 
-        ::log::debug!("Providing STA configuration: {:?}", &result);
+        ::log::debug!("Providing STA configuration: {:?}", result);
 
         Ok(result)
     }
@@ -1276,7 +1276,7 @@ impl<'d> WifiDriver<'d> {
 
         let result: AccessPointConfiguration = unsafe { Newtype(wifi_config.ap).into() };
 
-        ::log::debug!("Providing AP configuration: {:?}", &result);
+        ::log::debug!("Providing AP configuration: {:?}", result);
 
         Ok(result)
     }
