@@ -117,6 +117,22 @@ pub(super) mod config {
             }
         }
 
+        /// Convert just the clock config to the SDK representation. Used by
+        /// the runtime `reconfigure_std` paths that don't touch GPIO.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        #[inline(always)]
+        pub(crate) fn clk_cfg_as_sdk(&self) -> i2s_std_clk_config_t {
+            self.clk_cfg.as_sdk()
+        }
+
+        /// Convert just the slot config to the SDK representation. Used by
+        /// the runtime `reconfigure_std` paths that don't touch GPIO.
+        #[cfg(not(esp_idf_version_major = "4"))]
+        #[inline(always)]
+        pub(crate) fn slot_cfg_as_sdk(&self) -> i2s_std_slot_config_t {
+            self.slot_cfg.as_sdk()
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_driver_config_t` representation.
         ///
         /// # Note
@@ -864,5 +880,52 @@ impl<'d> I2sDriver<'d, I2sTx> {
             mclk,
             ws,
         )
+    }
+}
+
+/// Standard-mode runtime reconfiguration.
+///
+/// Reconfigure the clock + slot config of an already-initialised standard
+/// mode channel without tearing the driver down. Useful when the upstream
+/// source switches sample rate or slot layout mid-session (e.g. A2DP →
+/// HFP-SCO route changes on the same DAC).
+///
+/// The channel is briefly disabled while the reconfigure happens and
+/// re-enabled on success. GPIO pins are not touched.
+#[cfg(not(esp_idf_version_major = "4"))]
+impl<Dir> I2sDriver<'_, Dir>
+where
+    Dir: I2sTxSupported,
+{
+    /// Reconfigure the TX channel's clock + slot from a new [`config::StdConfig`].
+    pub fn tx_reconfigure_std(&mut self, config: &config::StdConfig) -> Result<(), EspError> {
+        let clk_cfg = config.clk_cfg_as_sdk();
+        let slot_cfg = config.slot_cfg_as_sdk();
+        unsafe {
+            esp!(i2s_channel_disable(self.tx_handle))?;
+            esp!(i2s_channel_reconfig_std_clock(self.tx_handle, &clk_cfg))?;
+            esp!(i2s_channel_reconfig_std_slot(self.tx_handle, &slot_cfg))?;
+            esp!(i2s_channel_enable(self.tx_handle))?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(not(esp_idf_version_major = "4"))]
+impl<Dir> I2sDriver<'_, Dir>
+where
+    Dir: I2sRxSupported,
+{
+    /// Reconfigure the RX channel's clock + slot from a new [`config::StdConfig`].
+    pub fn rx_reconfigure_std(&mut self, config: &config::StdConfig) -> Result<(), EspError> {
+        let clk_cfg = config.clk_cfg_as_sdk();
+        let slot_cfg = config.slot_cfg_as_sdk();
+        unsafe {
+            esp!(i2s_channel_disable(self.rx_handle))?;
+            esp!(i2s_channel_reconfig_std_clock(self.rx_handle, &clk_cfg))?;
+            esp!(i2s_channel_reconfig_std_slot(self.rx_handle, &slot_cfg))?;
+            esp!(i2s_channel_enable(self.rx_handle))?;
+        }
+        Ok(())
     }
 }
