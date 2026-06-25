@@ -26,6 +26,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 ### Fixed
 - WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)
 - WebSocket: `EspWebSocketClient::drop()` no longer panics when `esp_websocket_client_close` returns `ESP_FAIL` (e.g. after a network disconnection); errors are now logged instead of unwrapped
+- BT: Fixed panic when an A2DP sink disconnects from the ESP while streaming audio.
 
 ### Added
 - Compatibility with ESP-IDF V6.0, and some pre-release 6.0.x.

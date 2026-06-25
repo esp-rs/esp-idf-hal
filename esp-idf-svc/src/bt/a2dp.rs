@@ -455,6 +455,9 @@ where
     }
 
     unsafe extern "C" fn source_data_handler(buf: *mut u8, len: i32) -> i32 {
+        if buf.is_null() || len <= 0 {
+            return 0; // nothing to read; matches the "bytes provided" contract
+        }
         let event = A2dpEvent::SourceData(core::slice::from_raw_parts_mut(buf, len as _));
         trace!("Got event {{ {:#?} }}", event);
 
