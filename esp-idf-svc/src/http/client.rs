@@ -16,8 +16,6 @@ use alloc::string::ToString;
 
 use ::log::*;
 
-#[allow(unused_imports)]
-use embedded_svc::http::client::*;
 use embedded_svc::io::{ErrorType, Read, Write};
 
 use crate::sys::*;
@@ -551,7 +549,7 @@ impl RawHandle for EspHttpConnection {
     }
 }
 
-impl Status for EspHttpConnection {
+impl embedded_svc::http::Status for EspHttpConnection {
     fn status(&self) -> u16 {
         EspHttpConnection::status(self)
     }
@@ -593,7 +591,7 @@ impl Write for EspHttpConnection {
     }
 }
 
-impl Connection for EspHttpConnection {
+impl embedded_svc::http::client::Connection for EspHttpConnection {
     type Headers = Self;
 
     type Read = Self;

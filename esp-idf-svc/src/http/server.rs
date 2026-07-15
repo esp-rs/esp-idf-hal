@@ -55,8 +55,6 @@ use alloc::vec::Vec;
 use ::log::{info, warn};
 
 use embedded_svc::http::headers::content_type;
-#[allow(unused_imports)]
-use embedded_svc::http::*;
 use embedded_svc::io::{ErrorType, Read, Write};
 
 use esp_idf_hal::cpu::Core;
@@ -661,7 +659,7 @@ impl<'a> EspHttpServer<'a> {
 
     fn to_native_handler<H>(&self, handler: H) -> NativeHandler<'a>
     where
-        H: for<'r> Handler<EspHttpConnection<'a>> + Send + 'a,
+        H: Handler<EspHttpConnection<'a>> + Send + 'a,
     {
         Box::new(move |raw_req| {
             let mut connection = EspHttpConnection::new(unsafe { raw_req.as_mut().unwrap() });
@@ -1231,7 +1229,7 @@ impl RawHandle for EspHttpConnection<'_> {
     }
 }
 
-impl Query for EspHttpConnection<'_> {
+impl embedded_svc::http::Query for EspHttpConnection<'_> {
     fn uri(&self) -> &str {
         EspHttpConnection::uri(self)
     }
