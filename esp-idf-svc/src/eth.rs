@@ -14,7 +14,11 @@ use embedded_svc::eth::*;
     any(
         esp_idf_eth_spi_ethernet_dm9051,
         esp_idf_eth_spi_ethernet_w5500,
-        esp_idf_eth_spi_ethernet_ksz8851snl
+        esp_idf_eth_spi_ethernet_ksz8851snl,
+        // ESP-IDF 6.0+ managed components
+        esp_idf_comp_espressif__dm9051_enabled,
+        esp_idf_comp_espressif__w5500_enabled,
+        esp_idf_comp_espressif__ksz8851snl_enabled,
     )
 ))]
 use crate::hal::gpio;

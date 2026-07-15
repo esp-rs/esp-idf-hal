@@ -28,6 +28,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 - WebSocket: `EspWebSocketClient::drop()` no longer panics when `esp_websocket_client_close` returns `ESP_FAIL` (e.g. after a network disconnection); errors are now logged instead of unwrapped
 - BT: Fixed panic when an A2DP sink disconnects from the ESP while streaming audio.
 - Thread: `scan`, `energy_scan` and the IPv6 receive callbacks no longer pass the wrong context pointer to OpenThread (the closure box instead of the `ThreadDriverInner`), fixing a type-confusion crash when the callbacks fire.
+- Ethernet: `mod eth` is enabled again on ESP-IDF 6.0+ when SPI Ethernet PHYs are provided as managed components (`espressif/w5500`, `espressif/dm9051`, `espressif/ksz8851snl`), not only via the removed in-tree `CONFIG_ETH_SPI_ETHERNET_*` Kconfig options
 
 ### Added
 - Compatibility with ESP-IDF V6.0, and some pre-release 6.0.x.
