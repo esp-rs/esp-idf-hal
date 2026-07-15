@@ -36,7 +36,7 @@ fn main() -> anyhow::Result<()> {
     std::thread::Builder::new()
         .stack_size(4096)
         .spawn(move || {
-            for reading in 0u32.. {
+            for reading in 0u32..=u32::MAX {
                 println!("[producer A] sensor reading: {reading}");
                 q_sensor_tx
                     .send_back(reading, esp_idf_hal::delay::BLOCK)
