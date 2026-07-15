@@ -71,7 +71,11 @@ pub fn link_patches() -> PatchesRef {
 #[allow(non_camel_case_types)]
 #[allow(non_snake_case)]
 #[allow(rustdoc::all)]
-#[allow(improper_ctypes)] // TODO: For now, as 5.0 spits out tons of these
+#[allow(improper_ctypes)]
+// TODO: For now, as 5.0 spits out tons of these
+// bindgen maps `size_t` to `c_uint`, but std expects `usize` for these runtime
+// symbols; on the 32-bit ESP targets `c_uint == usize`, so the signatures are compatible
+#[allow(suspicious_runtime_symbol_definitions)]
 #[allow(dead_code)]
 mod bindings {
     #[cfg(all(
