@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Breaking
 - Added build-time check for symbol compatibility between `libc` and symbols defined in this library. If you see `libc/esp-idf-sys * mismatch` errors at build time, you might need to update your pinned `libc` version.
 
+### Fixed
+- Include `soc/gpio_sig_map.h` on ESP-IDF 6 so `SIG_GPIO_OUT_IDX` is available in the bindings
+
 ## [0.37.2] - 2026-03-10
 
 ### Fixed

@@ -453,10 +453,12 @@
 // GPIO
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_GPIO_ENABLED)
 #include "driver/gpio.h"
-// In ESP-IDF v6.0, soc/gpio_periph.h no longer includes soc/gpio_reg.h, so GPIO_OUT_REG
-// and friends are no longer transitively visible. Include it explicitly.
+// In ESP-IDF v6.0, soc/gpio_periph.h no longer includes soc/gpio_reg.h or
+// soc/gpio_sig_map.h, so GPIO_OUT_REG / SIG_GPIO_OUT_IDX and friends are no
+// longer transitively visible. Include them explicitly.
 #if ESP_IDF_VERSION_MAJOR >= 6
 #include "soc/gpio_reg.h"
+#include "soc/gpio_sig_map.h"
 #endif
 #endif
 
