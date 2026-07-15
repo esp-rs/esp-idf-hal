@@ -753,6 +753,7 @@ impl<'d, MODE> PinDriver<'d, MODE> {
     }
 
     #[inline]
+    #[allow(clippy::needless_late_init)]
     pub fn get_level(&self) -> Level
     where
         MODE: InputMode,
