@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Breaking
+- MQTT: `MqttProtocolVersion::V5` variant and [`Mqtt5ConnectionPropertyConfig`] struct exposing MQTT 5.0 CONNECT properties (session/will/message expiry intervals, receive/packet/topic-alias maxima, request-response/problem info, payload format indicator). Gated on `CONFIG_MQTT_PROTOCOL_5=y`. To negotiate MQTT 5 and set properties:
+  ```rust
+  MqttClientConfiguration {
+      protocol_version: Some(MqttProtocolVersion::V5),
+      mqtt5_connection_property: Some(Mqtt5ConnectionPropertyConfig {
+          session_expiry_interval: Some(60),
+          ..Default::default()
+      }),
+      ..Default::default()
+  }
+  ```
 - HTTP: Add `keep_alive: Option<KeepAlive>` and `so_linger: Option<Duration>` to server `Configuration`
 - New events need to be handled in the WiFi event loop:
   - `WifiEvent::StaNeighborRep` / `StaNeighborRepRef` (v5.3.0+)
@@ -26,6 +37,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 ### Fixed
 - WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)
 - WebSocket: `EspWebSocketClient::drop()` no longer panics when `esp_websocket_client_close` returns `ESP_FAIL` (e.g. after a network disconnection); errors are now logged instead of unwrapped
+- MQTT: MQTT 5.0 CONNECT properties can now be set on `EspMqttClient` without deadlocking on `MQTT_API_LOCK`; they are applied inside the library between `esp_mqtt_client_init` and `esp_mqtt_client_start` via the new [`MqttClientConfiguration::mqtt5_connection_property`] field.
 - BT: Fixed panic when an A2DP sink disconnects from the ESP while streaming audio.
 - Thread: `scan`, `energy_scan` and the IPv6 receive callbacks no longer pass the wrong context pointer to OpenThread (the closure box instead of the `ThreadDriverInner`), fixing a type-confusion crash when the callbacks fire.
 - Ethernet: `mod eth` is enabled again on ESP-IDF 6.0+ when SPI Ethernet PHYs are provided as managed components (`espressif/w5500`, `espressif/dm9051`, `espressif/ksz8851snl`), not only via the removed in-tree `CONFIG_ETH_SPI_ETHERNET_*` Kconfig options

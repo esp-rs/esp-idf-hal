@@ -42,6 +42,9 @@ CONFIG_BT_SPP_ENABLED=y
 # Support for TLS with a pre-shared key.
 #CONFIG_ESP_TLS_PSK_VERIFICATION=y
 
+# Compile-check the MQTT 5.0 code paths in CI.
+CONFIG_MQTT_PROTOCOL_5=y
+
 CONFIG_LWIP_PPP_SUPPORT=y
 #CONFIG_LWIP_SLIP_SUPPORT=y
 
