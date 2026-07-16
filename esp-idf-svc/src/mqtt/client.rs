@@ -7,7 +7,6 @@ extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
-use ::log::error;
 use embedded_svc::mqtt::client::{asynch, Client, Connection, Enqueue, ErrorType, Publish};
 
 use crate::private::unblocker::Unblocker;
@@ -551,7 +550,7 @@ impl<'a> EspMqttClient<'a> {
         #[cfg(esp_idf_mqtt_protocol_5)]
         if let Some(props) = conf.mqtt5_connection_property.as_ref() {
             if conf.protocol_version != Some(MqttProtocolVersion::V5) {
-                error!(
+                ::log::error!(
                     "mqtt5_connection_property requires protocol_version = Some(MqttProtocolVersion::V5)"
                 );
                 return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());

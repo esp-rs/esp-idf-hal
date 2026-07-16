@@ -714,6 +714,10 @@ where
             coex_phy_coded_tx_rx_time_limit: crate::sys::DEFAULT_BT_LE_COEX_PHY_CODED_TX_RX_TLIM_EFF
                 as _,
             dis_scan_backoff: crate::sys::NIMBLE_DISABLE_SCAN_BACKOFF as _,
+            // `esp32c2` defaults this to 0; every other chip in this block defaults to 1
+            #[cfg(esp32c2)]
+            ble_scan_classify_filter_enable: 0,
+            #[cfg(not(esp32c2))]
             ble_scan_classify_filter_enable: 1,
             main_xtal_freq: crate::sys::CONFIG_XTAL_FREQ as _,
             #[cfg(esp32c2)]
@@ -732,6 +736,198 @@ where
                 not(esp_idf_version = "5.1")
             ))]
             csa2_select: crate::sys::DEFAULT_BT_LE_50_FEATURE_SUPPORT as _,
+            // The fields below were added to the modern NimBLE controller config (shared by
+            // c2/c5/c6/h2) across IDF 5.3.4 / 5.4.2 / 5.5.0. They are absent from `Default`
+            // (which zeroes them), and several have non-zero upstream defaults - notably
+            // `vhci_enabled`, without which Bluedroid's HCI host layer fails to start. Field
+            // availability differs per chip/version, hence the gating below:
+            //  - c6/h2 got Group A/B at 5.3.4; c5 got them one minor later, at 5.4.2.
+            //  - c2 (minimal controller) has Group A but none of the Group B fields.
+            //
+            // Group A - c2, c6, h2 (>= 5.3.4) and c5 (>= 5.4.2)
+            #[cfg(all(
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            vhci_enabled: crate::sys::DEFAULT_BT_LE_VHCI_ENABLED as _,
+            #[cfg(all(
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            ble_aa_check: crate::sys::DEFAULT_BT_LE_CTRL_CHECK_CONNECT_IND_ACCESS_ADDRESS as _,
+            #[cfg(all(
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            ble_llcp_disc_flag: crate::sys::BT_LE_CTRL_LLCP_DISC_FLAG as _,
+            #[cfg(all(
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            scan_backoff_upperlimitmax: crate::sys::BT_CTRL_SCAN_BACKOFF_UPPERLIMITMAX as _,
+            // Group B - as Group A, but not present on esp32c2
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            ble_chan_ass_en: crate::sys::DEFAULT_BT_LE_CTRL_CHAN_ASS_EN as _,
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            ble_data_lenth_zero_aux: crate::sys::DEFAULT_BT_LE_CTRL_ADV_DATA_LENGTH_ZERO_AUX as _,
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            ptr_check_enabled: crate::sys::DEFAULT_BT_LE_PTR_CHECK_ENABLED as _,
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            fast_conn_data_tx_en: crate::sys::DEFAULT_BT_LE_CTRL_FAST_CONN_DATA_TX_EN as _,
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            ch39_txpwr: crate::sys::BLE_LL_TX_PWR_DBM_N as _,
+            // `adv_rsv_cnt` / `conn_rsv_cnt` mirror the controller's `MIN(...)` macros, which
+            // bindgen cannot capture as constants, so they are reproduced from their operands.
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            #[allow(clippy::unnecessary_cast)]
+            adv_rsv_cnt: core::cmp::min(
+                crate::sys::DEFAULT_BT_LE_MAX_EXT_ADV_INSTANCES as u32,
+                crate::sys::CONFIG_BT_LE_EXT_ADV_RESERVED_MEMORY_COUNT as u32,
+            ) as _,
+            #[cfg(all(
+                not(esp32c2),
+                any(
+                    esp_idf_version_patch_at_least_5_3_4,
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+                any(
+                    not(esp32c5),
+                    esp_idf_version_patch_at_least_5_4_2,
+                    esp_idf_version_at_least_5_5_0,
+                ),
+            ))]
+            #[allow(clippy::unnecessary_cast)]
+            conn_rsv_cnt: core::cmp::min(
+                crate::sys::DEFAULT_BT_LE_MAX_CONNECTIONS as u32,
+                crate::sys::CONFIG_BT_LE_CONN_RESERVED_MEMORY_COUNT as u32,
+            ) as _,
+            // Group C - `priority_level_cfg`, added in 5.5.0 (still present on 6.0+), not on c2
+            #[cfg(all(not(esp32c2), esp_idf_version_at_least_5_5_0))]
+            priority_level_cfg: crate::sys::BT_LL_CTRL_PRIO_LVL_CFG as _,
+            // Group D - added in 5.5.0 and removed again in 6.0, not on c2
+            #[cfg(all(
+                not(esp32c2),
+                esp_idf_version_at_least_5_5_0,
+                not(esp_idf_version_at_least_6_0_0),
+            ))]
+            slv_fst_rx_lat_en: crate::sys::DEFAULT_BT_LE_CTRL_SLV_FAST_RX_CONN_DATA_EN as _,
+            #[cfg(all(
+                not(esp32c2),
+                esp_idf_version_at_least_5_5_0,
+                not(esp_idf_version_at_least_6_0_0),
+            ))]
+            dl_itvl_phy_sync_en: crate::sys::DEFAULT_BT_LE_CTRL_DL_ITVL_PHY_SYNC_EN as _,
+            #[cfg(all(
+                not(esp32c2),
+                esp_idf_version_at_least_5_5_0,
+                not(esp_idf_version_at_least_6_0_0),
+            ))]
+            scan_allow_adi_filter: crate::sys::DEFAULT_BT_SCAN_ALLOW_ENH_ADI_FILTER as _,
             config_magic: CONFIG_MAGIC as _,
             ..Default::default()
         };
