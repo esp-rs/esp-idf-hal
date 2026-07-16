@@ -321,7 +321,7 @@ pub enum ScanDuplicate {
     #[default]
     Disable = esp_ble_scan_duplicate_t_BLE_SCAN_DUPLICATE_DISABLE,
     Enable = esp_ble_scan_duplicate_t_BLE_SCAN_DUPLICATE_ENABLE,
-    #[cfg(esp_idf_ble_50_feature_support)]
+    #[cfg(esp_idf_bt_ble_50_features_supported)]
     Reset = esp_ble_scan_duplicate_t_BLE_SCAN_DUPLICATE_ENABLE_RESET,
     Max = esp_ble_scan_duplicate_t_BLE_SCAN_DUPLICATE_MAX,
 }
@@ -726,6 +726,164 @@ impl<'a> From<(esp_gap_ble_cb_event_t, &'a esp_ble_gap_cb_param_t)> for BleGapEv
                 }
                 esp_gap_ble_cb_event_t_ESP_GAP_BLE_SET_CHANNELS_EVT => {
                     Self::ChannelsConfigured(param.ble_set_channels.stat.try_into().unwrap())
+                }
+                // BLE 5.0 - PHY
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_READ_PHY_COMPLETE_EVT => {
+                    Self::ReadFeaturesConfigured(param.read_phy)
+                }
+                // The `SET_PREFERED_*` events were renamed to `SET_PREFERRED_*` after ESP-IDF 4.4
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_version_major = "4"))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_SET_PREFERED_DEFAULT_PHY_COMPLETE_EVT => {
+                    Self::PreferredDefaultPhyConfigured(
+                        param.set_perf_def_phy.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, not(esp_idf_version_major = "4")))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_SET_PREFERRED_DEFAULT_PHY_COMPLETE_EVT => {
+                    Self::PreferredDefaultPhyConfigured(
+                        param.set_perf_def_phy.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_version_major = "4"))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_SET_PREFERED_PHY_COMPLETE_EVT => {
+                    Self::PreferredPhyConfigured(param.set_perf_phy.status.try_into().unwrap())
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, not(esp_idf_version_major = "4")))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_SET_PREFERRED_PHY_COMPLETE_EVT => {
+                    Self::PreferredPhyConfigured(param.set_perf_phy.status.try_into().unwrap())
+                }
+                // BLE 5.0 - Extended advertising (needs the extended-advertising sub-feature, as the
+                // corresponding fields of the callback param union are only present in that case)
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_SET_RAND_ADDR_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingRandomAddressConfigured(
+                        param.ext_adv_set_rand_addr.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_SET_PARAMS_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingParametersConfigured(
+                        param.ext_adv_set_params.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_DATA_SET_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingConfigured(
+                        param.ext_adv_data_set.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_SCAN_RSP_DATA_SET_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingScanResponseConfigured(
+                        param.scan_rsp_set.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_START_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingStarted(param.ext_adv_start.status.try_into().unwrap())
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_STOP_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingStopped(param.ext_adv_stop.status.try_into().unwrap())
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_SET_REMOVE_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingRemoved(
+                        param.ext_adv_remove.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(all(esp_idf_bt_ble_50_features_supported, esp_idf_bt_ble_50_extend_adv_en))]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_ADV_SET_CLEAR_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingCleared(param.ext_adv_clear.status.try_into().unwrap())
+                }
+                // BLE 5.0 - Periodic advertising
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_SET_PARAMS_COMPLETE_EVT => {
+                    // Note: the field name is misspelled as `peroid_adv_set_params` in ESP-IDF
+                    Self::PeriodicAdvertisingParametersConfigured(
+                        param.peroid_adv_set_params.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_DATA_SET_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingDataSetComplete(
+                        param.period_adv_data_set.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_START_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingStarted(
+                        param.period_adv_start.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_STOP_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingStopped(
+                        param.period_adv_stop.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_CREATE_SYNC_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingSyncCreated(
+                        param.period_adv_create_sync.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_SYNC_CANCEL_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingSyncCanceled(
+                        param.period_adv_sync_cancel.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_SYNC_TERMINATE_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingSyncTerminated(
+                        param.period_adv_sync_term.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_ADD_DEV_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingDeviceListAdded(
+                        param.period_adv_add_dev.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_REMOVE_DEV_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingDeviceListRemoved(
+                        param.period_adv_remove_dev.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PERIODIC_ADV_CLEAR_DEV_COMPLETE_EVT => {
+                    Self::PeriodicAdvertisingDeviceListCleared(
+                        param.period_adv_clear_dev.status.try_into().unwrap(),
+                    )
+                }
+                // BLE 5.0 - Extended scanning
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_SET_EXT_SCAN_PARAMS_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingScanParametersConfigured(
+                        param.set_ext_scan_params.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_SCAN_START_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingScanStarted(
+                        param.ext_scan_start.status.try_into().unwrap(),
+                    )
+                }
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_EXT_SCAN_STOP_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingScanStopped(
+                        param.ext_scan_stop.status.try_into().unwrap(),
+                    )
+                }
+                // BLE 5.0 - Extended connection
+                #[cfg(esp_idf_bt_ble_50_features_supported)]
+                esp_gap_ble_cb_event_t_ESP_GAP_BLE_PREFER_EXT_CONN_PARAMS_SET_COMPLETE_EVT => {
+                    Self::ExtendedAdvertisingExtendedConnectionParamsConfigured(
+                        param.ext_conn_params_set.status.try_into().unwrap(),
+                    )
                 }
                 _ => Self::Other {
                     raw_event: event,

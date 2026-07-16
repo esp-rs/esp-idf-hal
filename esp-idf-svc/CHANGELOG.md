@@ -35,6 +35,8 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 ```
 
 ### Fixed
+- BT/BLE: Advertising was not working with ESP-IDF 5.5+ and esp32, esp32c3 and esp32s3
+- BT/BLE: Extended advertising exvets were mis-mapped as `BleGapEvent::Other`
 - WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)
 - WebSocket: `EspWebSocketClient::drop()` no longer panics when `esp_websocket_client_close` returns `ESP_FAIL` (e.g. after a network disconnection); errors are now logged instead of unwrapped
 - MQTT: MQTT 5.0 CONNECT properties can now be set on `EspMqttClient` without deadlocking on `MQTT_API_LOCK`; they are applied inside the library between `esp_mqtt_client_init` and `esp_mqtt_client_start` via the new [`MqttClientConfiguration::mqtt5_connection_property`] field.
