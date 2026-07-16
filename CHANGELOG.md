@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fixed issue 502 - some ADC/RTC pins for esp32c5 and esp32c6 had mapping errors
+- Fixed async SPI transactions occasionally hanging forever on multi-core chips
 
 ### Added
 - `QueueSet2`, `QueueSet3`, `QueueSet4` for waiting on multiple heterogeneous queues
