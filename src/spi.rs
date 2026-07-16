@@ -2110,11 +2110,9 @@ async fn spi_transmit_async(
             }
         };
 
-        let pop = |queue: &mut Queue| {
+        let pop = |queue: &mut Queue, delay: TickType_t| {
             let mut rtrans = ptr::null_mut();
-            match esp!(unsafe {
-                spi_device_get_trans_result(handle, &mut rtrans, delay::NON_BLOCK)
-            }) {
+            match esp!(unsafe { spi_device_get_trans_result(handle, &mut rtrans, delay) }) {
                 Err(e) if e.code() == ESP_ERR_TIMEOUT => return Ok(false),
                 Err(e) => Err(e)?,
                 Ok(()) => (),
@@ -2130,14 +2128,23 @@ async fn spi_transmit_async(
             Ok(true)
         };
 
-        for transaction in transactions {
-            while queue.len() == queue_size {
-                if pop(queue)? {
-                    break;
-                }
+        // NOTE: after a successful `wait().await`, the front transaction result MUST be
+        // fetched with a blocking `pop`: the SPI ISR invokes the post-transaction callback
+        // (which fires the notification we just awaited) *before* it posts the result to
+        // the driver return queue (see `spi_intr` in ESP-IDF's `spi_master.c`:
+        // `spi_post_trans` runs before `xQueueSendFromISR`). On multi-core chips the
+        // awoken task can thus observe the notification before the result is visible. As
+        // the wait consumed the notification, going back to a non-blocking `pop` + `wait`
+        // would hang forever. The blocking fetch is safe: the ISR posts the result right
+        // after the callback.
 
-                // If the queue is full, we wait for the first transaction in the queue
-                queue.front_mut().unwrap().1.wait().await;
+        for transaction in transactions {
+            // If the queue is full, we wait for the first transaction in the queue
+            while queue.len() == queue_size {
+                if !pop(queue, delay::NON_BLOCK)? {
+                    queue.front_mut().unwrap().1.wait().await;
+                    pop(queue, delay::BLOCK)?;
+                }
             }
 
             // Write transaction to a stable memory location
@@ -2145,8 +2152,9 @@ async fn spi_transmit_async(
         }
 
         while !queue.is_empty() {
-            if !pop(queue)? {
+            if !pop(queue, delay::NON_BLOCK)? {
                 queue.front_mut().unwrap().1.wait().await;
+                pop(queue, delay::BLOCK)?;
             }
         }
 
