@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - `QueueSet2`, `QueueSet3`, `QueueSet4` for waiting on multiple heterogeneous queues
 - Basic compatibility for ESP-IDF release 6.0.
+- I2S Standard Mode Driver dynamic reconfiguration (change sample rate)
 
 ### Breaking
  - Dropped support for RGB/BGR666 format on ESP-IDF 6.0.
