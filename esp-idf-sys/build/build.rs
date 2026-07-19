@@ -162,7 +162,8 @@ fn main() -> anyhow::Result<()> {
             .blocklist_function("v.*scanf")
             .blocklist_function("_v.*printf_r")
             .blocklist_function("_v.*scanf_r")
-            .blocklist_function("esp_log_writev");
+            .blocklist_function("esp_log_writev")
+            .blocklist_type("cdc_desc_func_telephone_call_state_reporting_capabilities_t");
         // In ESP-IDF < v6.0, pcnt_unit_t exists as both a struct and an enum; blocklist the
         // type so we can provide the enum definition manually in src/pcnt.rs. In v6.0+ the
         // legacy enum is gone, so bindgen can handle the struct fine on its own.

@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Include `soc/gpio_sig_map.h` on ESP-IDF 6 so `SIG_GPIO_OUT_IDX` is available in the bindings
+- Fix E0588 compile error in the generated bindings when the TinyUSB CDC class is enabled (`CONFIG_TINYUSB_CDC_ENABLED=y`) by blocklisting TinyUSB's unused `cdc_desc_func_telephone_call_state_reporting_capabilities_t` descriptor
 
 ## [0.37.2] - 2026-03-10
 
