@@ -118,10 +118,24 @@ pub mod config {
     /// I2S clock source.
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
     pub enum ClockSource {
-        /// Use PLL_F160M as the source clock
+        /// Use PLL_F160M as the source clock.
+        ///
+        /// Not the default on the ESP32-P4: that chip's `i2s_ll_get_clk_src` only accepts
+        /// `PLL_F160M` when the build targets hardware revision v3 or later
+        /// (`CHIP_SUPPORT_MIN_REV >= 300`). Selecting it on an earlier revision trips
+        /// `HAL_ASSERT(false && "unsupported clock source")` and aborts while the channel is
+        /// being initialised, so P4 defaults to [`ClockSource::Xtal`] instead.
         #[cfg(not(any(esp32h2, esp32c2)))]
-        #[default]
+        #[cfg_attr(not(esp32p4), default)]
         Pll160M,
+
+        /// Use XTAL as the source clock.
+        ///
+        /// Always available on the ESP32-P4, at any hardware revision, which is why it is the
+        /// default there.
+        #[cfg(esp32p4)]
+        #[default]
+        Xtal,
 
         /// Use PLL_F60M as the source clock
         #[cfg(esp32c2)]
@@ -156,6 +170,11 @@ pub mod config {
                 #[cfg(esp32h2)]
                 Self::Pll64M => core::convert::TryInto::try_into(
                     esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F64M,
+                )
+                .unwrap(),
+                #[cfg(esp32p4)]
+                Self::Xtal => core::convert::TryInto::try_into(
+                    esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_XTAL,
                 )
                 .unwrap(),
                 #[cfg(any(esp32, esp32s2))]
