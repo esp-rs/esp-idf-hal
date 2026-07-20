@@ -29,6 +29,13 @@ extern crate alloc;
 #[cfg(all(
     not(any(esp32s2, esp32p4)),
     esp_idf_bt_enabled,
+    esp_idf_bt_nimble_enabled,
+    feature = "alloc",
+))]
+pub mod ble;
+#[cfg(all(
+    not(any(esp32s2, esp32p4)),
+    esp_idf_bt_enabled,
     esp_idf_bt_bluedroid_enabled,
     feature = "alloc",
 ))]
