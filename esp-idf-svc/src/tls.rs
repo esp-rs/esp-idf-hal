@@ -389,7 +389,10 @@ mod esptls {
         pub hint: &'a CStr,
     }
 
-    #[cfg(esp_idf_esp_tls_server)]
+    #[cfg(any(
+        esp_idf_esp_tls_server,
+        all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls),
+    ))]
     pub struct ServerConfig<'a> {
         /// up to 9 ALPNs allowed, with avg 10 bytes for each name
         pub alpn_protos: Option<&'a [&'a str]>,
@@ -398,11 +401,27 @@ mod esptls {
         pub server_key: Option<X509<'a>>,
         pub server_key_password: Option<&'a str>,
         pub use_secure_element: bool,
+        /// Overall TLS handshake timeout in milliseconds.
+        ///
+        /// `0` means the ESP-TLS default (10 seconds).
+        ///
+        /// Only honored by the blocking [`EspTls::negotiate_server`] path.
+        /// The non-blocking [`EspTls::negotiate_server_init`] /
+        /// [`EspTls::negotiate_server_continue`] path (and thus
+        /// `EspAsyncTls::negotiate_server`) is not bounded by it, so callers
+        /// there should enforce their own deadline.
+        ///
+        /// Only available on ESP-IDF >= 5.5.0 (`esp_tls_cfg_server::tls_handshake_timeout_ms`).
+        #[cfg(esp_idf_version_at_least_5_5_0)]
+        pub tls_handshake_timeout_ms: u32,
         #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
         pub handshake_callback: Option<extern "C" fn(*mut sys::mbedtls_ssl_context) -> c_int>,
     }
 
-    #[cfg(esp_idf_esp_tls_server)]
+    #[cfg(any(
+        esp_idf_esp_tls_server,
+        all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls),
+    ))]
     impl<'a> ServerConfig<'a> {
         pub const fn new() -> Self {
             Self {
@@ -412,6 +431,8 @@ mod esptls {
                 server_key: None,
                 server_key_password: None,
                 use_secure_element: false,
+                #[cfg(esp_idf_version_at_least_5_5_0)]
+                tls_handshake_timeout_ms: 0,
                 #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
                 handshake_callback: None,
             }
@@ -450,6 +471,10 @@ mod esptls {
             }
 
             rcfg.use_secure_element = self.use_secure_element;
+            #[cfg(esp_idf_version_at_least_5_5_0)]
+            {
+                rcfg.tls_handshake_timeout_ms = self.tls_handshake_timeout_ms;
+            }
 
             #[cfg(esp_idf_esp_tls_server_cert_select_hook)]
             if let Some(cb) = self.handshake_callback {
@@ -460,7 +485,10 @@ mod esptls {
         }
     }
 
-    #[cfg(esp_idf_esp_tls_server)]
+    #[cfg(any(
+        esp_idf_esp_tls_server,
+        all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls),
+    ))]
     impl<'a> Default for ServerConfig<'a> {
         fn default() -> Self {
             Self::new()
@@ -500,7 +528,10 @@ mod esptls {
     {
         raw: *mut sys::esp_tls,
         socket: S,
-        #[cfg(esp_idf_esp_tls_server)]
+        #[cfg(any(
+            esp_idf_esp_tls_server,
+            all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls,),
+        ))]
         server_session: bool,
     }
 
@@ -526,7 +557,10 @@ mod esptls {
                 Ok(Self {
                     raw,
                     socket: InternalSocket(()),
-                    #[cfg(esp_idf_esp_tls_server)]
+                    #[cfg(any(
+                        esp_idf_esp_tls_server,
+                        all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls,),
+                    ))]
                     server_session: false,
                 })
             } else {
@@ -588,7 +622,10 @@ mod esptls {
                 Ok(Self {
                     raw,
                     socket,
-                    #[cfg(esp_idf_esp_tls_server)]
+                    #[cfg(any(
+                        esp_idf_esp_tls_server,
+                        all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls,),
+                    ))]
                     server_session: false,
                 })
             } else {
@@ -628,10 +665,20 @@ mod esptls {
 
         /// Establish a TLS/SSL connection using the adopted connection, acting as the server.
         ///
+        /// This call is **blocking**. On ESP-IDF >= 5.5.0 the duration is bounded by
+        /// `cfg.tls_handshake_timeout_ms` (or the ESP-TLS default of 10 s when that
+        /// field is `0`). When the caller cannot afford to stall, prefer
+        /// `EspAsyncTls::negotiate_server`, or drive a non-blocking socket manually
+        /// with `negotiate_server_init` + `negotiate_server_continue`
+        /// (both ESP-IDF >= 5.5.0).
+        ///
         /// # Errors
         ///
         /// * `ESP_FAIL` if connection could not be established
-        #[cfg(esp_idf_esp_tls_server)]
+        #[cfg(any(
+            esp_idf_esp_tls_server,
+            all(esp_idf_version_at_least_5_3_0, esp_idf_esp_tls_using_mbedtls),
+        ))]
         pub fn negotiate_server(&mut self, cfg: &ServerConfig) -> Result<(), EspError> {
             let mut bufs = RawConfigBufs::default();
             let mut rcfg = cfg.try_into_raw(&mut bufs)?;
@@ -651,6 +698,66 @@ mod esptls {
             drop(bufs);
 
             Ok(())
+        }
+
+        /// Begin a server-side TLS handshake on an already-adopted socket.
+        ///
+        /// Requires ESP-IDF >= 5.5.0 with mbedTLS. The socket should typically be
+        /// non-blocking. Complete the handshake by repeatedly calling
+        /// [`Self::negotiate_server_continue`] until it returns `Ok(())`.
+        /// Certificate material referenced by `cfg` must remain valid for the
+        /// duration of this call (mbedTLS parses it here).
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_FAIL` / other ESP-TLS errors if session setup fails
+        #[cfg(all(esp_idf_version_at_least_5_5_0, esp_idf_esp_tls_using_mbedtls,))]
+        pub fn negotiate_server_init(&mut self, cfg: &ServerConfig) -> Result<(), EspError> {
+            let mut bufs = RawConfigBufs::default();
+            let mut rcfg = cfg.try_into_raw(&mut bufs)?;
+
+            // esp_tls_server_session_init returns esp_err_t (0 on success).
+            sys::esp!(unsafe {
+                sys::esp_tls_server_session_init(&mut rcfg, self.socket.handle(), self.raw)
+            })?;
+            self.server_session = true;
+
+            #[allow(clippy::drop_non_drop)]
+            drop(bufs);
+
+            Ok(())
+        }
+
+        /// Continue a server-side handshake started with [`Self::negotiate_server_init`].
+        ///
+        /// Requires ESP-IDF >= 5.5.0 with mbedTLS.
+        ///
+        /// Returns `Ok(())` once the handshake is complete and the session is
+        /// ready for read/write.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_TLS_ERR_SSL_WANT_READ` if the socket is in non-blocking mode and it is not ready for reading
+        /// * `ESP_TLS_ERR_SSL_WANT_WRITE` if the socket is in non-blocking mode and it is not ready for writing
+        /// * `ESP_FAIL` if the handshake failed; drop the connection
+        #[allow(clippy::unnecessary_cast)]
+        #[cfg(all(esp_idf_version_at_least_5_5_0, esp_idf_esp_tls_using_mbedtls,))]
+        pub fn negotiate_server_continue(&mut self) -> Result<(), EspError> {
+            let ret = unsafe { sys::esp_tls_server_session_continue_async(self.raw) };
+
+            match ret {
+                0 => Ok(()),
+                ESP_TLS_ERR_SSL_WANT_READ => Err(EspError::from_infallible::<
+                    { ESP_TLS_ERR_SSL_WANT_READ as i32 },
+                >()),
+                ESP_TLS_ERR_SSL_WANT_WRITE => Err(EspError::from_infallible::<
+                    { ESP_TLS_ERR_SSL_WANT_WRITE as i32 },
+                >()),
+                _ => {
+                    log::error!("TLS server handshake continue failed (error {ret})");
+                    Err(EspError::from_infallible::<ESP_FAIL>())
+                }
+            }
         }
 
         #[allow(clippy::unnecessary_cast)]
@@ -903,18 +1010,31 @@ mod esptls {
             res
         }
 
-        // TODO: Create upstream support for async server negotiation
-        // Establish a TLS/SSL connection using the adopted connection, acting as the server.
-        //
-        // # Errors
-        //
-        // * `ESP_FAIL` if connection could not be established
-        // #[cfg(esp_idf_esp_tls_server)]
-        // pub async fn negotiate_server(&mut self, cfg: &ServerConfig<'_>) -> Result<(), EspError> {
-        //     // FIXME: this isn't actually async, but esp-idf does not expose anything else.
-        //     // we would have to use various hacks to call mbedtls_ssl_handshake by ourself
-        //     self.0.borrow_mut().negotiate_server(cfg)
-        // }
+        /// Establish a TLS/SSL connection using the adopted socket, acting as the server.
+        ///
+        /// Requires ESP-IDF >= 5.5.0 with mbedTLS.
+        ///
+        /// Note that the handshake is not bounded in time (`cfg.tls_handshake_timeout_ms`
+        /// is only honored by the blocking `EspTls::negotiate_server`), so a
+        /// misbehaving peer can keep the negotiation going indefinitely.
+        /// Callers which cannot afford that should race this future against a timer.
+        ///
+        /// # Errors
+        ///
+        /// * `ESP_FAIL` if the connection could not be established
+        #[cfg(all(esp_idf_version_at_least_5_5_0, esp_idf_esp_tls_using_mbedtls))]
+        pub async fn negotiate_server(&mut self, cfg: &ServerConfig<'_>) -> Result<(), EspError> {
+            self.0.get_mut().negotiate_server_init(cfg)?;
+
+            loop {
+                let res = self.0.get_mut().negotiate_server_continue();
+
+                match res {
+                    Err(e) => self.wait(e).await?,
+                    Ok(()) => break Ok(()),
+                }
+            }
+        }
 
         /// Read in the supplied buffer. Returns the number of bytes read.
         pub async fn read(&self, buf: &mut [u8]) -> Result<usize, EspError> {

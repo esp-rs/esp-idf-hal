@@ -20,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   }
   ```
 - HTTP: Add `keep_alive: Option<KeepAlive>` and `so_linger: Option<Duration>` to server `Configuration`
+- TLS: Add `tls_handshake_timeout_ms: u32` to server `ServerConfig` on ESP-IDF >= 5.5.0 (`0` keeps the ESP-TLS default of 10 seconds; only honored by the blocking `EspTls::negotiate_server`). Struct literals on those IDF versions must set the new field (or use `ServerConfig::default()` / `..Default::default()`).
 - New events need to be handled in the WiFi event loop:
   - `WifiEvent::StaNeighborRep` / `StaNeighborRepRef` (v5.3.0+)
   - `WifiEvent::ApWrongPassword` / `ApWrongPasswordRef` (v5.3.3+, v5.4.1+, v5.5.0+)
@@ -43,11 +44,13 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 - BT: Fixed panic when an A2DP sink disconnects from the ESP while streaming audio.
 - Thread: `scan`, `energy_scan` and the IPv6 receive callbacks no longer pass the wrong context pointer to OpenThread (the closure box instead of the `ThreadDriverInner`), fixing a type-confusion crash when the callbacks fire.
 - Ethernet: `mod eth` is enabled again on ESP-IDF 6.0+ when SPI Ethernet PHYs are provided as managed components (`espressif/w5500`, `espressif/dm9051`, `espressif/ksz8851snl`), not only via the removed in-tree `CONFIG_ETH_SPI_ETHERNET_*` Kconfig options
+- TLS: Server-side APIs (`ServerConfig`, `negotiate_server`, …) are available again on ESP-IDF >= 5.3 with mbedTLS. `CONFIG_ESP_TLS_SERVER` was removed in v5.3, so the old `esp_idf_esp_tls_server` cfg was never set and those APIs were compiled out; gating now uses `esp_idf_esp_tls_server` (IDF ≤ 5.2) or `esp_idf_version_at_least_5_3_0` + `esp_idf_esp_tls_using_mbedtls`.
 
 ### Added
 - Compatibility with ESP-IDF V6.0, and some pre-release 6.0.x.
 - Added support for the Generic Ethernet PHY driver: particularly useful on ESP-IDF 6.0+ as it is built-in.
 - Added early support for the NimBLE low-resource-use BLE stack, currently only GAP and GATT Server support. See examples/ble_gatt_server.rs
+- TLS: Async server handshake (requires ESP-IDF 5.5.0): `EspAsyncTls::negotiate_server`. Also check the new `tls_server_async` example.
 
 ## [0.52.1] - 2026-03-10
 

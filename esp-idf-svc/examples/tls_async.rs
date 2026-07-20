@@ -52,7 +52,11 @@ mod example {
         //
         // To use async networking IO, make your `main()` minimal by just spawning all work in a new thread
         std::thread::Builder::new()
-            .stack_size(60000) // EspTls uses very large TLS buffers (16K+)
+            // Enough for the mbedTLS handshake processing; the large TLS buffers
+            // live on the heap. Note that on ESP-IDF thread stacks are allocated
+            // from the heap too, so an over-sized stack directly reduces the
+            // memory available for TLS sessions
+            .stack_size(20000)
             .spawn(run_main)
             .unwrap()
             .join()
@@ -65,8 +69,8 @@ mod example {
         // If you use `tokio`, you still have to do the same as it also uses the `eventfd` syscall
         let _mounted_eventfs = esp_idf_svc::io::vfs::MountedEventfs::mount(5)?;
 
-        // You can use `esp_idf_svc::hal::task::block_on` as well
-        async_io::block_on(pin!(async move {
+        // Any executor can drive the future; we just use the ESP-IDF-native `block_on`
+        esp_idf_svc::hal::task::block_on(pin!(async move {
             let _wifi = wifi_create().await?; // Keep it around so that the wifi connection is not dropped
 
             run().await?;
