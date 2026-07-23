@@ -243,12 +243,16 @@ check_constants!(ENOLINK);
 check_constants!(EPROTO);
 check_constants!(EMULTIHOP);
 check_constants!(EBADMSG);
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(any(not(esp_idf_libc_picolibc), esp_idf_version_at_least_6_0_0))]
 check_constants!(EFTYPE);
 check_constants!(ENOSYS);
 check_constants!(ENOTEMPTY);
 check_constants!(ENAMETOOLONG);
 check_constants!(ELOOP);
 check_constants!(EOPNOTSUPP);
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(any(not(esp_idf_libc_picolibc), esp_idf_version_at_least_6_0_0))]
 check_constants!(EPFNOSUPPORT);
 check_constants!(ECONNRESET);
 check_constants!(ENOBUFS);
@@ -262,6 +266,8 @@ check_constants!(ECONNABORTED);
 check_constants!(ENETUNREACH);
 check_constants!(ENETDOWN);
 check_constants!(ETIMEDOUT);
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(any(not(esp_idf_libc_picolibc), esp_idf_version_at_least_6_0_0))]
 check_constants!(EHOSTDOWN);
 check_constants!(EHOSTUNREACH);
 check_constants!(EINPROGRESS);
@@ -273,6 +279,8 @@ check_constants!(EADDRNOTAVAIL);
 check_constants!(ENETRESET);
 check_constants!(EISCONN);
 check_constants!(ENOTCONN);
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(any(not(esp_idf_libc_picolibc), esp_idf_version_at_least_6_0_0))]
 check_constants!(ETOOMANYREFS);
 check_constants!(EDQUOT);
 check_constants!(ESTALE);
@@ -520,13 +528,16 @@ check_constants!(DT_FIFO);
 #[cfg(esp_idf_libc_picolibc)]
 check_constants!(DT_CHR);
 check_constants!(DT_DIR); */
-#[cfg(esp_idf_libc_picolibc)]
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(all(esp_idf_libc_picolibc, esp_idf_version_at_least_6_0_0))]
 check_constants!(DT_BLK);
 /* TODO: Fixed upstream https://github.com/rust-lang/libc/pull/5034, uncomment after libc release
 check_constants!(DT_REG); */
-#[cfg(esp_idf_libc_picolibc)]
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(all(esp_idf_libc_picolibc, esp_idf_version_at_least_6_0_0))]
 check_constants!(DT_LNK);
-#[cfg(esp_idf_libc_picolibc)]
+// (missing from the picolibc bindings before ESP-IDF v6.0)
+#[cfg(all(esp_idf_libc_picolibc, esp_idf_version_at_least_6_0_0))]
 check_constants!(DT_SOCK);
 check_constants!(FD_CLOEXEC);
 //check_constants!(USRQUOTA); // No binding

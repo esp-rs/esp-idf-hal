@@ -38,10 +38,17 @@ extern "Rust" {
 
 #[no_mangle]
 pub extern "C" fn app_main() {
-    unsafe {
-        // #[cfg(all(feature = "uart0_driver_init", esp_idf_comp_driver_enabled, esp_idf_comp_vfs_enabled))]
-        // uart_init::init_uart0();
+    // Make sure the ESP-IDF patches implemented in Rust are linked to the
+    // final executable
+    crate::link_patches();
 
+    // Bind the C standard streams to their POSIX file descriptors (0, 1 and 2),
+    // which ESP-IDF does not do, and which - among others - the Rust Standard
+    // Library relies on for its `stdin`/`stdout`/`stderr` (and thus for
+    // `println!` et al.); see the documentation of this function for details
+    crate::restore_posix_stdio_fds();
+
+    unsafe {
         #[cfg(all(feature = "std", feature = "binstart"))]
         main(0, &[core::ptr::null()] as *const *const u8);
 
@@ -49,30 +56,3 @@ pub extern "C" fn app_main() {
         main();
     }
 }
-
-// TODO: Move to `esp-idf-hal`. We should start precisely in the state ESP IDF was configured to be. The below should become a utility method,
-// ideally as part of `esp_idf_hal::uart` and possibly with support from future ESP IDF VFS safe APIs
-// #[cfg(all(feature = "uart0_driver_init", esp_idf_comp_driver_enabled, esp_idf_comp_vfs_enabled))]
-// mod uart_init {
-//     use crate::{esp_vfs_dev_uart_use_driver, uart_driver_install};
-//     use core::{ffi::c_int, ptr::null_mut};
-
-//     const UART_BUFFER_SIZE: c_int = 512;
-//     const UART_QUEUE_SIZE: c_int = 10;
-
-//     pub(super) fn init_uart0() {
-//         // Enable UART0 driver so stdin can be read.
-//         unsafe {
-//             crate::esp!(uart_driver_install(
-//                 0,
-//                 UART_BUFFER_SIZE,
-//                 UART_BUFFER_SIZE,
-//                 UART_QUEUE_SIZE,
-//                 null_mut(),
-//                 0
-//             ))
-//             .expect("unable to initialize UART0 driver");
-//             esp_vfs_dev_uart_use_driver(0);
-//         }
-//     }
-// }

@@ -20,8 +20,6 @@ thread_local! {
 }
 
 fn main() -> Result<(), io::Error> {
-    esp_idf_sys::link_patches();
-
     // Get backtraces from anyhow; only works for Xtensa arch currently
     #[cfg(target_arch = "xtensa")]
     std::env::set_var("RUST_BACKTRACE", "1");

@@ -56,6 +56,9 @@ mod pcnt;
 
 mod checks;
 mod start;
+mod stdio;
+
+pub use stdio::restore_posix_stdio_fds;
 
 /// A hack to make sure that a few patches to the ESP-IDF which are implemented in Rust
 /// are linked to the final executable
