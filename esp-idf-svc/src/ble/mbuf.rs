@@ -7,6 +7,12 @@ use crate::sys::*;
 
 use super::BleError;
 
+// On chips whose BLE controller lives in ROM (`SOC_ESP_NIMBLE_CONTROLLER`), the NimBLE headers
+// alias `os_mbuf_append` to the ROM symbol `r_os_mbuf_append`, so that is the only name bindgen
+// emits there; on the other chips it is an ordinary function pulled in by the glob import above.
+#[cfg(all(esp_idf_soc_esp_nimble_controller, esp_idf_bt_controller_enabled))]
+use crate::sys::r_os_mbuf_append as os_mbuf_append;
+
 /// View of an os_mbuf, the data buffers used by NimBLE
 pub struct Mbuf<'a> {
     om: *mut os_mbuf,
@@ -40,7 +46,7 @@ impl Mbuf<'_> {
     /// Append `buf` to the mbuf.
     pub fn append(&mut self, buf: &[u8]) -> Result<(), BleError> {
         BleError::from_raw(unsafe {
-            r_os_mbuf_append(self.om, buf.as_ptr() as *const c_void, buf.len() as u16)
+            os_mbuf_append(self.om, buf.as_ptr() as *const c_void, buf.len() as u16)
         })
     }
 }

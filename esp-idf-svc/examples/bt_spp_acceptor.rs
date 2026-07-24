@@ -23,17 +23,17 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
-#[cfg(esp32)]
+#[cfg(all(esp32, esp_idf_bt_bluedroid_enabled))]
 fn main() -> anyhow::Result<()> {
     example::main()
 }
 
-#[cfg(not(esp32))]
+#[cfg(not(all(esp32, esp_idf_bt_bluedroid_enabled)))]
 fn main() -> anyhow::Result<()> {
-    panic!("Only ESP32 supports BT Classic");
+    panic!("This example requires a Bluedroid-enabled build (CONFIG_BT_BLUEDROID_ENABLED=y) on an ESP32, the only chip with BT Classic");
 }
 
-#[cfg(esp32)]
+#[cfg(all(esp32, esp_idf_bt_bluedroid_enabled))]
 mod example {
     use std::fmt::Write;
     use std::ptr::slice_from_raw_parts;

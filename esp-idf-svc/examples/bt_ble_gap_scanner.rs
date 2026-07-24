@@ -21,17 +21,17 @@
 #![allow(unknown_lints)]
 #![allow(unexpected_cfgs)]
 
-#[cfg(not(any(esp32s2, esp32p4)))]
+#[cfg(all(not(any(esp32s2, esp32p4)), esp_idf_bt_bluedroid_enabled))]
 fn main() -> anyhow::Result<()> {
     example::main()
 }
 
-#[cfg(any(esp32s2, esp32p4))]
+#[cfg(not(all(not(any(esp32s2, esp32p4)), esp_idf_bt_bluedroid_enabled)))]
 fn main() -> anyhow::Result<()> {
-    panic!("ESP32-S2 and ESP32-P4 do not have a BLE radio");
+    panic!("This example requires a Bluedroid-enabled build (CONFIG_BT_BLUEDROID_ENABLED=y) on a chip with a BLE radio");
 }
 
-#[cfg(not(any(esp32s2, esp32p4)))]
+#[cfg(all(not(any(esp32s2, esp32p4)), esp_idf_bt_bluedroid_enabled))]
 mod example {
     use core::fmt;
     use core::hash::{Hash, Hasher};

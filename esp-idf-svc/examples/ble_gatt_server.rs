@@ -132,13 +132,11 @@ mod example {
                     attr_handle,
                     cur_indicate,
                     ..
-                } => {
-                    if attr_handle == IND_VAL_HANDLE.load(Ordering::Relaxed) {
-                        let mut subs = SUBSCRIBERS.lock().unwrap();
-                        subs.retain(|&c| c != conn_handle);
-                        if cur_indicate {
-                            let _ = subs.push(conn_handle);
-                        }
+                } if attr_handle == IND_VAL_HANDLE.load(Ordering::Relaxed) => {
+                    let mut subs = SUBSCRIBERS.lock().unwrap();
+                    subs.retain(|&c| c != conn_handle);
+                    if cur_indicate {
+                        subs.push(conn_handle);
                     }
                 }
                 _ => {}

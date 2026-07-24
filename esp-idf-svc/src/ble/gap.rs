@@ -50,7 +50,7 @@ impl From<&BleAdvParams> for ble_gap_adv_params {
         raw.itvl_max = params.itvl_max;
         raw.channel_map = params.channel_map;
         raw.filter_policy = params.filter_policy;
-        raw.high_duty_cycle = params.high_duty_cycle as _;
+        raw.set_high_duty_cycle(params.high_duty_cycle as _);
 
         raw
     }
@@ -261,6 +261,10 @@ pub fn adv_set_fields(fields: &BleAdvFields) -> Result<(), BleError> {
 #[cfg(not(esp_idf_bt_nimble_ext_adv))]
 pub fn adv_start(own_addr_type: u8, params: &BleAdvParams) -> Result<(), BleError> {
     let raw: ble_gap_adv_params = params.into();
+
+    // bindgen does not emit `BLE_HS_FOREVER`, as its C macro expands to `INT32_MAX` rather than to
+    // an integer literal. Advertise with no timeout.
+    const BLE_HS_FOREVER: c_int = i32::MAX;
 
     let rc = unsafe {
         ble_gap_adv_start(

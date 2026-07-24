@@ -143,3 +143,86 @@ jobs:
           GATEWAY_IP: "192.168.1.1"
           GATEWAY_NETMASK: "24"
         run: cargo build --examples --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+  # The `compile` job above builds with Bluedroid. The `ble` module and the `ble_*` examples are
+  # NimBLE-only (gated behind `esp_idf_bt_nimble_enabled`), so that job never compiles them - the
+  # two hosts are a mutually-exclusive Kconfig `choice` and cannot coexist in one build. This job
+  # builds the same crate and examples against `sdkconfig.defaults.nimble` to compile-check the
+  # NimBLE paths too. Both riscv targets are intentional: riscv32imc (esp32c3) exposes the plain
+  # `os_mbuf_append`, while riscv32imac (esp32c6/h2) keeps the BLE controller in ROM and exposes
+  # `r_os_mbuf_append` - so both mbuf bindings get exercised.
+  compile-nimble:
+    name: "NimBLE / ${{ matrix.target }} / ${{ matrix.idf-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - riscv32imc-esp-espidf
+          - riscv32imac-esp-espidf
+        idf-version:
+          - v5.3.4
+          - v5.4.3
+          - v5.5.3
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup | Rust
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.rust_toolchain }}
+          components: rustfmt, clippy, rust-src
+
+      - name: Install Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
+        uses: esp-rs/xtensa-toolchain@v1.6
+        with:
+          default: true
+          ldproxy: true
+
+      - name: Setup | ldproxy
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        run: |
+          curl -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
+          chmod a+x $HOME/.cargo/bin/ldproxy
+
+      - name: Build | Clippy
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          RUSTFLAGS: "--cfg espidf_time64"
+        run: cargo clippy --features nightly,experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
+
+      - name: Build | Compile
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          RUSTFLAGS: "--cfg espidf_time64"
+        run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      - name: Clippy | Examples
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          RUSTFLAGS: "--cfg espidf_time64"
+          WIFI_SSID: "ssid"
+          WIFI_PASS: "pass"
+          ESP_DEVICE_IP: "192.168.1.250"
+          GATEWAY_IP: "192.168.1.1"
+          GATEWAY_NETMASK: "24"
+        run: cargo clippy --examples --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
+
+      - name: Build | Examples
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          RUSTFLAGS: "--cfg espidf_time64"
+          WIFI_SSID: "ssid"
+          WIFI_PASS: "pass"
+          ESP_DEVICE_IP: "192.168.1.250"
+          GATEWAY_IP: "192.168.1.1"
+          GATEWAY_NETMASK: "24"
+        run: cargo build --examples --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
