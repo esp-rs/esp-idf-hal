@@ -55,10 +55,15 @@ fn main() -> anyhow::Result<()> {
     // because otherwise we would be hitting rustc command line restrictions on Windows
     //
     // For now, we take all tristate parameters which are set to true, as well as a few
-    // selected string ones, as per below
+    // selected string / numeric ones, as per below
+    //
+    // Numeric kconfig values (e.g. `BT_NIMBLE_L2CAP_COC_MAX_NUM`) are emitted as value cfgs
+    // (`esp_idf_bt_nimble_l2cap_coc_max_num="<n>"`), so downstream can match on them with e.g.
+    // `#[cfg(not(esp_idf_bt_nimble_l2cap_coc_max_num = "0"))]` (the same technique used for the
+    // ESP-IDF version cfgs, since `cfg` only supports `=` equality).
     //
     // This might change in future
-    let kconfig_str_allow = regex::Regex::new(r"IDF_TARGET")?;
+    let kconfig_str_allow = regex::Regex::new(r"IDF_TARGET|BT_NIMBLE_L2CAP_COC_MAX_NUM")?;
 
     let cfg_args = build::CfgArgs {
         args: build_output
