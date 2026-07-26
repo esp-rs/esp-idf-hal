@@ -30,6 +30,8 @@
 #include "freertos/task_snapshot.h"
 #include "freertos/timers.h"
 
+#include "esp_heap_task_info.h"
+
 #if CONFIG_IDF_TARGET_ESP32
 #if ESP_IDF_VERSION_MAJOR == 4
 #include "esp32/himem.h"
