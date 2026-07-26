@@ -71,7 +71,7 @@ embassy-sync = "0.7"
 embedded-graphics-core = { version = "0.4", optional = true }
 
 [build-dependencies]
-embuild = "0.33"
+embuild = "0.33.3"
 
 [dev-dependencies]
 anyhow = "1"
@@ -83,4 +83,3 @@ embedded-graphics = "0.7.1"
 # TODO: Remove this before next release, needed for IDF 6.0+ support
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", branch = "master" }
-embuild = { git = "https://github.com/esp-rs/embuild", branch = "master" } # IDF >6.0.0 strictly
