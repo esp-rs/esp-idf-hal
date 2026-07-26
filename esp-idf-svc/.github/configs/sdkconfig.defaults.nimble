@@ -29,6 +29,10 @@ CONFIG_ETH_SPI_ETHERNET_KSZ8851SNL=y
 CONFIG_BT_ENABLED=y
 CONFIG_BT_NIMBLE_ENABLED=y
 
+# Enable L2CAP connection-oriented channels (CoC), so the `esp_idf_svc::ble` L2CAP code paths get
+# compile-checked in CI.
+CONFIG_BT_NIMBLE_L2CAP_COC_MAX_NUM=3
+
 # Support for TLS with a pre-shared key.
 #CONFIG_ESP_TLS_PSK_VERIFICATION=y
 

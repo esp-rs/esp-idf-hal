@@ -5,7 +5,7 @@
 //!
 //! Note that ESP-IDF partitions are not created or dropped by this API - they always pre-existing and the API provides access to them.
 //! To define your partitions, you need to use the ESP-IDF partition table CSV file, as described here:
-//! https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/partition-tables.html
+//! <https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-guides/partition-tables.html>
 
 use core::{borrow::BorrowMut, ffi::CStr};
 

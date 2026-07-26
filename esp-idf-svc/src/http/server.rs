@@ -359,7 +359,7 @@ impl<'a> EspHttpServer<'a> {
     /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
     /// as that would immediately lead to an UB (crash).
     /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    /// when circular references are introduced: <https://github.com/rust-lang/rust/issues/24456>
     ///
     /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
     /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
@@ -504,7 +504,7 @@ impl<'a> EspHttpServer<'a> {
     /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
     /// as that would immediately lead to an UB (crash).
     /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    /// when circular references are introduced: <https://github.com/rust-lang/rust/issues/24456>
     ///
     /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
     /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
@@ -551,7 +551,7 @@ impl<'a> EspHttpServer<'a> {
     /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
     /// as that would immediately lead to an UB (crash).
     /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    /// when circular references are introduced: <https://github.com/rust-lang/rust/issues/24456>
     ///
     /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
     /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
@@ -631,7 +631,7 @@ impl<'a> EspHttpServer<'a> {
     /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
     /// as that would immediately lead to an UB (crash).
     /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    /// when circular references are introduced: <https://github.com/rust-lang/rust/issues/24456>
     ///
     /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
     /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack
@@ -1091,7 +1091,7 @@ impl<'a> EspHttpConnection<'a> {
     /// This is typically used whenever the HTTP server has to parse the body
     /// of an HTTP POST request.
     ///
-    /// ```
+    /// ```ignore
     /// server.fn_handler("/foo", Method::Post, move |mut request| {
     ///     let (_headers, connection) = request.split();
     ///     let mut buffer: [u8; 1024] = [0; 1024];
@@ -1099,6 +1099,9 @@ impl<'a> EspHttpConnection<'a> {
     ///
     ///     let my_data = MyDataStruct::from_bytes(&buffer[0..bytes_read]);
     ///     // etc
+    ///
+    ///     Ok(())
+    /// })?;
     /// ```
     pub fn read(&mut self, buf: &mut [u8]) -> Result<usize, EspError> {
         self.assert_request();

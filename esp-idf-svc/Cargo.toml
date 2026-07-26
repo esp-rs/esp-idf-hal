@@ -59,7 +59,7 @@ embedded-storage = { version = "0.3", optional = true }
 futures-io = { version = "0.3", optional = true }
 
 [build-dependencies]
-embuild = "0.33"
+embuild = "0.33.3"
 
 [dev-dependencies]
 anyhow = "1"
@@ -76,4 +76,3 @@ async-io = { version = "0.4", package = "async-io-mini", default-features = fals
 [patch.crates-io]
 esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", branch = "master" }
 esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal", branch = "master" }
-embuild = { git = "https://github.com/esp-rs/embuild", branch = "master" } # IDF >6.0.0 strictly

@@ -1,13 +1,15 @@
 [build]
 target = "riscv32imc-esp-espidf"
+#target = "riscv32imac-esp-espidf"
 
 [target.'cfg(target_os = "espidf")']
 linker = "ldproxy"
 rustflags = [ "--cfg",  "espidf_time64"]
 
-[env]
-ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults"
-ESP_IDF_VERSION = "v5.5.3"
-
 [unstable]
 build-std = ["std", "panic_abort"]
+
+[env]
+ESP_IDF_SDKCONFIG_DEFAULTS = ".github/configs/sdkconfig.defaults.nimble"
+ESP_IDF_VERSION = "v5.5.3"
+#MCU = "esp32h2"

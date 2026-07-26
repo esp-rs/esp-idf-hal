@@ -652,7 +652,7 @@ where
     /// HOWEVER: care should be taken NOT to call `core::mem::forget()` on the service,
     /// as that would immediately lead to an UB (crash).
     /// Also note that forgetting the service might happen with `Rc` and `Arc`
-    /// when circular references are introduced: https://github.com/rust-lang/rust/issues/24456
+    /// when circular references are introduced: <https://github.com/rust-lang/rust/issues/24456>
     ///
     /// The reason is that the closure is actually sent to a hidden ESP IDF thread.
     /// This means that if the service is forgotten, Rust is free to e.g. unwind the stack

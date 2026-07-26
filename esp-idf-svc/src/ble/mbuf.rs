@@ -1,6 +1,8 @@
 //! Safe interaction with the NimBLE os_mbuf buffer system
 
-use core::ffi::{c_int, c_void};
+#[cfg(esp_idf_bt_nimble_gatt_server)]
+use core::ffi::c_int;
+use core::ffi::c_void;
 use core::marker::PhantomData;
 
 use crate::sys::*;
@@ -29,6 +31,11 @@ impl Mbuf<'_> {
 
     /// Copy this Mbuf into `buf`, returning the number of bytes copied or error if buf is too small
     pub fn read(&self, buf: &mut [u8]) -> Result<usize, BleError> {
+        // A completion callback delivered with an error status may carry a null mbuf.
+        if self.om.is_null() {
+            return Ok(0);
+        }
+
         let mut copied: u16 = 0;
 
         BleError::from_raw(unsafe {
@@ -53,6 +60,7 @@ impl Mbuf<'_> {
 
 /// Allocate an `os_mbuf` and copy `buf` into it. Errors with `BLE_HS_ENOMEM` if
 /// allocation fails.
+#[cfg(esp_idf_bt_nimble_gatt_server)]
 pub(crate) fn mbuf_from_slice(buf: &[u8]) -> Result<*mut os_mbuf, BleError> {
     let om = unsafe { ble_hs_mbuf_from_flat(buf.as_ptr() as *const c_void, buf.len() as u16) };
 

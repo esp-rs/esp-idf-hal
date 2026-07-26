@@ -1,7 +1,6 @@
 //! Example of a BLE GATT server using the ESP IDF NimBLE bindings, with the service table built
-//! **statically** at compile time (no heap) via the [`gatt_services!`] macro. It lands in flash and
-//! is passed to the driver by reference. For the same server with the table built at runtime
-//! (`BleGattServices`, heap-allocated), see `ble_gatt_server_dynamic.rs`.
+//! **at runtime** (`BleGattServices`, heap-allocated). For the same server built **statically** at
+//! compile time (no heap) with the `gatt_services!` macro, see `ble_gatt_server.rs`.
 //!
 //! Requires a NimBLE-enabled build with the GATT server (`CONFIG_BT_NIMBLE_GATT_SERVER=y`).
 
@@ -24,39 +23,27 @@ mod example {
     use std::sync::Mutex;
 
     use esp_idf_svc::ble::gap::{BleAdvFields, BleAdvParams, GapEvent};
-    use esp_idf_svc::ble::gatt::server::{BleGattRegister, GattsEvent};
+    use esp_idf_svc::ble::gatt::server::{
+        BleGattCharacteristic, BleGattRegister, BleGattService, BleGattServices, GattsEvent,
+    };
+    use esp_idf_svc::ble::gatt::BleGattCharFlag;
     use esp_idf_svc::ble::{ensure_addr, BleDriver, BleError, BleUuid, ConnHandle, HostEvent};
-    use esp_idf_svc::gatt_services;
     use esp_idf_svc::hal::delay::FreeRtos;
     use esp_idf_svc::hal::peripherals::Peripherals;
     use esp_idf_svc::log::EspLogger;
 
+    use enumset::enum_set;
     use log::{info, warn};
 
     const DEVICE_NAME: &str = "esp-nimble";
 
     // Our service UUID
-    pub const SERVICE_UUID: BleUuid = BleUuid::uuid128(0xad91b201734740479e173bed82d75f9d);
-    /// Our "recv" characteristic - i.e. where clients can send data.
-    pub const RECV_CHARACTERISTIC_UUID: BleUuid =
-        BleUuid::uuid128(0xb6fccb5087be44f3ae22f85485ea42c4);
-    /// Our "indicate" characteristic - i.e. where clients can receive data if they subscribe to it
-    pub const IND_CHARACTERISTIC_UUID: BleUuid =
-        BleUuid::uuid128(0x503de214868246c4828fd59144da41be);
+    pub const SERVICE_UUID: u128 = 0xad91b201734740479e173bed82d75f9d;
 
-    // The whole GATT service table, built at compile time and living in flash (no heap, no runtime
-    // construction). Reads / writes / subscribes still arrive on the single `gatts_subscribe` hook,
-    // keyed by the value handles learned from the `Register` events below — exactly as in the
-    // runtime example.
-    gatt_services!(SERVICES {
-        primary(SERVICE_UUID) {
-            // "recv": clients write here; the single `gatts_subscribe` hook logs it.
-            chr(RECV_CHARACTERISTIC_UUID, Write);
-            // "indicate": clients subscribe and get the counter pushed from the loop below.
-            // NimBLE adds the CCCD (0x2902) automatically for this flag.
-            chr(IND_CHARACTERISTIC_UUID, Indicate);
-        }
-    });
+    /// Our "recv" characteristic - i.e. where clients can send data.
+    pub const RECV_CHARACTERISTIC_UUID: u128 = 0xb6fccb5087be44f3ae22f85485ea42c4;
+    /// Our "indicate" characteristic - i.e. where clients can receive data if they subscribe to it
+    pub const IND_CHARACTERISTIC_UUID: u128 = 0x503de214868246c4828fd59144da41be;
 
     // Server state. We capture each characteristic's value handle from the `Register` events (see
     // `gatts_subscribe` below); a real server tracking many handles would keep a uuid -> handle map.
@@ -74,9 +61,27 @@ mod example {
 
         let peripherals = Peripherals::take()?;
 
-        // The service table is `'static` (flash), so we just hand the driver a reference — no heap
-        // and no pointer-graph keep-alive dance.
-        let driver = BleDriver::new_with_services(peripherals.modem, &SERVICES)?;
+        let services = BleGattServices::new(vec![BleGattService::new(
+            true,
+            BleUuid::uuid128(SERVICE_UUID),
+            vec![
+                // "recv": clients write here; the single `gatts_subscribe` hook logs it.
+                BleGattCharacteristic::new(
+                    BleUuid::uuid128(RECV_CHARACTERISTIC_UUID),
+                    enum_set!(BleGattCharFlag::Write),
+                ),
+                // "indicate": clients subscribe and get the counter pushed from the loop below.
+                // NimBLE adds the CCCD (0x2902) automatically for this flag.
+                BleGattCharacteristic::new(
+                    BleUuid::uuid128(IND_CHARACTERISTIC_UUID),
+                    enum_set!(BleGattCharFlag::Indicate),
+                ),
+            ],
+        )]);
+
+        // Initialize the host as a GATT server: the service table is registered now (its pointer
+        // graph is owned by the driver), the host task starts at `start()`.
+        let driver = BleDriver::new_with_services(peripherals.modem, services)?;
 
         // One hook for the whole GATT server: registration (to learn handles) plus every read and
         // write, dispatched by `attr_handle`. Must be set before `start()`.
@@ -85,9 +90,9 @@ mod example {
                 GattsEvent::Register(BleGattRegister::Characteristic {
                     uuid, val_handle, ..
                 }) => {
-                    if uuid == IND_CHARACTERISTIC_UUID {
+                    if uuid == BleUuid::uuid128(IND_CHARACTERISTIC_UUID) {
                         IND_VAL_HANDLE.store(val_handle, Ordering::Relaxed);
-                    } else if uuid == RECV_CHARACTERISTIC_UUID {
+                    } else if uuid == BleUuid::uuid128(RECV_CHARACTERISTIC_UUID) {
                         RECV_VAL_HANDLE.store(val_handle, Ordering::Relaxed);
                     }
                 }

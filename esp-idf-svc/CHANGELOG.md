@@ -49,7 +49,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 ### Added
 - Compatibility with ESP-IDF V6.0, and some pre-release 6.0.x.
 - Added support for the Generic Ethernet PHY driver: particularly useful on ESP-IDF 6.0+ as it is built-in.
-- Added early support for the NimBLE low-resource-use BLE stack, currently only GAP and GATT Server support. See examples/ble_gatt_server.rs
+- Added type-safe wrappers for the NimBLE low-resource-use BLE stack: GAP, GATT Server, GATT Client, L2CAP. See `examples/ble_*.rs`
 - TLS: Async server handshake (requires ESP-IDF 5.5.0): `EspAsyncTls::negotiate_server`. Also check the new `tls_server_async` example.
 
 ## [0.52.1] - 2026-03-10

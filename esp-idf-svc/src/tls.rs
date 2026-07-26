@@ -159,7 +159,7 @@ mod esptls {
         pub skip_common_name: bool,
         pub keep_alive_cfg: Option<KeepAliveConfig>,
         pub psk_hint_key: Option<PskHintKey<'a>>,
-        /// whether to use esp_crt_bundle_attach, see https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/protocols/esp_crt_bundle.html
+        /// whether to use esp_crt_bundle_attach, see <https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/protocols/esp_crt_bundle.html>
         #[cfg(esp_idf_mbedtls_certificate_bundle)]
         pub use_crt_bundle_attach: bool,
         // TODO ds_data not implemented
