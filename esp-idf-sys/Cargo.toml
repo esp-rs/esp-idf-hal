@@ -36,7 +36,7 @@ build-time = "0.1"   # For esp_app_desc!()
 const_format = "0.2" # For esp_app_desc!()
 
 [build-dependencies]
-embuild = { version = "0.33", features = ["glob", "kconfig", "cmake", "espidf"] }
+embuild = { version = "0.33.3", features = ["glob", "kconfig", "cmake", "espidf"] }
 anyhow = "1"
 regex = "1.5"
 cmake = "0.1.52"
@@ -46,7 +46,3 @@ strum = { version = "0.24", features = ["derive"] }
 envy = "0.4.2"
 toml = "0.8"
 which = "4.4"
-
-# TODO: Remove this before next release, needed for IDF >6.0.0 support
-[patch.crates-io]
-embuild = { git = "https://github.com/esp-rs/embuild", branch = "master" }
