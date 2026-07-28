@@ -36,6 +36,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 ```
 
 ### Fixed
+- OpenThread: SRP slots increased from 3 to 6; extra logging when SRP registration fails
 - BT/BLE: Advertising was not working with ESP-IDF 5.5+ and esp32, esp32c3 and esp32s3
 - BT/BLE: Extended advertising exvets were mis-mapped as `BleGapEvent::Other`
 - WiFi: receiving any of the six new events listed above on ESP-IDF v5.3+ / v5.5+ no longer causes a panic (fixes #618)

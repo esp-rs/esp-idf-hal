@@ -4,15 +4,16 @@ use core::marker::PhantomData;
 use core::net::{Ipv6Addr, SocketAddrV6};
 use core::ptr::addr_of_mut;
 
-use ::log::{debug, info, trace};
+use ::log::{debug, info, trace, warn};
 
 use crate::sys::{
-    esp, esp_openthread_get_instance, otDnsTxtEntry, otError, otError_OT_ERROR_INVALID_ARGS,
-    otError_OT_ERROR_NO_BUFS, otIp6Address, otIp6Address__bindgen_ty_1, otSrpClientAddService,
-    otSrpClientClearHostAndServices, otSrpClientClearService, otSrpClientEnableAutoStartMode,
-    otSrpClientGetHostInfo, otSrpClientGetServerAddress, otSrpClientGetServices,
-    otSrpClientHostInfo, otSrpClientIsAutoStartModeEnabled, otSrpClientIsRunning,
-    otSrpClientItemState, otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_ADDING,
+    esp, esp_openthread_get_instance, otDnsTxtEntry, otError, otError_OT_ERROR_DUPLICATED,
+    otError_OT_ERROR_INVALID_ARGS, otError_OT_ERROR_NONE, otError_OT_ERROR_NO_BUFS, otIp6Address,
+    otIp6Address__bindgen_ty_1, otSrpClientAddService, otSrpClientClearHostAndServices,
+    otSrpClientClearService, otSrpClientEnableAutoStartMode, otSrpClientGetHostInfo,
+    otSrpClientGetServerAddress, otSrpClientGetServices, otSrpClientHostInfo,
+    otSrpClientIsAutoStartModeEnabled, otSrpClientIsRunning, otSrpClientItemState,
+    otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_ADDING,
     otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_REFRESHING,
     otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_REGISTERED,
     otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_REMOVED,
@@ -21,7 +22,8 @@ use crate::sys::{
     otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_TO_REFRESH,
     otSrpClientItemState_OT_SRP_CLIENT_ITEM_STATE_TO_REMOVE, otSrpClientRemoveHostAndServices,
     otSrpClientRemoveService, otSrpClientService, otSrpClientSetHostAddresses,
-    otSrpClientSetHostName, otSrpClientStart, otSrpClientStop, EspError, ESP_ERR_INVALID_STATE,
+    otSrpClientSetHostName, otSrpClientStart, otSrpClientStop, otThreadErrorToString, EspError,
+    ESP_ERR_INVALID_STATE,
 };
 
 #[cfg(not(esp_idf_version_major = "4"))]
@@ -31,7 +33,7 @@ use crate::sys::{
     otSrpClientSetTtl,
 };
 
-use crate::thread::{ot_esp, EspThread, Mode, NetifMode, ThreadDriver};
+use crate::thread::{ot_esp, ot_esp_err, EspThread, Mode, NetifMode, ThreadDriver};
 
 /// The unique ID of a registered SRP service
 pub type SrpServiceSlot = usize;
@@ -634,9 +636,7 @@ where
         let slot = inner.srp.services.iter().position(|service| !service.taken);
 
         let Some(slot) = slot else {
-            //return ot_esp!(otError_OT_ERROR_NO_BUFS);
-            ot_esp!(otError_OT_ERROR_NO_BUFS).unwrap(); // TODO
-            panic!();
+            return Err(ot_esp_err(otError_OT_ERROR_NO_BUFS));
         };
 
         let our_service = &mut inner.srp.services[slot];
@@ -667,7 +667,7 @@ where
     ) -> Result<(), EspError> {
         let mut inner = self.inner();
 
-        if slot > inner.srp.services.len() || !inner.srp.services[slot].taken {
+        if slot >= inner.srp.services.len() || !inner.srp.services[slot].taken {
             ot_esp!(otError_OT_ERROR_INVALID_ARGS)?;
         }
 
@@ -879,7 +879,12 @@ where
 }
 
 // TODO: Make these configurable with a feature
-const SRP_SVCS: usize = 3;
+//
+// NOTE: A slot stays taken until the SRP client has propagated the service removal to
+// the SRP server, so the pool needs headroom over the number of services concurrently
+// published (a Matter node publishes one operational record per commissioned fabric,
+// plus a commissionable one while its commissioning window is open).
+const SRP_SVCS: usize = 6;
 const SRP_SVC_BUF_SIZE: usize = 300;
 const SRP_HOST_BUF_SIZE: usize = 300;
 
@@ -930,11 +935,38 @@ impl OtSrp {
 
     fn plat_srp_changed(
         &mut self,
+        error: otError,
         host_info: &otSrpClientHostInfo,
         _services: Option<&otSrpClientService>,
         removed_services: Option<&otSrpClientService>,
     ) {
         trace!("Plat SRP changed callback");
+
+        if error != otError_OT_ERROR_NONE {
+            // The SRP client keeps retrying on its own, but without this the failure
+            // is completely invisible (i.e. services silently never get published)
+            let reason = unsafe { CStr::from_ptr(otThreadErrorToString(error)) }
+                .to_str()
+                .unwrap_or("Unknown");
+
+            warn!(
+                "SRP update failed: {reason} ({error}); host is {}",
+                SrpState::from(host_info.mState)
+            );
+
+            if error == otError_OT_ERROR_DUPLICATED {
+                // The SRP server maps this from a `YXDOMAIN` response, which it returns
+                // when the host name - or one of the service instance names - is already
+                // registered there under a *different* ECDSA key. The client cannot
+                // recover on its own: it will keep retrying until the stale registration
+                // reaches the end of its key lease (14 days by default) or the server is
+                // told to drop it.
+                warn!(
+                    "SRP name is registered on the server under a different key; \
+                     the SRP key of this device changed, or another device claimed the name"
+                );
+            }
+        }
 
         self.cleanup(host_info, removed_services);
     }
@@ -944,7 +976,7 @@ impl OtSrp {
     }
 
     pub(crate) unsafe extern "C" fn plat_c_srp_state_change_callback(
-        _error: otError,
+        error: otError,
         host_info: *const crate::sys::otSrpClientHostInfo,
         services: *const crate::sys::otSrpClientService,
         removed_services: *const crate::sys::otSrpClientService,
@@ -954,6 +986,7 @@ impl OtSrp {
         let srp = unsafe { srp.as_mut() }.unwrap();
 
         srp.plat_srp_changed(
+            error,
             unsafe { &*host_info },
             unsafe { services.as_ref() },
             unsafe { removed_services.as_ref() },
