@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `WifiEvent::DppUriReady` / `DppUriReadyRef` (v5.5.0+)
   - `WifiEvent::DppCfgRecvd` / `DppCfgRecvdRef` (v5.5.0+)
   - `WifiEvent::DppFailed` / `DppFailedRef` (v5.5.0+)
+- WiFi: `DppCfgRecvdRef` (v5.5.0+) no longer implements `Copy`/`Clone`. Recent ESP-IDF added a flexible-array-member field (`configs[]`) to `wifi_event_dpp_config_received_t`, which bindgen surfaces as `__IncompleteArrayField` and which cannot be copied by value. The payload is only ever observed as `&DppCfgRecvdRef` inside the `WifiEvent::DppCfgRecvd` callback, so borrowing it is unaffected; only code that copied or cloned it out of the callback needs to change.
 - Unknown event IDs on the ESP-IDF event bus now produce an `Other(i32)` variant and a `log::warn!` instead of panicking, for `WifiEvent`, `IpEvent`, `EthEvent`, `PppEvent`, and `ThreadEvent`, improving forward compatibility with future ESP-IDF releases
 - Note that in ESP-IDF V6.0, some drivers have been moved to external components (`mqtt`, ethernet PHY/SPI drivers). If the code fails to build, you may need to enable extra components in your `Cargo.toml`, e.g.:
 ```toml
@@ -52,6 +53,7 @@ remote_component = { name = "espressif/lan87xx", version = "1.*" }
 - Added support for the Generic Ethernet PHY driver: particularly useful on ESP-IDF 6.0+ as it is built-in.
 - Added type-safe wrappers for the NimBLE low-resource-use BLE stack: GAP, GATT Server, GATT Client, L2CAP. See `examples/ble_*.rs`
 - TLS: Async server handshake (requires ESP-IDF 5.5.0): `EspAsyncTls::negotiate_server`. Also check the new `tls_server_async` example.
+- Added support for Bluetooth A2DP External Codec API in esp-idf v6.1 (w/ AAC codec negotiation)
 
 ## [0.52.1] - 2026-03-10
 

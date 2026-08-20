@@ -2350,8 +2350,13 @@ impl fmt::Debug for DppUriReadyRef {
 }
 
 /// Payload reference for [`WifiEvent::DppCfgRecvd`].
+///
+/// Not `Copy`/`Clone`: recent ESP-IDF added a flexible-array-member
+/// field (`configs[]`) to `wifi_event_dpp_config_received_t`, which
+/// bindgen surfaces as `__IncompleteArrayField` (intentionally not
+/// `Clone`). The newtype is always borrowed via `&'a DppCfgRecvdRef`
+/// inside event callbacks, so the derive was never load-bearing.
 #[cfg(esp_idf_version_at_least_5_5_0)]
-#[derive(Copy, Clone)]
 #[repr(transparent)]
 pub struct DppCfgRecvdRef(wifi_event_dpp_config_received_t);
 
@@ -2669,7 +2674,14 @@ impl EspEventDeserializer for WifiEvent<'_> {
             }
             #[cfg(esp_idf_version_at_least_5_5_0)]
             wifi_event_t_WIFI_EVENT_DPP_CFG_RECVD => {
-                WifiEvent::DppCfgRecvd(unsafe { data.as_payload() })
+                // `wifi_event_dpp_config_received_t` contains
+                // `__IncompleteArrayField` which prevents deriving `Copy`,
+                // so we cannot use `as_payload()`.
+                WifiEvent::DppCfgRecvd(unsafe {
+                    (data.payload.unwrap() as *const _ as *const DppCfgRecvdRef)
+                        .as_ref()
+                        .unwrap()
+                })
             }
             #[cfg(esp_idf_version_at_least_5_5_0)]
             wifi_event_t_WIFI_EVENT_DPP_FAILED => {
