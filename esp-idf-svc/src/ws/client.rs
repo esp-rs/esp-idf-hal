@@ -522,24 +522,49 @@ impl<'a> EspWebSocketClient<'a> {
             return Err(EspError::from_infallible::<ESP_FAIL>().into());
         }
 
-        let client = Self {
+        // From here on, `handle` owns C-side resources which are released with
+        // `esp_websocket_client_destroy` - the counterpart of `esp_websocket_client_init`.
+        //
+        // `Self` is deliberately not constructed yet: its `Drop` impl operates on a *started*
+        // client, so letting `?` drop a half-built one would call `esp_websocket_client_close`
+        // on a client that never ran. Release the raw handle by hand instead, so that a
+        // partially initialized client never comes into existence.
+        if let Err(err) = Self::start_raw(handle, unsafe_callback.as_ptr()) {
+            // Tears down the event loop and stops the client task, hence no callback can be
+            // invoked anymore once this returns - which is what makes dropping
+            // `boxed_raw_callback` below safe.
+            unsafe { esp_websocket_client_destroy(handle) };
+
+            return Err(err.into());
+        }
+
+        Ok(Self {
             handle,
             timeout: t.0,
             _callback: boxed_raw_callback,
-        };
+        })
+    }
 
+    /// Register the event callback and start the client.
+    ///
+    /// Split out of `new_raw` so that every fallible C-side initialization step shares a
+    /// single error path, on which the raw handle is destroyed.
+    fn start_raw(
+        handle: esp_websocket_client_handle_t,
+        callback: *mut ffi::c_void,
+    ) -> Result<(), EspError> {
         esp!(unsafe {
             esp_websocket_register_events(
-                client.handle,
+                handle,
                 esp_websocket_event_id_t_WEBSOCKET_EVENT_ANY,
                 Some(Self::handle),
-                unsafe_callback.as_ptr(),
+                callback,
             )
         })?;
 
         esp!(unsafe { esp_websocket_client_start(handle) })?;
 
-        Ok(client)
+        Ok(())
     }
 
     pub fn send(&mut self, frame_type: FrameType, frame_data: &[u8]) -> Result<(), EspError> {
@@ -620,11 +645,18 @@ impl<'a> EspWebSocketClient<'a> {
 
 impl Drop for EspWebSocketClient<'_> {
     fn drop(&mut self) {
+        // A `Drop` impl must not panic - ESP-IDF targets build with `panic = "abort"`, so a
+        // panic here takes down the whole application rather than just failing the cleanup.
+        //
+        // `esp_websocket_client_close` legitimately reports `ESP_FAIL` for a client which is
+        // no longer running, which happens whenever the peer tore the connection down first.
         if let Err(e) = esp!(unsafe { esp_websocket_client_close(self.handle, self.timeout) }) {
             log::warn!("WebSocket close failed during drop: {e:?}");
         }
 
-        esp!(unsafe { esp_websocket_client_destroy(self.handle) }).unwrap();
+        if let Err(e) = esp!(unsafe { esp_websocket_client_destroy(self.handle) }) {
+            log::warn!("WebSocket destroy failed during drop: {e:?}");
+        }
 
         // timeout and callback dropped automatically
     }
