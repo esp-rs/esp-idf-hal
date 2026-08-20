@@ -75,6 +75,12 @@ use heapless::Vec;
 
 use esp_idf_sys::*;
 
+// The anonymous `flags` struct of `pcnt_chan_config_t` was given a name in ESP-IDF 6.1,
+// which changes how `bindgen` names the type it generates for it.
+#[cfg(esp_idf_version_at_least_6_1_0)]
+#[allow(non_camel_case_types)]
+type pcnt_chan_config_t__bindgen_ty_1 = pcnt_chan_config_t_extra_pcnt_chan_flags;
+
 // SOC_PCNT_CHANNELS_PER_UNIT was removed in IDF 6.0; the value is 2 for all supported chips,
 // and we support more channels in the alloc case.
 #[cfg(esp_idf_version_at_least_6_0_0)]
@@ -117,6 +123,12 @@ pub mod config {
     use core::time::Duration;
 
     use esp_idf_sys::*;
+
+    // The anonymous `flags` struct of `pcnt_unit_config_t` was given a name in ESP-IDF 6.1,
+    // which changes how `bindgen` names the type it generates for it.
+    #[cfg(esp_idf_version_at_least_6_1_0)]
+    #[allow(non_camel_case_types)]
+    type pcnt_unit_config_t__bindgen_ty_1 = pcnt_unit_config_t_extra_pcnt_unit_flags;
 
     /// Configuration for a PCNT unit.
     #[derive(Debug, Clone)]
@@ -181,6 +193,9 @@ pub mod config {
     impl From<&UnitConfig> for pcnt_unit_config_t {
         fn from(value: &UnitConfig) -> Self {
             pcnt_unit_config_t {
+                // All chips supported so far have a single PCNT peripheral instance
+                #[cfg(esp_idf_version_at_least_6_1_0)]
+                group_id: 0,
                 // TODO: Do we want to make this configurable?
                 // Most chips have only 1 option (APB==DEFAULT), but
                 // esp32h4 supports XTAL(==DEFAULT) or RC_FAST.

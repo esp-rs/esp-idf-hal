@@ -327,9 +327,10 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
                 )))] // For ESP-IDF v5.4 and later
                 is_slot_set_to_uhs1: None,
+                // Added in ESP-IDF 6.0.1 and backported to ESP-IDF 5.5.5
                 #[cfg(any(
                     esp_idf_version_at_least_6_0_1,
-                    esp_idf_version_patch_at_least_5_5_5,
+                    esp_idf_version_patch_at_least_5_5_5
                 ))]
                 unaligned_multi_block_rw_max_chunk_size: 0,
             };
@@ -436,9 +437,10 @@ mod sdcard {
                     all(esp_idf_version_major = "5", esp_idf_version_minor = "3"),
                 )))] // For ESP-IDF v5.4 and later
                 is_slot_set_to_uhs1: None,
+                // Added in ESP-IDF 6.0.1 and backported to ESP-IDF 5.5.5
                 #[cfg(any(
                     esp_idf_version_at_least_6_0_1,
-                    esp_idf_version_patch_at_least_5_5_5,
+                    esp_idf_version_patch_at_least_5_5_5
                 ))]
                 unaligned_multi_block_rw_max_chunk_size: 0,
             };
