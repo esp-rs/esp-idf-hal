@@ -678,7 +678,21 @@ where
         let mut handle: spi_device_handle_t = ptr::null_mut();
         esp!(unsafe { spi_bus_add_device(driver.borrow().host(), &conf, &mut handle as *mut _) })?;
 
-        let lock = BusLock::new(handle)?;
+        // From here on the device is registered on the bus, while `Self` - whose `Drop` is what
+        // would remove it again - does not exist yet. Acquiring the bus lock below can fail, so
+        // the registration has to be undone by hand: leaving the device attached would leak it
+        // and, worse, make the eventual `spi_bus_free` of the owning `SpiDriver` fail with
+        // `ESP_ERR_INVALID_STATE` ("not all CSses freed") long after the fact.
+        let lock = match BusLock::new(handle) {
+            Ok(lock) => lock,
+            Err(err) => {
+                // Infallible in practice: `handle` was just handed out by `spi_bus_add_device`
+                // and cannot have transactions in flight yet, so a failure here is a bug.
+                esp!(unsafe { spi_bus_remove_device(handle) }).unwrap();
+
+                return Err(err);
+            }
+        };
 
         Ok(Self {
             lock: Some(lock),

@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Fixed issue 502 - some ADC/RTC pins for esp32c5 and esp32c6 had mapping errors
 - Fixed async SPI transactions occasionally hanging forever on multi-core chips
+- SPI: `SpiBusDriver::new` no longer leaves the device attached to the bus when acquiring the bus lock fails. The device used to stay registered, so freeing the bus later failed with `ESP_ERR_INVALID_STATE` ("not all CSses freed") and panicked in `SpiDriver`'s destructor
 
 ### Added
 - `QueueSet2`, `QueueSet3`, `QueueSet4` for waiting on multiple heterogeneous queues
