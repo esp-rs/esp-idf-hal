@@ -52,6 +52,22 @@ pub(super) mod config {
             }
         }
 
+        /// Convert just the clock config to the SDK representation. Used by
+        /// the runtime `reconfigure_tdm` paths that don't touch GPIO.
+        #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm))]
+        #[inline(always)]
+        pub(crate) fn clk_cfg_as_sdk(&self) -> i2s_tdm_clk_config_t {
+            self.clk_cfg.as_sdk()
+        }
+
+        /// Convert just the slot config to the SDK representation. Used by
+        /// the runtime `reconfigure_tdm` paths that don't touch GPIO.
+        #[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm))]
+        #[inline(always)]
+        pub(crate) fn slot_cfg_as_sdk(&self) -> i2s_tdm_slot_config_t {
+            self.slot_cfg.as_sdk()
+        }
+
         /// Convert to the ESP-IDF SDK `i2s_tdm_config_t` representation.
         #[cfg(not(esp_idf_version_major = "4"))]
         #[inline(always)]
@@ -1128,5 +1144,63 @@ impl<'d> I2sDriver<'d, I2sTx> {
             mclk,
             ws,
         )
+    }
+}
+
+/// TDM-mode runtime reconfiguration.
+///
+/// Reconfigure the clock + slot config of an already-initialised TDM mode
+/// channel without tearing the driver down, the TDM counterpart of
+/// [`I2sDriver::rx_reconfigure_std`].
+///
+/// The channel is briefly disabled while the reconfigure happens and
+/// re-enabled on success. GPIO pins are not touched.
+#[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm))]
+impl<Dir> I2sDriver<'_, Dir>
+where
+    Dir: I2sRxSupported,
+{
+    /// Reconfigure the RX channel's clock + slot from a new [`config::TdmConfig`].
+    ///
+    /// Fails if the channel is not currently enabled.
+    pub fn rx_reconfigure_tdm(&mut self, config: &config::TdmConfig) -> Result<(), EspError> {
+        let clk_cfg = config.clk_cfg_as_sdk();
+        let slot_cfg = config.slot_cfg_as_sdk();
+        unsafe {
+            esp!(i2s_channel_disable(self.rx_handle))?;
+            esp!(i2s_channel_reconfig_tdm_clock(self.rx_handle, &clk_cfg))?;
+            esp!(i2s_channel_reconfig_tdm_slot(self.rx_handle, &slot_cfg))?;
+            esp!(i2s_channel_enable(self.rx_handle))?;
+        }
+        Ok(())
+    }
+}
+
+/// TDM-mode runtime reconfiguration.
+///
+/// Reconfigure the clock + slot config of an already-initialised TDM mode
+/// channel without tearing the driver down, the TDM counterpart of
+/// [`I2sDriver::tx_reconfigure_std`].
+///
+/// The channel is briefly disabled while the reconfigure happens and
+/// re-enabled on success. GPIO pins are not touched.
+#[cfg(all(not(esp_idf_version_major = "4"), esp_idf_soc_i2s_supports_tdm))]
+impl<Dir> I2sDriver<'_, Dir>
+where
+    Dir: I2sTxSupported,
+{
+    /// Reconfigure the TX channel's clock + slot from a new [`config::TdmConfig`].
+    ///
+    /// Fails if the channel is not currently enabled.
+    pub fn tx_reconfigure_tdm(&mut self, config: &config::TdmConfig) -> Result<(), EspError> {
+        let clk_cfg = config.clk_cfg_as_sdk();
+        let slot_cfg = config.slot_cfg_as_sdk();
+        unsafe {
+            esp!(i2s_channel_disable(self.tx_handle))?;
+            esp!(i2s_channel_reconfig_tdm_clock(self.tx_handle, &clk_cfg))?;
+            esp!(i2s_channel_reconfig_tdm_slot(self.tx_handle, &slot_cfg))?;
+            esp!(i2s_channel_enable(self.tx_handle))?;
+        }
+        Ok(())
     }
 }
