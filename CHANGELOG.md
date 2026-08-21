@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Basic compatibility for ESP-IDF release 6.0.
 
 ### Breaking
- - Dropped support for RGB/BGR666 format on ESP-IDF 6.0.
+- I2S: `ClockSource::Apll` and `ClockSource::Xtal` on `esp32p4`, where the XTAL is now the default for this chip
+- Dropped support for RGB/BGR666 format on ESP-IDF 6.0.
 
 ## [0.46.2] - 2026-03-10
 

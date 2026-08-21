@@ -119,8 +119,12 @@ pub mod config {
     #[derive(Clone, Copy, Debug, Eq, PartialEq, Default)]
     pub enum ClockSource {
         /// Use PLL_F160M as the source clock
+        ///
+        /// Not the default on `esp32p4`: ESP-IDF only compiles the `I2S_CLK_SRC_PLL_160M` arm
+        /// of `i2s_ll_get_clk_src` under `CONFIG_ESP_REV_MIN_FULL >= 300`, so selecting it from
+        /// a build targeting an earlier minimum revision aborts in `HAL_ASSERT`.
         #[cfg(not(any(esp32h2, esp32c2)))]
-        #[default]
+        #[cfg_attr(not(esp32p4), default)]
         Pll160M,
 
         /// Use PLL_F60M as the source clock
@@ -133,8 +137,16 @@ pub mod config {
         #[default]
         Pll64M,
 
+        /// Use XTAL as the source clock
+        #[cfg(esp32p4)]
+        #[default]
+        Xtal,
+
         /// Use APLL as the source clock
-        #[cfg(any(esp32, esp32s2))]
+        ///
+        /// `esp32` and `esp32s2` are named explicitly next to the capability, because the
+        /// `SOC_*` based cfgs are only emitted for ESP-IDF 5.0 and later.
+        #[cfg(any(esp_idf_soc_i2s_supports_apll, esp32, esp32s2))]
         Apll,
     }
 
@@ -158,8 +170,16 @@ pub mod config {
                     esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_PLL_F64M,
                 )
                 .unwrap(),
-                #[cfg(any(esp32, esp32s2))]
-                Self::Apll => esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_APLL,
+                #[cfg(esp32p4)]
+                Self::Xtal => {
+                    core::convert::TryInto::try_into(esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_XTAL)
+                        .unwrap()
+                }
+                #[cfg(any(esp_idf_soc_i2s_supports_apll, esp32, esp32s2))]
+                Self::Apll => {
+                    core::convert::TryInto::try_into(esp_idf_sys::soc_module_clk_t_SOC_MOD_CLK_APLL)
+                        .unwrap()
+                }
             }
         }
     }
