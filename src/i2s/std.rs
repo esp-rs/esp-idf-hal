@@ -898,6 +898,8 @@ where
     Dir: I2sTxSupported,
 {
     /// Reconfigure the TX channel's clock + slot from a new [`config::StdConfig`].
+    ///
+    /// Fails if the channel is not currently enabled.
     pub fn tx_reconfigure_std(&mut self, config: &config::StdConfig) -> Result<(), EspError> {
         let clk_cfg = config.clk_cfg_as_sdk();
         let slot_cfg = config.slot_cfg_as_sdk();
@@ -917,6 +919,8 @@ where
     Dir: I2sRxSupported,
 {
     /// Reconfigure the RX channel's clock + slot from a new [`config::StdConfig`].
+    ///
+    /// Fails if the channel is not currently enabled.
     pub fn rx_reconfigure_std(&mut self, config: &config::StdConfig) -> Result<(), EspError> {
         let clk_cfg = config.clk_cfg_as_sdk();
         let slot_cfg = config.slot_cfg_as_sdk();

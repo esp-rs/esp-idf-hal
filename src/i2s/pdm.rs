@@ -170,6 +170,22 @@ pub(super) mod config {
             }
         }
 
+        /// Convert just the clock config to the SDK representation. Used by
+        /// the runtime `reconfigure_pdm` paths that don't touch GPIO.
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+        #[inline(always)]
+        pub(crate) fn clk_cfg_as_sdk(&self) -> i2s_pdm_rx_clk_config_t {
+            self.clk_cfg.as_sdk()
+        }
+
+        /// Convert just the slot config to the SDK representation. Used by
+        /// the runtime `reconfigure_pdm` paths that don't touch GPIO.
+        #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+        #[inline(always)]
+        pub(crate) fn slot_cfg_as_sdk(&self) -> i2s_pdm_rx_slot_config_t {
+            self.slot_cfg.as_sdk()
+        }
+
         /// Convert this PDM mode receive configuration into the ESP-IDF SDK `i2s_pdm_rx_config_t` representation.
         #[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
         #[inline(always)]
@@ -787,6 +803,22 @@ pub(super) mod config {
                 #[cfg(not(esp_idf_version_major = "4"))]
                 gpio_cfg,
             }
+        }
+
+        /// Convert just the clock config to the SDK representation. Used by
+        /// the runtime `reconfigure_pdm` paths that don't touch GPIO.
+        #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+        #[inline(always)]
+        pub(crate) fn clk_cfg_as_sdk(&self) -> i2s_pdm_tx_clk_config_t {
+            self.clk_cfg.as_sdk()
+        }
+
+        /// Convert just the slot config to the SDK representation. Used by
+        /// the runtime `reconfigure_pdm` paths that don't touch GPIO.
+        #[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+        #[inline(always)]
+        pub(crate) fn slot_cfg_as_sdk(&self) -> i2s_pdm_tx_slot_config_t {
+            self.slot_cfg.as_sdk()
         }
 
         /// Convert to the ESP-IDF `i2s_pdm_tx_config_t` representation.
@@ -1488,5 +1520,75 @@ impl<'d> I2sDriver<'d, I2sTx> {
         }
 
         Ok(this)
+    }
+}
+
+/// PDM-mode runtime reconfiguration.
+///
+/// Reconfigure the clock + slot config of an already-initialised PDM mode
+/// channel without tearing the driver down, the PDM counterpart of
+/// [`I2sDriver::rx_reconfigure_std`].
+///
+/// The channel is briefly disabled while the reconfigure happens and
+/// re-enabled on success. GPIO pins are not touched.
+#[cfg(esp_idf_soc_i2s_supports_pdm_rx)]
+impl<Dir> I2sDriver<'_, Dir>
+where
+    Dir: I2sRxSupported,
+{
+    /// Reconfigure the RX channel's clock + slot from a new [`config::PdmRxConfig`].
+    ///
+    /// Fails if the channel is not currently enabled.
+    pub fn rx_reconfigure_pdm(&mut self, config: &config::PdmRxConfig) -> Result<(), EspError> {
+        let clk_cfg = config.clk_cfg_as_sdk();
+        let slot_cfg = config.slot_cfg_as_sdk();
+        unsafe {
+            esp!(esp_idf_sys::i2s_channel_disable(self.rx_handle))?;
+            esp!(esp_idf_sys::i2s_channel_reconfig_pdm_rx_clock(
+                self.rx_handle,
+                &clk_cfg
+            ))?;
+            esp!(esp_idf_sys::i2s_channel_reconfig_pdm_rx_slot(
+                self.rx_handle,
+                &slot_cfg
+            ))?;
+            esp!(esp_idf_sys::i2s_channel_enable(self.rx_handle))?;
+        }
+        Ok(())
+    }
+}
+
+/// PDM-mode runtime reconfiguration.
+///
+/// Reconfigure the clock + slot config of an already-initialised PDM mode
+/// channel without tearing the driver down, the PDM counterpart of
+/// [`I2sDriver::tx_reconfigure_std`].
+///
+/// The channel is briefly disabled while the reconfigure happens and
+/// re-enabled on success. GPIO pins are not touched.
+#[cfg(esp_idf_soc_i2s_supports_pdm_tx)]
+impl<Dir> I2sDriver<'_, Dir>
+where
+    Dir: I2sTxSupported,
+{
+    /// Reconfigure the TX channel's clock + slot from a new [`config::PdmTxConfig`].
+    ///
+    /// Fails if the channel is not currently enabled.
+    pub fn tx_reconfigure_pdm(&mut self, config: &config::PdmTxConfig) -> Result<(), EspError> {
+        let clk_cfg = config.clk_cfg_as_sdk();
+        let slot_cfg = config.slot_cfg_as_sdk();
+        unsafe {
+            esp!(esp_idf_sys::i2s_channel_disable(self.tx_handle))?;
+            esp!(esp_idf_sys::i2s_channel_reconfig_pdm_tx_clock(
+                self.tx_handle,
+                &clk_cfg
+            ))?;
+            esp!(esp_idf_sys::i2s_channel_reconfig_pdm_tx_slot(
+                self.tx_handle,
+                &slot_cfg
+            ))?;
+            esp!(esp_idf_sys::i2s_channel_enable(self.tx_handle))?;
+        }
+        Ok(())
     }
 }
