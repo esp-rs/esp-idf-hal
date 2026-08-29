@@ -144,6 +144,10 @@ pub mod config {
                 num_data_lanes,
                 phy_clk_src: soc_module_clk_t_SOC_MOD_CLK_PLL_F160M as u32,
                 lane_bit_rate_mbps: lane_bit_rate_mbps as _,
+                #[cfg(esp_idf_version_at_least_6_1_0)]
+                // SAFETY: zero initializes the optional flags and preserves ESP-IDF's
+                // default automatic clock-lane mode.
+                flags: unsafe { core::mem::zeroed() },
             };
 
             let dbi_config = esp_lcd_dbi_io_config_t {
@@ -195,6 +199,18 @@ pub mod config {
         #[must_use]
         pub fn phy_clk_src(mut self, phy_clk_src: u32) -> Self {
             self.bus_config.phy_clk_src = phy_clk_src;
+            self
+        }
+
+        /// Force the DSI clock lane to remain in high-speed mode.
+        ///
+        /// By default, ESP-IDF automatically switches the clock lane between
+        /// high-speed and low-power states. Enable this only for panels that
+        /// require a continuously running high-speed clock lane.
+        #[cfg(esp_idf_version_at_least_6_1_0)]
+        #[must_use]
+        pub fn clock_lane_force_hs(mut self, force: bool) -> Self {
+            self.bus_config.flags.set_clock_lane_force_hs(force as u32);
             self
         }
 
