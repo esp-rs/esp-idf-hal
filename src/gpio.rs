@@ -1065,6 +1065,14 @@ impl<'d, MODE> PinDriver<'d, MODE> {
         MODE: GPIOMode,
     {
         if mode != gpio_mode_t_GPIO_MODE_DISABLE {
+            // `gpio_set_direction` wires up the GPIO matrix and the output
+            // enable, but it never touches `IO_MUX.MCU_SEL`. A pad that boots
+            // on an alternate function - JTAG, SPI flash, UART - therefore
+            // stays on that function and never sees what the driver writes.
+            // Route it to the GPIO function first, which is what `gpio_config`
+            // does for every pin it is handed.
+            unsafe { esp_rom_gpio_pad_select_gpio(pin as _) };
+
             esp!(unsafe { gpio_set_direction(pin as _, mode) })?;
         }
 
