@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `QueueSet2`, `QueueSet3`, `QueueSet4` for waiting on multiple heterogeneous queues
 - Basic compatibility for ESP-IDF release 6.0.
 - I2S Standard, PDM and TDM Mode Driver dynamic reconfiguration (change sample rate)
+- Support ESP-IDF 6.1 DSI bus flags and continuous high-speed clock-lane configuration.
 
 ### Breaking
 - I2S: `ClockSource::Apll` and `ClockSource::Xtal` on `esp32p4`, where the XTAL is now the default for this chip
