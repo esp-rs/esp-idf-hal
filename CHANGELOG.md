@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- `PinDriver` now routes the pad to the GPIO function before setting its direction. A pin whose `IO_MUX.MCU_SEL` boots on an alternate function - JTAG, SPI flash, UART - stayed on that function, so `set_high`/`set_low` never reached the pad (#585)
 - Fixed issue 502 - some ADC/RTC pins for esp32c5 and esp32c6 had mapping errors
 - Fixed async SPI transactions occasionally hanging forever on multi-core chips
 - SPI: `SpiBusDriver::new` no longer leaves the device attached to the bus when acquiring the bus lock fails. The device used to stay registered, so freeing the bus later failed with `ESP_ERR_INVALID_STATE` ("not all CSses freed") and panicked in `SpiDriver`'s destructor
