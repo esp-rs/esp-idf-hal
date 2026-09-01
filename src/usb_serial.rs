@@ -116,9 +116,11 @@ impl<'d> UsbSerialDriver<'d> {
         _usb_d_plus: UsbDPlusGpio<'d>,
         config: &config::Config,
     ) -> Result<Self, EspError> {
+        #[allow(clippy::needless_update)]
         let mut config = usb_serial_jtag_driver_config_t {
             tx_buffer_size: config.tx_buffer_size as _,
             rx_buffer_size: config.rx_buffer_size as _,
+            ..Default::default()
         };
 
         esp!(unsafe { usb_serial_jtag_driver_install(&mut config) })?;
