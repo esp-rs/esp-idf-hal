@@ -62,6 +62,7 @@
 /// NOTE: the standard streams are detached from the console and re-attached to
 /// it while the function runs, so it must be called *before* any other thread
 /// might be using them - which is why the `app_main` glue calls it first thing.
+#[allow(clippy::needless_bool)]
 pub fn restore_posix_stdio_fds() -> bool {
     unsafe {
         // Nothing to do if the streams are already on their POSIX descriptors:
