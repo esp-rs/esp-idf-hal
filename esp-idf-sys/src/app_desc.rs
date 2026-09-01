@@ -9,6 +9,7 @@
 //! - idf_ver - current IDF version from bindings
 //! - app_elf_sha256 - [0; 32]
 //! - min_efuse_blk_rev_full - CONFIG_ESP_EFUSE_BLOCK_REV_MIN_FULL
+//! - spi_flash_mode - CONFIG_ESPTOOLPY_FLASHMODE_VAL
 //! - secure_version - 0
 //!
 //! If you need a custom definition, don't use the macro but rather - manually define your own
@@ -93,7 +94,25 @@ macro_rules! esp_app_desc {
                 max_efuse_blk_rev_full: $crate::CONFIG_ESP_EFUSE_BLOCK_REV_MAX_FULL as _,
                 #[cfg(esp_idf_version_at_least_5_4_0)]
                 mmu_page_size: 0,
-                #[cfg(esp_idf_version_at_least_5_4_0)]
+                #[cfg(all(
+                    esp_idf_version_at_least_6_1_0,
+                    not(any(
+                        esp_idf_idf_target_linux,
+                        esp_idf_app_build_type_pure_ram_app
+                    ))
+                ))]
+                spi_flash_mode: $crate::CONFIG_ESPTOOLPY_FLASHMODE_VAL as _,
+                #[cfg(all(
+                    esp_idf_version_at_least_6_1_0,
+                    any(esp_idf_idf_target_linux, esp_idf_app_build_type_pure_ram_app)
+                ))]
+                spi_flash_mode: 0,
+                #[cfg(esp_idf_version_at_least_6_1_0)]
+                reserv3: [0; 2],
+                #[cfg(all(
+                    esp_idf_version_at_least_5_4_0,
+                    not(esp_idf_version_at_least_6_1_0)
+                ))]
                 reserv3: [0; 3],
                 #[cfg(esp_idf_version_at_least_5_4_0)]
                 reserv2: [0; 18],
