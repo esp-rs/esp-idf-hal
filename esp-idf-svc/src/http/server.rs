@@ -1430,6 +1430,7 @@ pub mod ws {
             }
         }
 
+        #[allow(clippy::needless_update)]
         fn create_raw_frame(frame_type: FrameType, frame_data: &[u8]) -> httpd_ws_frame_t {
             httpd_ws_frame_t {
                 type_: match frame_type {
@@ -1445,6 +1446,7 @@ pub mod ws {
                 fragmented: frame_type.is_fragmented(),
                 payload: frame_data.as_ptr() as *const _ as *mut _,
                 len: frame_data.len(),
+                ..Default::default()
             }
         }
 
