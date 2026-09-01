@@ -6,6 +6,7 @@
 #![allow(unexpected_cfgs)]
 #![warn(clippy::large_futures)]
 #![cfg_attr(feature = "nightly", feature(doc_cfg))]
+#![cfg_attr(target_arch = "xtensa", allow(unused_features))]
 #![cfg_attr(target_arch = "xtensa", feature(asm_experimental_arch))]
 
 #[cfg(not(esp_idf_comp_driver_enabled))]
