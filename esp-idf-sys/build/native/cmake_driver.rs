@@ -32,6 +32,15 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     );
 
     let sdkconfig = PathBuf::from(env::var(CARGO_CMAKE_BUILD_SDKCONFIG_VAR)?);
+    let compiler = env::var(CARGO_CMAKE_BUILD_COMPILER_VAR)?;
+    // Use the compiler selected by the owning CMake project. Picolibc's
+    // bindgen setup needs its sysroot just as it does in the Cargo-first driver.
+    let gcc_sysroot = embuild::cmd!(&compiler, "--print-sysroot")
+        .stdout()
+        .ok()
+        .map(|sysroot| sysroot.trim().to_owned())
+        .filter(|sysroot| !sysroot.is_empty())
+        .map(PathBuf::from);
 
     let build_output = EspIdfBuildOutput {
         cincl_args: embuild::build::CInclArgs {
@@ -52,7 +61,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
         ),
         components,
         bindgen: bindgen::Factory::new()
-            .with_linker(env::var(CARGO_CMAKE_BUILD_COMPILER_VAR)?)
+            .with_linker(&compiler)
             .with_clang_args(
                 env::var(CARGO_CMAKE_BUILD_INCLUDES_VAR)?
                     .split(';')
@@ -61,7 +70,7 @@ pub fn build() -> Result<EspIdfBuildOutput> {
             ),
         env_path: None,
         esp_idf: PathBuf::from(env::var(CARGO_CMAKE_BUILD_ESP_IDF_VAR)?),
-        gcc_sysroot: None,
+        gcc_sysroot,
         config: Default::default(),
     };
 

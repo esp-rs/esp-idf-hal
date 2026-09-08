@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### Fixed
+- Discover the CMake-selected compiler's sysroot for picolibc binding generation in CMake-first builds.
+
 ### Added
 - Added raw bindings to the `esp_heap_task_info.h` API
 
