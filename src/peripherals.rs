@@ -60,7 +60,7 @@ pub struct Peripherals {
     pub i2s1: i2s::I2S1<'static>,
     pub spi1: spi::SPI1<'static>,
     pub spi2: spi::SPI2<'static>,
-    #[cfg(any(esp32, esp32s2, esp32s3))]
+    #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
     pub spi3: spi::SPI3<'static>,
     pub adc1: adc::ADC1<'static>,
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
@@ -200,7 +200,7 @@ impl Peripherals {
             i2s1: i2s::I2S1::steal(),
             spi1: spi::SPI1::steal(),
             spi2: spi::SPI2::steal(),
-            #[cfg(any(esp32, esp32s2, esp32s3))]
+            #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
             spi3: spi::SPI3::steal(),
             adc1: adc::ADC1::steal(),
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
