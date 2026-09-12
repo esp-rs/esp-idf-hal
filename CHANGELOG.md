@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Expose SPI3 on the esp32p4
 - `PinDriver` now routes the pad to the GPIO function before setting its direction. A pin whose `IO_MUX.MCU_SEL` boots on an alternate function - JTAG, SPI flash, UART - stayed on that function, so `set_high`/`set_low` never reached the pad (#585)
 - Fixed issue 502 - some ADC/RTC pins for esp32c5 and esp32c6 had mapping errors
 - Fixed async SPI transactions occasionally hanging forever on multi-core chips
