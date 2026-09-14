@@ -5,24 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
-
-### Fixed
-- Discover the CMake-selected compiler's sysroot for picolibc binding generation in CMake-first builds.
-
-### Added
-- Added raw bindings to the `esp_heap_task_info.h` API
-
-## [master] - 2026-03-25
+## [Unreleased]
 
 ### Added
 - Basic compatibility for ESP-IDF release 6.0
 - Added ESP_IDF_SYS_EXTRA_COMPONENTS_FILE env variable support, allows to select `extra_components` from command line. Probably only useful for CI.
+- Added raw bindings to the `esp_heap_task_info.h` API
 
 ### Breaking
 - Added build-time check for symbol compatibility between `libc` and symbols defined in this library. If you see `libc/esp-idf-sys * mismatch` errors at build time, you might need to update your pinned `libc` version.
 
 ### Fixed
+- Discover the CMake-selected compiler's sysroot for picolibc binding generation in CMake-first builds.
 - Fix https://github.com/esp-rs/esp-idf-hal/issues/592 - new API tha does the fix - `restore_posix_stdio_fds` - called automatically form the `binstart` bootstrapping code (#425). Note that the fix ONLY works for ESP-IDF >= v5.3. For earlier ones, use one of the workarounds described in the PR
 - Include `soc/gpio_sig_map.h` on ESP-IDF 6 so `SIG_GPIO_OUT_IDX` is available in the bindings
 - Fix E0588 compile error in the generated bindings when the TinyUSB CDC class is enabled (`CONFIG_TINYUSB_CDC_ENABLED=y`) by blocklisting TinyUSB's unused `cdc_desc_func_telephone_call_state_reporting_capabilities_t` descriptor
