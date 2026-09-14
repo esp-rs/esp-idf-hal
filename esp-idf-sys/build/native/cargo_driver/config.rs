@@ -18,7 +18,7 @@ pub const ESP_IDF_VERSION_VAR: &str = "ESP_IDF_VERSION";
 pub const ESP_IDF_REPOSITORY_VAR: &str = "ESP_IDF_REPOSITORY";
 pub const ESP_IDF_EXTRA_COMPONENTS_FILE_VAR: &str = "ESP_IDF_SYS_EXTRA_COMPONENTS_FILE";
 
-pub const DEFAULT_ESP_IDF_VERSION: &str = "v5.2.3";
+pub const DEFAULT_ESP_IDF_VERSION: &str = "v5.5.5";
 pub const DEFAULT_CMAKE_GENERATOR: cmake::Generator = {
     // No Ninja builds for linux=aarch64 from Espressif yet
     #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
