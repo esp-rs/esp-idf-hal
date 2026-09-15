@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-sys"
-version = "0.37.2"
+version = "0.38.0"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>", "Dominik Gschwind <dominik.gschwind99@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -36,7 +36,7 @@ build-time = "0.1"   # For esp_app_desc!()
 const_format = "0.2" # For esp_app_desc!()
 
 [build-dependencies]
-embuild = { version = "0.33.3", features = ["glob", "kconfig", "cmake", "espidf"] }
+embuild = { version = "0.33.5", features = ["glob", "kconfig", "cmake", "espidf"] }
 anyhow = "1"
 regex = "1.5"
 cmake = "0.1.52"
