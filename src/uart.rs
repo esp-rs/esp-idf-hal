@@ -2268,8 +2268,12 @@ fn check_nb_timeout(result: Result<(), EspError>) -> nb::Result<(), SerialError>
 
 impl_uart!(UART0: 0);
 impl_uart!(UART1: 1);
-#[cfg(any(esp32, esp32s3))]
+#[cfg(any(esp32, esp32s3, esp32p4))]
 impl_uart!(UART2: 2);
+#[cfg(esp32p4)]
+impl_uart!(UART3: 3);
+#[cfg(esp32p4)]
+impl_uart!(UART4: 4);
 
 #[allow(clippy::declare_interior_mutable_const)]
 const NO_REFS: AtomicU8 = AtomicU8::new(0);

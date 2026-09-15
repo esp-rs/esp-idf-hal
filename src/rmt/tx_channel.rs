@@ -79,7 +79,9 @@ impl<'d> TxChannelDriver<'d> {
                     {
                         config.allow_pd as u32
                     },
+                    // `init_level`
                     #[cfg(any(
+                        esp_idf_version_patch_at_least_5_3_5,
                         esp_idf_version_patch_at_least_5_4_3,
                         esp_idf_version_at_least_5_5_2,
                         esp_idf_version_at_least_6_0_0

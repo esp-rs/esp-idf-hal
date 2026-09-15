@@ -49,15 +49,21 @@ pub struct Peripherals {
     pub pins: gpio::Pins,
     pub uart0: uart::UART0<'static>,
     pub uart1: uart::UART1<'static>,
-    #[cfg(any(esp32, esp32s3))]
+    #[cfg(any(esp32, esp32s3, esp32p4))]
     pub uart2: uart::UART2<'static>,
+    #[cfg(esp32p4)]
+    pub uart3: uart::UART3<'static>,
+    #[cfg(esp32p4)]
+    pub uart4: uart::UART4<'static>,
     pub i2c0: i2c::I2C0<'static>,
     #[cfg(not(any(esp32c3, esp32c2, esp32c5, esp32c6, esp32c61)))]
     pub i2c1: i2c::I2C1<'static>,
     #[cfg(esp_idf_soc_i2s_supported)]
     pub i2s0: i2s::I2S0<'static>,
-    #[cfg(all(esp_idf_soc_i2s_supported, any(esp32, esp32s3)))]
+    #[cfg(all(esp_idf_soc_i2s_supported, any(esp32, esp32s3, esp32p4)))]
     pub i2s1: i2s::I2S1<'static>,
+    #[cfg(all(esp_idf_soc_i2s_supported, esp32p4))]
+    pub i2s2: i2s::I2S2<'static>,
     pub spi1: spi::SPI1<'static>,
     pub spi2: spi::SPI2<'static>,
     #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]
@@ -189,15 +195,21 @@ impl Peripherals {
             pins: gpio::Pins::new(),
             uart0: uart::UART0::steal(),
             uart1: uart::UART1::steal(),
-            #[cfg(any(esp32, esp32s3))]
+            #[cfg(any(esp32, esp32s3, esp32p4))]
             uart2: uart::UART2::steal(),
+            #[cfg(esp32p4)]
+            uart3: uart::UART3::steal(),
+            #[cfg(esp32p4)]
+            uart4: uart::UART4::steal(),
             i2c0: i2c::I2C0::steal(),
             #[cfg(not(any(esp32c3, esp32c2, esp32c5, esp32c6, esp32c61)))]
             i2c1: i2c::I2C1::steal(),
             #[cfg(esp_idf_soc_i2s_supported)]
             i2s0: i2s::I2S0::steal(),
-            #[cfg(all(esp_idf_soc_i2s_supported, any(esp32, esp32s3)))]
+            #[cfg(all(esp_idf_soc_i2s_supported, any(esp32, esp32s3, esp32p4)))]
             i2s1: i2s::I2S1::steal(),
+            #[cfg(all(esp_idf_soc_i2s_supported, esp32p4))]
+            i2s2: i2s::I2S2::steal(),
             spi1: spi::SPI1::steal(),
             spi2: spi::SPI2::steal(),
             #[cfg(any(esp32, esp32s2, esp32s3, esp32p4))]

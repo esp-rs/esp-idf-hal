@@ -550,8 +550,10 @@ mod sealed {
     pub trait Sealed {}
 
     impl Sealed for super::I2S0<'_> {}
-    #[cfg(any(esp32, esp32s3))]
+    #[cfg(any(esp32, esp32s3, esp32p4))]
     impl Sealed for super::I2S1<'_> {}
+    #[cfg(esp32p4)]
+    impl Sealed for super::I2S2<'_> {}
 }
 
 pub trait I2sPort {
@@ -1401,14 +1403,16 @@ macro_rules! impl_i2s {
 }
 
 impl_i2s!(I2S0: 0);
-#[cfg(any(esp32, esp32s3))]
+#[cfg(any(esp32, esp32s3, esp32p4))]
 impl_i2s!(I2S1: 1);
+#[cfg(esp32p4)]
+impl_i2s!(I2S2: 2);
 
 #[cfg(not(esp_idf_version_major = "4"))]
-#[cfg(not(any(esp32, esp32s3)))]
+#[cfg(not(any(esp32, esp32s3, esp32p4)))]
 static SEND_NOTIFIER: [HalIsrNotification; 1] = [HalIsrNotification::new()];
 #[cfg(not(esp_idf_version_major = "4"))]
-#[cfg(not(any(esp32, esp32s3)))]
+#[cfg(not(any(esp32, esp32s3, esp32p4)))]
 static RECV_NOTIFIER: [HalIsrNotification; 1] = [HalIsrNotification::new()];
 
 #[cfg(not(esp_idf_version_major = "4"))]
@@ -1419,3 +1423,18 @@ static SEND_NOTIFIER: [HalIsrNotification; 2] =
 #[cfg(any(esp32, esp32s3))]
 static RECV_NOTIFIER: [HalIsrNotification; 2] =
     [HalIsrNotification::new(), HalIsrNotification::new()];
+
+#[cfg(not(esp_idf_version_major = "4"))]
+#[cfg(esp32p4)]
+static SEND_NOTIFIER: [HalIsrNotification; 3] = [
+    HalIsrNotification::new(),
+    HalIsrNotification::new(),
+    HalIsrNotification::new(),
+];
+#[cfg(not(esp_idf_version_major = "4"))]
+#[cfg(esp32p4)]
+static RECV_NOTIFIER: [HalIsrNotification; 3] = [
+    HalIsrNotification::new(),
+    HalIsrNotification::new(),
+    HalIsrNotification::new(),
+];
