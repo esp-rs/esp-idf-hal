@@ -1,6 +1,6 @@
 [package]
 name = "esp-idf-svc"
-version = "0.52.1"
+version = "0.53.0"
 authors = ["Ivan Markov <ivan.markov@gmail.com>"]
 edition = "2021"
 resolver = "2"
@@ -51,7 +51,7 @@ log = { version = "0.4", default-features = false }
 uncased = { version = "0.9.7", default-features = false }
 embedded-hal-async = { version = "1", default-features = false }
 embedded-svc = { version = "0.29", default-features = false }
-esp-idf-hal = { version = "0.46.1", default-features = false }
+esp-idf-hal = { version = "0.47", default-features = false }
 embassy-time-driver = { version = "0.2.1", optional = true, features = ["tick-hz-1_000_000"] }
 embassy-time-queue-utils = { version = "0.3", optional = true }
 embassy-futures = { version = "0.1.2", default-features = false }
@@ -59,11 +59,11 @@ embedded-storage = { version = "0.3", default-features = false, optional = true 
 futures-io = { version = "0.3", optional = true }
 
 [build-dependencies]
-embuild = "0.33.3"
+embuild = "0.33.5"
 
 [dev-dependencies]
 anyhow = "1"
-esp-idf-sys = { version = "0.37.1", features = ["binstart"] }
+esp-idf-sys = { version = "0.38", features = ["binstart"] }
 futures = "0.3"
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
@@ -71,8 +71,3 @@ postcard = "1"
 # `async-io-mini` is a fork of `async-io` optimized for ESP-IDF: much smaller
 # RAM footprint (no large reactor thread stack, no per-fd heap bookkeeping)
 async-io = { version = "0.4", package = "async-io-mini", default-features = false, features = ["futures-io"] }
-
-# TODO: Remove these before next release, needed for IDF 6.0+ support
-[patch.crates-io]
-esp-idf-sys = { git = "https://github.com/esp-rs/esp-idf-sys", branch = "master" }
-esp-idf-hal = { git = "https://github.com/esp-rs/esp-idf-hal", branch = "master" }
