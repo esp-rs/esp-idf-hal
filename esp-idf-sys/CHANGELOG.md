@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added build-time check for symbol compatibility between `libc` and symbols defined in this library. If you see `libc/esp-idf-sys * mismatch` errors at build time, you might need to update your pinned `libc` version.
 
 ### Fixed
+- Issue 421: the `libc` compatibility checks failed when `ESP_IDF_COMPONENTS` is trimmed
 - Discover the CMake-selected compiler's sysroot for picolibc binding generation in CMake-first builds.
 - Fix https://github.com/esp-rs/esp-idf-hal/issues/592 - new API tha does the fix - `restore_posix_stdio_fds` - called automatically form the `binstart` bootstrapping code (#425). Note that the fix ONLY works for ESP-IDF >= v5.3. For earlier ones, use one of the workarounds described in the PR
 - Include `soc/gpio_sig_map.h` on ESP-IDF 6 so `SIG_GPIO_OUT_IDX` is available in the bindings

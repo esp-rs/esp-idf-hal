@@ -1,6 +1,10 @@
 //! Compile-time checks that ESP-IDF bindgen types and constants match libc definitions.
 //! If any of these checks fail, it is likely you need to update `libc` pinned version
 //! to the latest one.
+//!
+//! The socket and netdb items (`sockaddr*`, `MSG_*`, `SO_*`, `IP_*`, `AI_*`, `NI_*`, ...) are only
+//! present in the bindings when the `lwip` ESP-IDF component is built, hence their checks
+//! are gated on `esp_idf_comp_lwip_enabled`.
 
 use crate as sys;
 use compile_fmt::{compile_assert, fmt};
@@ -82,14 +86,21 @@ check_types!(clock_t);
 // wchar_t is 1 byte on xtensa (esp32/s2/s3) before IDF v5.4 vs 4 bytes in libc.
 #[cfg(any(not(any(esp32, esp32s2, esp32s3)), esp_idf_version_at_least_5_4_0))]
 check_types!(wchar_t);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(cmsghdr);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(msghdr);
 //check_types!(sockaddr_un); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sockaddr);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sockaddr_in6);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sockaddr_in);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sockaddr_storage);
 //check_constants!(AF_UNIX); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AF_INET6);
 //check_constants!(FIONBIO); // No binding
 check_constants!(POLLIN);
@@ -101,16 +112,27 @@ check_constants!(POLLWRNORM);
 check_constants!(POLLWRBAND);
 check_constants!(POLLERR);
 check_constants!(POLLHUP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SOL_SOCKET);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_OOB);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_PEEK);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_DONTWAIT);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_DONTROUTE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_WAITALL);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_MORE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_NOSIGNAL);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_TRUNC);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_CTRUNC);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(MSG_EOR);
 check_constants!(PTHREAD_STACK_MIN);
 #[cfg(not(esp_idf_libc_picolibc))]
@@ -131,6 +153,7 @@ check_constants!(SIGHUP);
 check_constants!(SIGQUIT);
 #[cfg(not(esp_idf_libc_picolibc))]
 check_constants!(NSIG);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SOMAXCONN);
 
 // newlib module (https://github.com/rust-lang/libc/blob/libc-0.2/src/unix/newlib/mod.rs)
@@ -157,7 +180,9 @@ check_types!(nlink_t);
 check_types!(pthread_t);
 check_types!(pthread_key_t);
 //check_types!(rlim_t); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sa_family_t);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(socklen_t);
 #[cfg(not(esp_idf_version_at_least_6_0_0))]
 check_types!(speed_t);
@@ -167,8 +192,11 @@ check_types!(tcflag_t);
 check_types!(useconds_t);
 check_types!(time_t);
 // structs
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(addrinfo);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(ip_mreq);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(in_addr);
 //check_types!(lconv); // No binding
 check_types!(tm);
@@ -352,18 +380,28 @@ check_constants!(S_IROTH);
 check_constants!(S_IWOTH);
 check_constants!(S_IXOTH);
 //check_constants!(SOL_TCP); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(PF_UNSPEC);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(PF_INET);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(PF_INET6);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AF_UNSPEC);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AF_INET);
 //check_constants!(CLOCK_REALTIME); // No binding
 //check_constants!(CLOCK_MONOTONIC); // No binding
 //check_constants!(CLOCK_BOOTTIME); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SOCK_STREAM);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SOCK_DGRAM);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SHUT_RD);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SHUT_WR);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SHUT_RDWR);
 /* No bindings
 check_constants!(SO_BINTIME);
@@ -381,28 +419,47 @@ check_constants!(SO_PROTOCOL);
 check_constants!(SO_PROTOTYPE);
 check_constants!(SO_VENDOR);
 */
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_DEBUG);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_ACCEPTCONN);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_REUSEADDR);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_KEEPALIVE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_DONTROUTE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_BROADCAST);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_USELOOPBACK);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_LINGER);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_OOBINLINE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_REUSEPORT);
 //check_constants!(SO_TIMESTAMP); // No binding
 //check_constants!(SO_NOSIGPIPE); // No binding
 //check_constants!(SO_ACCEPTFILTER); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_SNDBUF);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_RCVBUF);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_SNDLOWAT);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_RCVLOWAT);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_SNDTIMEO);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_RCVTIMEO);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_ERROR);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(SO_TYPE);
 check_constants_manually!("SOCK_CLOEXEC", sys::O_CLOEXEC, libc::SOCK_CLOEXEC);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(INET_ADDRSTRLEN);
 /* No bindings
 check_constants!(IFF_UP);
@@ -423,48 +480,84 @@ check_constants!(IFF_LINK2);
 check_constants!(IFF_ALTPHYS);
 check_constants!(IFF_MULTICAST);
 */
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(TCP_NODELAY);
 //check_constants!(TCP_MAXSEG); // No binding
 //check_constants!(TCP_NOPUSH); // No binding
 //check_constants!(TCP_NOOPT); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(TCP_KEEPIDLE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(TCP_KEEPINTVL);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(TCP_KEEPCNT);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_TOS);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_TTL);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_MULTICAST_IF);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_MULTICAST_TTL);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_MULTICAST_LOOP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_ADD_MEMBERSHIP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_DROP_MEMBERSHIP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_UNICAST_HOPS);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_MULTICAST_IF);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_MULTICAST_HOPS);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_MULTICAST_LOOP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_V6ONLY);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_JOIN_GROUP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_LEAVE_GROUP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_ADD_MEMBERSHIP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPV6_DROP_MEMBERSHIP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(HOST_NOT_FOUND);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(NO_DATA);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(NO_RECOVERY);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(TRY_AGAIN);
 //check_constants!(NO_ADDRESS); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AI_PASSIVE);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AI_CANONNAME);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AI_NUMERICHOST);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AI_NUMERICSERV);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AI_ADDRCONFIG);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(NI_MAXHOST);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(NI_MAXSERV);
 //check_constants!(NI_NOFQDN); // No binding
 //check_constants!(NI_NUMERICHOST); // No binding
 //check_constants!(NI_NAMEREQD); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(NI_NUMERICSERV);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(NI_DGRAM);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(EAI_FAMILY);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(EAI_MEMORY);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(EAI_NONAME);
 check_constants!(EAI_SOCKTYPE);
 check_constants!(EXIT_SUCCESS);
@@ -499,11 +592,15 @@ check_types!(timeval);
 check_types!(timespec);
 //check_types!(rlimit); // No binding
 //check_types!(rusage); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(ipv6_mreq);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(hostent);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(iovec);
 check_types!(pollfd);
 //check_types!(winsize); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(linger);
 #[cfg(not(esp_idf_libc_picolibc))]
 check_types!(sigval);
@@ -513,6 +610,7 @@ check_types!(itimerval);
 //check_types!(tms);
 //check_types!(servent); // No binding
 //check_types!(protoent); // No binding
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(in6_addr);
 /* No bindings
 check_constants!(INT_MIN);
@@ -587,11 +685,17 @@ check_constants!(LOG_FACMASK);
 check_constants!(PRIO_MIN);
 check_constants!(PRIO_MAX);
 */
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_ICMP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_ICMPV6);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_TCP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_UDP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_IP);
+#[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_IPV6);
 /* No bindings
 check_constants!(INADDR_LOOPBACK);

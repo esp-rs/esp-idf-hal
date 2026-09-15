@@ -4,6 +4,12 @@
 #error Only ESP-IDF versions >= V4.3.2 are currently supported; if you are using the PIO build (the default one), wipe out your `.embuild` folder and try again with a clean rebuild
 #endif
 
+// Standard C library headers whose types and constants are mirrored by the `libc` crate
+// and cross-checked in `src/checks/libc.rs`; included explicitly so that the bindings
+// contain them regardless of which ESP-IDF components are built
+#include <errno.h>
+#include <fcntl.h>
+
 #include "esp_rom_crc.h"
 #include "esp_log.h"
 #include "esp_debug_helpers.h"
@@ -306,8 +312,13 @@
 #endif
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
+// The POSIX wrapper of the ESP-IDF lwip port. Brings in `net/if.h`, where ESP-IDF defines
+// the POSIX socket constants that are not in `lwip/sockets.h` (`MSG_DONTROUTE`, `SOMAXCONN`, `NI_MAXHOST`, ...)
+#include <sys/socket.h>
 #if ESP_IDF_VERSION_MAJOR > 4
+#ifdef ESP_IDF_COMP_ESP_NETIF_ENABLED
 #include "lwip/esp_netif_net_stack.h"
+#endif
 #endif
 #include "esp_sntp.h"
 #include "ping/ping_sock.h"
