@@ -49,9 +49,7 @@ jobs:
           - target: riscv32imafc-esp-espidf
             idf-version: v5.0.9
           - target: riscv32imafc-esp-espidf
-            idf-version: v5.1.6
-          - target: riscv32imafc-esp-espidf
-            idf-version: v5.2.5
+            idf-version: v5.1.7
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
