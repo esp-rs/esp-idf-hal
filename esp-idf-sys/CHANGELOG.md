@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- Add all Mbedtls 3.x headers
 - `checks/libc.rs`: gate IPv6-specific checks on `esp_idf_lwip_ipv6` instead of the coarser `esp_idf_comp_lwip_enabled`, so builds with `CONFIG_LWIP_IPV6=n` no longer fail.
 - `checks/libc.rs`: additionally gate termios checks on `esp_idf_vfs_support_termios`, so pre-6.0 builds with `CONFIG_VFS_SUPPORT_TERMIOS=n` no longer fail.
 

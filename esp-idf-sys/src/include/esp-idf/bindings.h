@@ -331,15 +331,32 @@
 
 #ifdef ESP_IDF_COMP_MBEDTLS_ENABLED
 #include "mbedtls/ssl.h"
+#include "mbedtls/ssl_cache.h"
+#include "mbedtls/ssl_cookie.h"
+#include "mbedtls/ssl_ticket.h"
 #if ESP_IDF_VERSION_MAJOR < 6
+// Legacy crypto headers; dropped or made private by Mbed TLS 4 / TF-PSA-Crypto (ESP-IDF 6+)
 #include "mbedtls/aes.h"
 #include "mbedtls/cipher.h"
 #include "mbedtls/entropy.h"
 #include "mbedtls/ctr_drbg.h"
 #include "mbedtls/cmac.h"
 #include "mbedtls/ecdh.h"
+#include "mbedtls/dhm.h"
+#include "mbedtls/hkdf.h"
+#include "mbedtls/hmac_drbg.h"
+#include "mbedtls/pkcs5.h"
+#include "mbedtls/pkcs12.h"
 #endif
 #include "mbedtls/ecp.h"
+#include "mbedtls/platform.h"
+#include "mbedtls/asn1write.h"
+#include "mbedtls/oid.h"
+#include "mbedtls/pem.h"
+#include "mbedtls/pkcs7.h"
+#include "mbedtls/lms.h"
+#include "mbedtls/nist_kw.h"
+#include "mbedtls/x509_csr.h"
 #include "mbedtls/debug.h"
 
 #ifdef CONFIG_MBEDTLS_CERTIFICATE_BUNDLE
