@@ -5,6 +5,15 @@
 //! The socket and netdb items (`sockaddr*`, `MSG_*`, `SO_*`, `IP_*`, `AI_*`, `NI_*`, ...) are only
 //! present in the bindings when the `lwip` ESP-IDF component is built, hence their checks
 //! are gated on `esp_idf_comp_lwip_enabled`.
+//!
+//! IPv6-specific items (`sockaddr_in6`, `ipv6_mreq`, `in6_addr`, `AF_INET6`, `PF_INET6`,
+//! `IPV6_*`, `IPPROTO_ICMPV6`, `IPPROTO_IPV6`, and the size of `sockaddr_storage`) are only
+//! present / the expected size when `CONFIG_LWIP_IPV6=y`, so their checks are gated on
+//! `esp_idf_lwip_ipv6` instead of the coarser `esp_idf_comp_lwip_enabled`.
+//!
+//! Termios items (`termios`, `speed_t`, `tcflag_t`, `cc_t`, `NCCS`) are only present when
+//! `CONFIG_VFS_SUPPORT_TERMIOS=y`, so their checks additionally require
+//! `esp_idf_vfs_support_termios`.
 
 use crate as sys;
 use compile_fmt::{compile_assert, fmt};
@@ -93,14 +102,18 @@ check_types!(msghdr);
 //check_types!(sockaddr_un); // No binding
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sockaddr);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_types!(sockaddr_in6);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(sockaddr_in);
-#[cfg(esp_idf_comp_lwip_enabled)]
+// `sockaddr_storage` in LWIP is sized to hold the largest sockaddr subclass, which is
+// `sockaddr_in6` when IPv6 is enabled. Without IPv6, ESP-IDF's `sockaddr_storage`
+// shrinks to 16 bytes while `libc` still assumes 28 (IPv6 present), so only compare
+// when IPv6 is enabled.
+#[cfg(esp_idf_lwip_ipv6)]
 check_types!(sockaddr_storage);
 //check_constants!(AF_UNIX); // No binding
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(AF_INET6);
 //check_constants!(FIONBIO); // No binding
 check_constants!(POLLIN);
@@ -184,10 +197,10 @@ check_types!(pthread_key_t);
 check_types!(sa_family_t);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(socklen_t);
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(not(esp_idf_version_at_least_6_0_0), esp_idf_vfs_support_termios))]
 check_types!(speed_t);
 check_types!(suseconds_t);
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(not(esp_idf_version_at_least_6_0_0), esp_idf_vfs_support_termios))]
 check_types!(tcflag_t);
 check_types!(useconds_t);
 check_types!(time_t);
@@ -207,7 +220,7 @@ check_types!(stack_t);
 #[cfg(esp_idf_version_at_least_5_0_0)]
 check_types!(fd_set);
 //check_types!(passwd); // No binding
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(not(esp_idf_version_at_least_6_0_0), esp_idf_vfs_support_termios))]
 check_types!(termios);
 //check_types!(sem_t); // No binding
 //check_types!(utsname); // No binding
@@ -220,7 +233,7 @@ check_types!(pthread_rwlock_t);
 check_types!(pthread_mutexattr_t);
 check_types!(pthread_cond_t);
 check_types!(pthread_condattr_t);*/
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(not(esp_idf_version_at_least_6_0_0), esp_idf_vfs_support_termios))]
 check_constants!(NCCS);
 check_constants!(PTHREAD_MUTEX_NORMAL);
 check_constants!(PTHREAD_MUTEX_RECURSIVE);
@@ -384,7 +397,7 @@ check_constants!(S_IXOTH);
 check_constants!(PF_UNSPEC);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(PF_INET);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(PF_INET6);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(AF_UNSPEC);
@@ -505,23 +518,23 @@ check_constants!(IP_MULTICAST_LOOP);
 check_constants!(IP_ADD_MEMBERSHIP);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_DROP_MEMBERSHIP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_UNICAST_HOPS);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_MULTICAST_IF);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_MULTICAST_HOPS);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_MULTICAST_LOOP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_V6ONLY);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_JOIN_GROUP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_LEAVE_GROUP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_ADD_MEMBERSHIP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_DROP_MEMBERSHIP);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(HOST_NOT_FOUND);
@@ -580,7 +593,7 @@ check_types!(pid_t);
 check_types!(in_addr_t);
 check_types!(in_port_t);
 //check_types!(sighandler_t); // No binding
-#[cfg(not(esp_idf_version_at_least_6_0_0))]
+#[cfg(all(not(esp_idf_version_at_least_6_0_0), esp_idf_vfs_support_termios))]
 check_types!(cc_t);
 check_types!(uid_t);
 check_types!(gid_t);
@@ -592,7 +605,7 @@ check_types!(timeval);
 check_types!(timespec);
 //check_types!(rlimit); // No binding
 //check_types!(rusage); // No binding
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_types!(ipv6_mreq);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(hostent);
@@ -610,7 +623,7 @@ check_types!(itimerval);
 //check_types!(tms);
 //check_types!(servent); // No binding
 //check_types!(protoent); // No binding
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_types!(in6_addr);
 /* No bindings
 check_constants!(INT_MIN);
@@ -687,7 +700,7 @@ check_constants!(PRIO_MAX);
 */
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_ICMP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPPROTO_ICMPV6);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_TCP);
@@ -695,7 +708,7 @@ check_constants!(IPPROTO_TCP);
 check_constants!(IPPROTO_UDP);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IPPROTO_IP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPPROTO_IPV6);
 /* No bindings
 check_constants!(INADDR_LOOPBACK);
