@@ -353,9 +353,13 @@
 #include "mbedtls/asn1write.h"
 #include "mbedtls/oid.h"
 #include "mbedtls/pem.h"
+#include "mbedtls/nist_kw.h"
+#include "mbedtls/version.h"
+#if MBEDTLS_VERSION_NUMBER >= 0x03030000
+// PKCS#7 and LMS only exist since Mbed TLS 3.3 (ESP-IDF 4.4 ships 2.28, ESP-IDF 5.0 ships 3.2)
 #include "mbedtls/pkcs7.h"
 #include "mbedtls/lms.h"
-#include "mbedtls/nist_kw.h"
+#endif
 #include "mbedtls/x509_csr.h"
 #include "mbedtls/debug.h"
 
