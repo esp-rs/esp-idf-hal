@@ -1,6 +1,6 @@
 # Safe Rust wrappers for the drivers in the [ESP IDF SDK](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)
 
-[![CI](https://github.com/esp-rs/esp-idf/actions/workflows/ci-hal.yml/badge.svg)](https://github.com/esp-rs/esp-idf/actions/workflows/ci-hal.yml)
+[![CI](https://github.com/esp-rs/esp-idf/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)](https://crates.io/crates/esp-idf-hal)
 [![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf/esp-idf-hal/esp_idf_hal/index.html)
 [![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)

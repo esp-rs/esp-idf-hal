@@ -1,0 +1,231 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  schedule:
+    - cron: "50 4 * * *"
+  workflow_dispatch:
+
+env:
+  rust_toolchain: nightly
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Compile-time configuration of the networking examples
+  WIFI_SSID: "ssid"
+  WIFI_PASS: "pass"
+  ESP_DEVICE_IP: "192.168.1.250"
+  GATEWAY_IP: "192.168.1.1"
+  GATEWAY_NETMASK: "24"
+
+jobs:
+  compile:
+    name: "${{ matrix.target }} / ${{ matrix.idf-version }}${{ matrix.extra-components-label != '' && format(' (+{0})', matrix.extra-components-label) || '' }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - riscv32imc-esp-espidf
+          - riscv32imac-esp-espidf
+          - riscv32imafc-esp-espidf
+          - xtensa-esp32-espidf
+          - xtensa-esp32s2-espidf
+          - xtensa-esp32s3-espidf
+        idf-version:
+          - v5.3.6
+          - v5.4.4
+          - v5.5.5
+          - v6.0.3
+          - v6.1
+        extra-components-label:
+          - ""
+        extra-components-files:
+          - ""
+        include:
+          # Also test v6.0 with remote components that were moved out of the main tree
+          # mqtt and eth SPI drivers work on all targets; eth PHY drivers only support esp32 and esp32p4
+          - target: riscv32imc-esp-espidf
+            idf-version: v6.0
+            extra-components-label: v6_mqtt
+            # We could add v6_eth_spi here, but example is esp32-only.
+            extra-components-files: "extra_components_v6_mqtt.toml"
+          - target: xtensa-esp32-espidf
+            idf-version: v6.0
+            extra-components-label: v6_mqtt v6_eth_spi v6_eth_phy
+            extra-components-files: "extra_components_v6_mqtt.toml,extra_components_v6_eth_spi.toml,extra_components_v6_eth_phy.toml"
+          # esp32p4 also supports eth, but examples are esp32-only for now
+          #- target: riscv32imafc-esp-espidf
+          #  idf-version: v6.0
+          #  extra-components-label: v6_mqtt v6_eth_spi v6_eth_phy
+          #  extra-components-files: "extra_components_v6_mqtt.toml,extra_components_v6_eth_spi.toml,extra_components_v6_eth_phy.toml"
+    env:
+      ESP_IDF_VERSION: ${{ matrix.idf-version }}
+      ESP_IDF_SYS_EXTRA_COMPONENTS_FILE: ${{ matrix.extra-components-files }}
+      RUSTFLAGS: "--cfg espidf_time64"
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup | Rust
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.rust_toolchain }}
+          components: rustfmt, clippy, rust-src
+
+      - name: Setup | Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
+        uses: esp-rs/xtensa-toolchain@v1.6
+        with:
+          default: true
+          ldproxy: true
+
+      - name: Setup | ldproxy
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        run: |
+          curl -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
+          chmod a+x $HOME/.cargo/bin/ldproxy
+
+      - name: Build | Fmt Check
+        run: cargo fmt --all -- --check
+
+      # The examples package depends on the three crates with their full feature set, so a single
+      # workspace-wide invocation lints/compiles every crate and every example with all features on
+      - name: Build | Clippy, all crates and examples
+        run: cargo clippy --workspace --examples --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
+
+      - name: Build | Compile, all crates and examples
+        run: cargo build --workspace --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      # Only the three crates are selected here: the examples need `std`
+      - name: Build | Compile, no_std
+        run: cargo build -p esp-idf-sys -p esp-idf-hal -p esp-idf-svc --no-default-features --features esp-idf-hal/experimental,esp-idf-svc/nightly,esp-idf-svc/experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      - name: Build | Compile, no_std, alloc
+        run: cargo build -p esp-idf-sys -p esp-idf-hal -p esp-idf-svc --no-default-features --features esp-idf-hal/alloc,esp-idf-hal/experimental,esp-idf-svc/alloc,esp-idf-svc/nightly,esp-idf-svc/experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+  # The `compile` job above builds with Bluedroid. The `esp_idf_svc::ble` module and the `ble_*`
+  # examples are NimBLE-only (gated behind `esp_idf_bt_nimble_enabled`), so that job never compiles
+  # them - the two hosts are a mutually-exclusive Kconfig `choice` and cannot coexist in one build.
+  # This job builds the workspace and the examples against `sdkconfig.defaults.nimble` to
+  # compile-check the NimBLE paths too. Both riscv targets are intentional: riscv32imc (esp32c3)
+  # exposes the plain `os_mbuf_append`, while riscv32imac (esp32c6/h2) keeps the BLE controller in
+  # ROM and exposes `r_os_mbuf_append` - so both mbuf bindings get exercised.
+  compile-nimble:
+    name: "NimBLE / ${{ matrix.target }} / ${{ matrix.idf-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - riscv32imc-esp-espidf
+          - riscv32imac-esp-espidf
+        idf-version:
+          - v5.3.4
+          - v5.4.3
+          - v5.5.3
+    env:
+      ESP_IDF_VERSION: ${{ matrix.idf-version }}
+      ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/sdkconfig.defaults.nimble"
+      RUSTFLAGS: "--cfg espidf_time64"
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup | Rust
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.rust_toolchain }}
+          components: rustfmt, clippy, rust-src
+
+      - name: Setup | Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
+        uses: esp-rs/xtensa-toolchain@v1.6
+        with:
+          default: true
+          ldproxy: true
+
+      - name: Setup | ldproxy
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        run: |
+          curl -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
+          chmod a+x $HOME/.cargo/bin/ldproxy
+
+      # The examples package depends on the three crates with their full feature set, so a single
+      # workspace-wide invocation lints/compiles every crate and every example with all features on
+      - name: Build | Clippy, all crates and examples
+        run: cargo clippy --workspace --examples --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
+
+      - name: Build | Compile, all crates and examples
+        run: cargo build --workspace --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+  # esp-idf-hal and esp-idf-svc require ESP-IDF v5.3 or newer, but esp-idf-sys still supports the
+  # older ESP-IDF releases, so it alone is compile-checked against them
+  compile-sys-legacy:
+    name: "esp-idf-sys / ${{ matrix.target }} / ${{ matrix.idf-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - riscv32imc-esp-espidf
+          - riscv32imac-esp-espidf
+          - riscv32imafc-esp-espidf
+          - xtensa-esp32-espidf
+          - xtensa-esp32s2-espidf
+          - xtensa-esp32s3-espidf
+        idf-version:
+          - v4.4.8
+          - v5.0.9
+          - v5.1.7
+          - v5.2.8
+        exclude:
+          # ESP32-C6/H2 (riscv32imac) not supported before v5.1
+          - target: riscv32imac-esp-espidf
+            idf-version: v4.4.8
+          - target: riscv32imac-esp-espidf
+            idf-version: v5.0.9
+          # ESP32-P4 (riscv32imafc) not supported before v5.3
+          - target: riscv32imafc-esp-espidf
+            idf-version: v4.4.8
+          - target: riscv32imafc-esp-espidf
+            idf-version: v5.0.9
+          - target: riscv32imafc-esp-espidf
+            idf-version: v5.1.7
+          - target: riscv32imafc-esp-espidf
+            idf-version: v5.2.8
+    env:
+      ESP_IDF_VERSION: ${{ matrix.idf-version }}
+      RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup | Rust
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.rust_toolchain }}
+          components: rustfmt, clippy, rust-src
+
+      - name: Setup | Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
+        uses: esp-rs/xtensa-toolchain@v1.6
+        with:
+          default: true
+          ldproxy: true
+
+      # The old ESP-IDF releases deprecate APIs the bindings still expose, hence -Adeprecated
+      - name: Build | Clippy
+        run: cargo clippy -p esp-idf-sys --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
+
+      - name: Build | Compile
+        run: cargo build -p esp-idf-sys --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      - name: Build | Compile, no_std
+        run: cargo build -p esp-idf-sys --no-default-features --target ${{ matrix.target }} -Zbuild-std=std,panic_abort

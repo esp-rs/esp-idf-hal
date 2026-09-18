@@ -3,10 +3,6 @@ name: Publish (esp-idf-hal)
 on:
   workflow_dispatch
 
-defaults:
-  run:
-    working-directory: esp-idf-hal
-
 env:
   rust_toolchain: nightly
   crate_name: esp-idf-hal
@@ -29,17 +25,17 @@ jobs:
         run: cargo login ${{ secrets.crates_io_token }}
 
       - name: Build | Publish
-        run: export ESP_IDF_TOOLS_INSTALL_DIR=out; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo publish --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort
+        run: export ESP_IDF_TOOLS_INSTALL_DIR=out; cargo publish -p esp-idf-hal --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort
 
       - name: Build Documentation
-        run: cargo doc --features esp-idf-sys/native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort; echo "<meta http-equiv=\"refresh\" content=\"0; url=esp_idf_hal\">" > target/riscv32imc-esp-espidf/doc/index.html; mv target/riscv32imc-esp-espidf/doc ./docs
+        run: cargo doc -p esp-idf-hal --features native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort; echo "<meta http-equiv=\"refresh\" content=\"0; url=esp_idf_hal\">" > target/riscv32imc-esp-espidf/doc/index.html; mv target/riscv32imc-esp-espidf/doc ./docs
 
       - name: Deploy Documentation
         if: ${{ github.ref == 'refs/heads/master' }}
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./esp-idf-hal/docs
+          publish_dir: ./docs
           destination_dir: esp-idf-hal
 
       - name: Get the crate version from cargo

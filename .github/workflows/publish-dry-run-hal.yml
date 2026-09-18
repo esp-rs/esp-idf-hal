@@ -3,10 +3,6 @@ name: PublishDryRun (esp-idf-hal)
 on:
   workflow_dispatch
 
-defaults:
-  run:
-    working-directory: esp-idf-hal
-
 env:
   rust_toolchain: nightly
 
@@ -25,4 +21,4 @@ jobs:
           components: rust-src
 
       - name: Build | Publish Dry Run
-        run: export ESP_IDF_TOOLS_INSTALL_DIR=out; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo publish --dry-run --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort
+        run: export ESP_IDF_TOOLS_INSTALL_DIR=out; cargo publish -p esp-idf-hal --dry-run --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort

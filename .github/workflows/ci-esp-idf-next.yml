@@ -1,0 +1,82 @@
+name: CIEspIdfNext
+
+on:
+  push:
+    branches:
+      - master
+  schedule:
+    - cron: "50 5 * * *"
+  workflow_dispatch:
+
+env:
+  rust_toolchain: nightly
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # Compile-time configuration of the networking examples
+  WIFI_SSID: "ssid"
+  WIFI_PASS: "pass"
+  ESP_DEVICE_IP: "192.168.1.250"
+  GATEWAY_IP: "192.168.1.1"
+  GATEWAY_NETMASK: "24"
+
+jobs:
+  compile:
+    name: "${{ matrix.target }} / ${{ matrix.idf-version }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - riscv32imc-esp-espidf
+          - riscv32imac-esp-espidf
+          - riscv32imafc-esp-espidf
+          - xtensa-esp32-espidf
+          - xtensa-esp32s2-espidf
+          - xtensa-esp32s3-espidf
+        idf-version:
+#          - release/v6.2
+          - master
+    env:
+      ESP_IDF_VERSION: ${{ matrix.idf-version }}
+      RUSTFLAGS: "--cfg espidf_time64"
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup | Rust
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.rust_toolchain }}
+          components: rustfmt, clippy, rust-src
+
+      - name: Setup | Rust for Xtensa
+        if: matrix.target != 'riscv32imc-esp-espidf'
+        uses: esp-rs/xtensa-toolchain@v1.6
+        with:
+          default: true
+          ldproxy: true
+
+      - name: Setup | ldproxy
+        if: matrix.target == 'riscv32imc-esp-espidf'
+        run: |
+          curl -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
+          chmod a+x $HOME/.cargo/bin/ldproxy
+
+      - name: Build | Fmt Check
+        run: cargo fmt --all -- --check
+
+      # The examples package depends on the three crates with their full feature set, so a single
+      # workspace-wide invocation lints/compiles every crate and every example with all features on
+      - name: Build | Clippy, all crates and examples
+        run: cargo clippy --workspace --examples --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
+
+      - name: Build | Compile, all crates and examples
+        run: cargo build --workspace --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      # Only the three crates are selected here: the examples need `std`
+      - name: Build | Compile, no_std
+        run: cargo build -p esp-idf-sys -p esp-idf-hal -p esp-idf-svc --no-default-features --features esp-idf-hal/experimental,esp-idf-svc/nightly,esp-idf-svc/experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      - name: Build | Compile, no_std, alloc
+        run: cargo build -p esp-idf-sys -p esp-idf-hal -p esp-idf-svc --no-default-features --features esp-idf-hal/alloc,esp-idf-hal/experimental,esp-idf-svc/alloc,esp-idf-svc/nightly,esp-idf-svc/experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
