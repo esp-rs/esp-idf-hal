@@ -1,6 +1,0 @@
-/.vscode
-/.espressif
-/.embuild
-/target
-/Cargo.lock
-**/*.rs.bk

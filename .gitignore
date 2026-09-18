@@ -1,8 +1,10 @@
-/.vscode
-/.idea
-/.zed
-/.devcontainer
-/.espressif
-/.embuild
-/target
+.vscode/
+.idea/
+.zed/
+.devcontainer/
+.espressif/
+.embuild/
+target/
+Cargo.lock
+components_*.lock
 **/*.rs.bk

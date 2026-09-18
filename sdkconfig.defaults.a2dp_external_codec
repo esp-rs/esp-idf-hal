@@ -1,6 +1,6 @@
 # Self-contained sdkconfig fragment for the bt_a2dp_sink_external_codec example.
 # Can be used alone (`ESP_IDF_SDKCONFIG_DEFAULTS=this_file`) OR layered
-# on top of .github/configs/sdkconfig.defaults.
+# on top of the workspace sdkconfig.defaults.
 
 # Stack sizes that Rust applications generally want bumped from defaults.
 CONFIG_ESP_TIMER_TASK_STACK_SIZE=4096
