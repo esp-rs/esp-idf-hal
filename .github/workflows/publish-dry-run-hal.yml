@@ -1,7 +1,11 @@
-name: PublishDryRun
+name: PublishDryRun (esp-idf-hal)
 
 on:
   workflow_dispatch
+
+defaults:
+  run:
+    working-directory: esp-idf-hal
 
 env:
   rust_toolchain: nightly

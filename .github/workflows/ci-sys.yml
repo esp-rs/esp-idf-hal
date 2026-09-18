@@ -1,13 +1,23 @@
-name: CI
+name: CI (esp-idf-sys)
 
 on:
   push:
     branches:
       - master
+    paths:
+      - "esp-idf-sys/**"
+      - ".github/workflows/ci-sys.yml"
   pull_request:
+    paths:
+      - "esp-idf-sys/**"
+      - ".github/workflows/ci-sys.yml"
   schedule:
     - cron: "50 4 * * *"
   workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: esp-idf-sys
 
 env:
   rust_toolchain: nightly
@@ -82,7 +92,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-sys/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
 
@@ -90,7 +100,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-sys/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
@@ -98,7 +108,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-sys/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --target ${{ matrix.target }} --no-default-features -Zbuild-std=std,panic_abort
 
@@ -106,7 +116,7 @@ jobs:
 #        if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
 #        env:
 #          ESP_IDF_VERSION: ${{ matrix.idf-version }}
-#          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+#          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-sys/.github/configs/sdkconfig.defaults"
 #          RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v5') && '--cfg espidf_time64' }}"
 #        run: cargo build --no-default-features --features alloc --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
@@ -121,7 +131,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-sys/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo clippy --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
 
@@ -129,6 +139,6 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-sys/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort

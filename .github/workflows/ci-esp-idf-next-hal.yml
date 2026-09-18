@@ -1,12 +1,19 @@
-name: CIEspIdfNext
+name: CIEspIdfNext (esp-idf-hal)
 
 on:
   push:
     branches:
       - master
+    paths:
+      - "esp-idf-hal/**"
+      - ".github/workflows/ci-esp-idf-next-hal.yml"
   workflow_dispatch:
   schedule:
     - cron: '50 5 * * *'
+
+defaults:
+  run:
+    working-directory: esp-idf-hal
 
 env:
   rust_toolchain: nightly
@@ -51,28 +58,28 @@ jobs:
       - name: Build | Clippy
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-hal/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo clippy --features experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Compile, all
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-hal/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo build --target ${{ matrix.target }} --features nightly,experimental,critical-section,embassy-sync -Zbuild-std=std,panic_abort
 
       - name: Build | Compile, no_std
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-hal/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo build --no-default-features --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Build | Compile, no_std, alloc
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-hal/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo build --features alloc --no-default-features --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
@@ -86,13 +93,13 @@ jobs:
       - name: Clippy | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-hal/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo clippy --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-hal/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort

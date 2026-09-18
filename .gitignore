@@ -1,0 +1,8 @@
+/.vscode
+/.idea
+/.zed
+/.devcontainer
+/.espressif
+/.embuild
+/target
+**/*.rs.bk

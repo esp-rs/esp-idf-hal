@@ -1,6 +1,10 @@
-name: Publish
+name: Publish (esp-idf-svc)
 
 on: workflow_dispatch
+
+defaults:
+  run:
+    working-directory: esp-idf-svc
 
 env:
   rust_toolchain: nightly
@@ -29,8 +33,8 @@ jobs:
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          force_orphan: true
-          publish_dir: ./docs
+          publish_dir: ./esp-idf-svc/docs
+          destination_dir: esp-idf-svc
       - name: Get the crate version from cargo
         run: |
           version=$(cargo metadata --format-version=1 --no-deps | jq -r ".packages[] | select(.name == \"${{env.CRATE_NAME}}\") | .version")
@@ -39,5 +43,5 @@ jobs:
       - name: Tag the new release
         uses: rickstaa/action-create-tag@v1
         with:
-          tag: v${{env.crate_version}}
-          message: "Release v${{env.crate_version}}"
+          tag: esp-idf-svc-v${{env.crate_version}}
+          message: "Release esp-idf-svc v${{env.crate_version}}"

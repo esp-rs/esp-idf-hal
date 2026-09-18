@@ -1,16 +1,22 @@
-name: CIEspIdfNext
+name: CIEspIdfNext (esp-idf-svc)
 
 on:
   push:
     branches:
       - master
+    paths:
+      - "esp-idf-svc/**"
+      - ".github/workflows/ci-esp-idf-next-svc.yml"
   workflow_dispatch:
   schedule:
-    - cron: '50 5 * * *'
+    - cron: '50 6 * * *'
+
+defaults:
+  run:
+    working-directory: esp-idf-svc
 
 env:
   rust_toolchain: nightly
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   compile:
@@ -22,7 +28,6 @@ jobs:
         target:
           - riscv32imc-esp-espidf
           - riscv32imac-esp-espidf
-          - riscv32imafc-esp-espidf
           - xtensa-esp32-espidf
           - xtensa-esp32s2-espidf
           - xtensa-esp32s3-espidf
@@ -53,23 +58,30 @@ jobs:
       - name: Build | Clippy
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
-        run: cargo clippy --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
+        run: cargo clippy --features nightly,experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
-      - name: Build | Compile (Native)
+      - name: Build | Compile
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
-      - name: Build | Compile (Native), no_std
+      - name: Build | Compile, experimental, nightly, no_std
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
-        run: cargo build --target ${{ matrix.target }} --no-default-features -Zbuild-std=std,panic_abort
+        run: cargo build --no-default-features --features nightly,experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+
+      - name: Build | Compile, experimental, nightly, alloc
+        env:
+          ESP_IDF_VERSION: ${{ matrix.idf-version }}
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
+          RUSTFLAGS: "--cfg espidf_time64"
+        run: cargo build --no-default-features --features nightly,experimental,alloc --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Setup | ldproxy
         if: matrix.target == 'riscv32imc-esp-espidf'
@@ -81,13 +93,23 @@ jobs:
       - name: Clippy | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
-        run: cargo clippy --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings -Adeprecated
+          WIFI_SSID: "ssid"
+          WIFI_PASS: "pass"
+          ESP_DEVICE_IP: "192.168.1.250"
+          GATEWAY_IP: "192.168.1.1"
+          GATEWAY_NETMASK: "24"
+        run: cargo clippy --examples --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "--cfg espidf_time64"
-        run: cargo build --examples --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
+          WIFI_SSID: "ssid"
+          WIFI_PASS: "pass"
+          ESP_DEVICE_IP: "192.168.1.250"
+          GATEWAY_IP: "192.168.1.1"
+          GATEWAY_NETMASK: "24"
+        run: cargo build --examples --features experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort

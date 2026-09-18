@@ -1,13 +1,23 @@
-name: CI
+name: CI (esp-idf-svc)
 
 on:
   push:
     branches:
       - master
+    paths:
+      - "esp-idf-svc/**"
+      - ".github/workflows/ci-svc.yml"
   pull_request:
+    paths:
+      - "esp-idf-svc/**"
+      - ".github/workflows/ci-svc.yml"
   schedule:
     - cron: "50 6 * * *"
   workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: esp-idf-svc
 
 env:
   rust_toolchain: nightly
@@ -84,7 +94,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo clippy --features nightly,experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
@@ -92,7 +102,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
@@ -100,7 +110,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --no-default-features --features nightly,experimental --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
@@ -108,7 +118,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
         run: cargo build --no-default-features --features nightly,experimental,alloc --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
@@ -123,7 +133,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
           WIFI_SSID: "ssid"
           WIFI_PASS: "pass"
@@ -136,7 +146,7 @@ jobs:
         if: matrix.target != 'riscv32imac-esp-espidf' || matrix.idf-version != 'v4.4.8'
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults"
           RUSTFLAGS: "${{ startsWith(matrix.idf-version, 'v4') && '--cfg espidf_time32' || '--cfg espidf_time64' }}"
           WIFI_SSID: "ssid"
           WIFI_PASS: "pass"
@@ -193,21 +203,21 @@ jobs:
       - name: Build | Clippy
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults.nimble"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo clippy --features nightly,experimental --no-deps --target ${{ matrix.target }} -Zbuild-std=std,panic_abort -- -Dwarnings
 
       - name: Build | Compile
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults.nimble"
           RUSTFLAGS: "--cfg espidf_time64"
         run: cargo build --target ${{ matrix.target }} -Zbuild-std=std,panic_abort
 
       - name: Clippy | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults.nimble"
           RUSTFLAGS: "--cfg espidf_time64"
           WIFI_SSID: "ssid"
           WIFI_PASS: "pass"
@@ -219,7 +229,7 @@ jobs:
       - name: Build | Examples
         env:
           ESP_IDF_VERSION: ${{ matrix.idf-version }}
-          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/.github/configs/sdkconfig.defaults.nimble"
+          ESP_IDF_SDKCONFIG_DEFAULTS: "${{ github.workspace }}/esp-idf-svc/.github/configs/sdkconfig.defaults.nimble"
           RUSTFLAGS: "--cfg espidf_time64"
           WIFI_SSID: "ssid"
           WIFI_PASS: "pass"
