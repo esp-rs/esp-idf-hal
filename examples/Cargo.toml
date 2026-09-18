@@ -1,0 +1,42 @@
+[package]
+name = "esp-idf-examples"
+version = "0.0.0"
+authors = ["Ivan Markov <ivan.markov@gmail.com>"]
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "The examples of the esp-idf-sys, esp-idf-hal and esp-idf-svc crates"
+publish = false
+
+[features]
+# Pass-through of the esp-idf-hal features that select the legacy ESP-IDF drivers,
+# so that the examples can be built against either driver generation
+adc-oneshot-legacy = ["esp-idf-hal/adc-oneshot-legacy"]
+pcnt-legacy = ["esp-idf-hal/pcnt-legacy"]
+rmt-legacy = ["esp-idf-hal/rmt-legacy"]
+timer-legacy = ["esp-idf-hal/timer-legacy"]
+
+[dependencies]
+esp-idf-sys = { workspace = true, features = ["std", "binstart"] }
+esp-idf-hal = { workspace = true, features = ["std", "binstart", "nightly", "experimental", "critical-section", "embassy-sync"] }
+esp-idf-svc = { workspace = true, features = ["std", "binstart", "nightly", "experimental"] }
+embedded-hal = { workspace = true }
+embedded-hal-0-2 = { workspace = true }
+embedded-svc = { workspace = true }
+embassy-futures = { workspace = true }
+anyhow = { workspace = true }
+log = { workspace = true }
+heapless = { workspace = true }
+enumset = { workspace = true }
+futures = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+postcard = { workspace = true }
+async-io = { workspace = true }
+mipidsi = { workspace = true }
+display-interface-spi = { workspace = true }
+embedded-graphics = { workspace = true }
+
+[build-dependencies]
+embuild = { workspace = true }

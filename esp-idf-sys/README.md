@@ -43,7 +43,9 @@ Read the [documentation here](https://github.com/esp-rs/esp-idf/blob/master/esp-
 
 ## Examples
 
-The examples could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run e.g. `std_basics` on an e.g. ESP32-C3:
+The examples of this crate live, together with the examples of the other crates, in the [`examples`](https://github.com/esp-rs/esp-idf/tree/master/examples/examples) directory of the `examples` crate at the root of the repository, and are built from the repository root.
+
+They could be built and flashed conveniently with [`cargo-espflash`](https://github.com/esp-rs/espflash/). To run e.g. `std_basics` on an e.g. ESP32-C3:
 (Swap the Rust target and example name with the target corresponding for your ESP32 MCU and with the example you would like to build)
 
 with `cargo-espflash`:

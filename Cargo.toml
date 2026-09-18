@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["esp-idf-sys", "esp-idf-hal", "esp-idf-svc"]
+members = ["esp-idf-sys", "esp-idf-hal", "esp-idf-svc", "examples"]
 
 [workspace.package]
 edition = "2021"
