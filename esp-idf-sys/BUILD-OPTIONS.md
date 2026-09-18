@@ -551,7 +551,7 @@ remote_component = { name = "espressif/mdns", version = "1.2" }
 > `espressif__mdns` with the [`cfg`](#conditional-compilation)
 > `esp_idf_comp_espressif__mdns_enabled`).
 
-Remote components that are **not** already included inside the [esp-idf-sys bindings.h](https://github.com/esp-rs/esp-idf-sys/blob/master/src/include/esp-idf/bindings.h) file must be manually added, in its own C header file.
+Remote components that are **not** already included inside the [esp-idf-sys bindings.h](https://github.com/esp-rs/esp-idf/blob/master/esp-idf-sys/src/include/esp-idf/bindings.h) file must be manually added, in its own C header file.
 
 For example, the `espressif/esp32-camera` component could be included in the following way:
 ```toml

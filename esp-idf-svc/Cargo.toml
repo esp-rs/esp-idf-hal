@@ -7,12 +7,12 @@ resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["embedded", "svc", "idf", "esp-idf", "esp32"]
 description = "Implementation of the embedded-svc traits for ESP-IDF (Espressif's IoT Development Framework)"
-repository = "https://github.com/esp-rs/esp-idf-svc"
+repository = "https://github.com/esp-rs/esp-idf"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf_svc"
 build = "build.rs"
-documentation = "https://esp-rs.github.io/esp-idf-svc"
+documentation = "https://esp-rs.github.io/esp-idf/esp-idf-svc"
 rust-version = "1.82"
 
 [lib]

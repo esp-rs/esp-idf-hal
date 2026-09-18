@@ -7,12 +7,12 @@ resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["sys", "idf", "esp-idf", "esp32"]
 description = "Bindings for ESP-IDF (Espressif's IoT Development Framework)"
-repository = "https://github.com/esp-rs/esp-idf-sys"
+repository = "https://github.com/esp-rs/esp-idf"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf"
 build = "build/build.rs"
-documentation = "https://esp-rs.github.io/esp-idf-sys"
+documentation = "https://esp-rs.github.io/esp-idf/esp-idf-sys"
 rust-version = "1.82"
 
 [lib]

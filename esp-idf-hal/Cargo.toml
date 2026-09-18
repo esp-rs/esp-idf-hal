@@ -7,12 +7,12 @@ resolver = "2"
 categories = ["embedded", "hardware-support"]
 keywords = ["hal", "idf", "esp-idf", "esp32"]
 description = "A Hardware abstraction layer for Espressif's ESP family of microcontrollers based on the ESP-IDF framework."
-repository = "https://github.com/esp-rs/esp-idf-hal"
+repository = "https://github.com/esp-rs/esp-idf"
 license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf_hal"
 build = "build.rs"
-documentation = "https://esp-rs.github.io/esp-idf-hal"
+documentation = "https://esp-rs.github.io/esp-idf/esp-idf-hal"
 rust-version = "1.82"
 
 [lib]

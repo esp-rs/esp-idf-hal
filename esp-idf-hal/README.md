@@ -1,8 +1,8 @@
 # Safe Rust wrappers for the drivers in the [ESP IDF SDK](https://docs.espressif.com/projects/esp-idf/en/latest/esp32/)
 
-[![CI](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml/badge.svg)](https://github.com/esp-rs/esp-idf-hal/actions/workflows/ci.yml)
+[![CI](https://github.com/esp-rs/esp-idf/actions/workflows/ci-hal.yml/badge.svg)](https://github.com/esp-rs/esp-idf/actions/workflows/ci-hal.yml)
 [![crates.io](https://img.shields.io/crates/v/esp-idf-hal.svg)](https://crates.io/crates/esp-idf-hal)
-[![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf-hal/esp_idf_hal/index.html)
+[![Documentation](https://img.shields.io/badge/docs-esp--rs-brightgreen)](https://esp-rs.github.io/esp-idf/esp-idf-hal/esp_idf_hal/index.html)
 [![Matrix](https://img.shields.io/matrix/esp-rs:matrix.org?label=join%20matrix&color=BEC5C9&logo=matrix)](https://matrix.to/#/#esp-rs:matrix.org)
 [![Wokwi](https://img.shields.io/endpoint?url=https%3A%2F%2Fwokwi.com%2Fbadge%2Fclick-to-simulate.json)](https://wokwi.com/projects/332188235906155092)
 
@@ -13,7 +13,7 @@
 * Blocking and `async` mode for each driver (`async` support in progress)
 * Re-exports `esp-idf-sys` as `esp_idf_hal::sys`
 
-**You might want to also check out the ESP IDF [Services](https://github.com/esp-rs/esp-idf-svc) wrappers, and the raw bindings to ESP IDF in the [`esp-idf-sys`](https://github.com/esp-rs/esp-idf-sys) crate!**
+**You might want to also check out the ESP IDF [Services](https://github.com/esp-rs/esp-idf/tree/master/esp-idf-svc) wrappers, and the raw bindings to ESP IDF in the [`esp-idf-sys`](https://github.com/esp-rs/esp-idf/tree/master/esp-idf-sys) crate!**
 
 (For baremetal Rust ESP projects please check [`esp-hal`](https://github.com/esp-rs/esp-hal).)
 
@@ -65,9 +65,9 @@ For more information, check out:
 * The [ESP Embedded Training](https://github.com/esp-rs/std-training)
 * The [`esp-idf-template`](https://github.com/esp-rs/esp-idf-template) project
 * The [`embedded-hal`](https://github.com/rust-embedded/embedded-hal) project
-* The [`esp-idf-svc`](https://github.com/esp-rs/esp-idf-svc) project
+* The [`esp-idf-svc`](https://github.com/esp-rs/esp-idf/tree/master/esp-idf-svc) project
 * The [`embedded-svc`](https://github.com/esp-rs/embedded-svc) project
-* The [`esp-idf-sys`](https://github.com/esp-rs/esp-idf-sys) project
+* The [`esp-idf-sys`](https://github.com/esp-rs/esp-idf/tree/master/esp-idf-sys) project
 * The [Rust for Xtensa toolchain](https://github.com/esp-rs/rust-build)
 * The [Rust-with-STD demo](https://github.com/ivmarkov/rust-esp32-std-demo) project
 
