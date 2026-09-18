@@ -1,0 +1,48 @@
+[package]
+name = "esp-idf-sys"
+version = "0.38.1"
+authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>", "Dominik Gschwind <dominik.gschwind99@gmail.com>"]
+edition = "2021"
+resolver = "2"
+categories = ["embedded", "hardware-support"]
+keywords = ["sys", "idf", "esp-idf", "esp32"]
+description = "Bindings for ESP-IDF (Espressif's IoT Development Framework)"
+repository = "https://github.com/esp-rs/esp-idf-sys"
+license = "MIT OR Apache-2.0"
+readme = "README.md"
+links = "esp_idf"
+build = "build/build.rs"
+documentation = "https://esp-rs.github.io/esp-idf-sys"
+rust-version = "1.82"
+
+[lib]
+harness = false
+
+[features]
+default = ["std", "binstart"]
+
+std = []
+alloc_handler = []
+panic_handler = []
+binstart = []
+libstart = []
+native = []
+pio = ["embuild/pio"]
+
+[dependencies]
+libc = "0.2" # For compile-time libc compatibility checks
+compile-fmt = "0.1" # For compile-time libc compatibility checks
+build-time = "0.1"   # For esp_app_desc!()
+const_format = "0.2" # For esp_app_desc!()
+
+[build-dependencies]
+embuild = { version = "0.33.5", features = ["glob", "kconfig", "cmake", "espidf"] }
+anyhow = "1"
+regex = "1.5"
+cmake = "0.1.52"
+cargo_metadata = "0.18"
+serde = { version = "1.0", features = ["derive"] }
+strum = { version = "0.24", features = ["derive"] }
+envy = "0.4.2"
+toml = "0.8"
+which = "4.4"
