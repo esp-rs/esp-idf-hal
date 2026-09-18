@@ -1,0 +1,62 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP-RS WebSocket Guessing Game</title>
+<style type="text/css">
+body {
+	max-width: 50em;
+	margin: auto;
+	padding: 1em;
+	font: 1em/1.65 sans-serif;
+}
+input {
+    width: 100%;
+    height: 3em;
+    margin-bottom: 1em;
+}
+</style>
+</head>
+<body onload="loadWebSocket()">
+<form id="the-form" action="/post" accept-charset="utf-8">
+<label for="user-text">Make a guess:</label>
+<input type="text" id="user-text" name="user_text"><br>
+<input type="submit" id="user-submit" value="Submit" disabled>
+</form>
+<p id="server-resp">Connecting...</p>
+<script type="text/javascript">
+
+const submitButton = document.getElementById("user-submit");
+const theForm = document.getElementById("the-form");
+const userText = document.getElementById("user-text");
+const serverResp = document.getElementById("server-resp");
+
+let ws;
+
+function loadWebSocket() {
+    ws = new WebSocket(`ws://${window.location.host}/ws/guess`);
+    ws.onopen = function(e) {
+        submitButton.disabled = false;
+    };
+    ws.onclose = ws.onerror = function(e) {
+        submitButton.disabled = true;
+    };
+    ws.onmessage = function(e) {
+        console.log(e.data);
+        serverResp.innerText = e.data;
+    };
+}
+
+theForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    let form = e.currentTarget;
+    let url = form.action;
+
+    ws.send(userText.value);
+});
+
+</script>
+</body>
+</html>

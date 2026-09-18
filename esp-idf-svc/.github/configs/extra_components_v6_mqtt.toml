@@ -1,0 +1,5 @@
+# MQTT component, moved out of the ESP-IDF main tree in v6.0.
+# This fragment is appended to Cargo.toml by CI when testing with remote components.
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/mqtt", version = "1.*" }

@@ -1,0 +1,2 @@
+[idf_format_args]
+partition_table = "partitions.csv"

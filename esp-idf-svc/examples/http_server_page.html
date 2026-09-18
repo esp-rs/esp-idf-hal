@@ -1,0 +1,62 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ESP-RS JSON Post Handler</title>
+<style type="text/css">
+body {
+	max-width: 50em;
+	margin: auto;
+	padding: 1em;
+	font: 1em/1.65 sans-serif;
+}
+input {
+    width: 100%;
+    height: 3em;
+    margin-bottom: 1em;
+}
+</style>
+</head>
+<body>
+<form id="the-form" action="/post" method="post" accept-charset="utf-8">
+<label for="first-name">First Name:</label>
+<input type="text" id="first-name" name="first_name"><br>
+<label for="age">Age:</label>
+<input type="number" id="age" name="age" min="0" max="150"><br>
+<label for="birthplace">Birthplace:</label>
+<input type="text" id="birthplace" name="birthplace"><br>
+<input type="submit" value="Submit">
+</form>
+<p id="server-resp"></p>
+<script type="text/javascript">
+
+let theForm = document.getElementById("the-form");
+let serverResp = document.getElementById("server-resp");
+
+theForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    let form = e.currentTarget;
+    let url = form.action;
+
+    try {
+        let entries = Object.fromEntries(new FormData(form).entries());
+        entries["age"] = parseInt(entries["age"]);
+        let resp = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Accept: "application/json",
+            },
+            body: JSON.stringify(entries),
+        });
+        serverResp.innerText = await resp.text();
+    } catch (err) {
+        console.error(err);
+    }
+});
+
+</script>
+</body>
+</html>

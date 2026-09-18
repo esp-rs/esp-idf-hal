@@ -1,0 +1,18 @@
+# Ethernet PHY drivers, moved out of the ESP-IDF main tree in v6.0.
+# Only supported on esp32 and esp32p4.
+# This fragment is appended to Cargo.toml by CI when testing with remote components.
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/ip101", version = "1.*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/lan87xx", version = "1.*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/dp83848", version = "1.*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/rtl8201", version = "1.*" }
+
+[[package.metadata.esp-idf-sys.extra_components]]
+remote_component = { name = "espressif/ksz80xx", version = "1.*" }

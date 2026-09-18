@@ -1,0 +1,43 @@
+name: Publish
+
+on: workflow_dispatch
+
+env:
+  rust_toolchain: nightly
+  CRATE_NAME: esp-idf-svc
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup | Checkout
+        uses: actions/checkout@v3
+      - name: Setup | Rust
+        uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.rust_toolchain }}
+          components: rust-src
+      - name: Login
+        run: cargo login ${{ secrets.crates_io_token }}
+      - name: Build | Publish
+        run: export ESP_IDF_TOOLS_INSTALL_DIR=out; export ESP_IDF_SDKCONFIG_DEFAULTS=$(pwd)/.github/configs/sdkconfig.defaults; cargo publish --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort
+      - name: Build Documentation
+        run: cargo doc --features esp-idf-hal/native --target riscv32imc-esp-espidf -Zbuild-std=std,panic_abort; echo "<meta http-equiv=\"refresh\" content=\"0; url=esp_idf_svc\">" > target/riscv32imc-esp-espidf/doc/index.html; mv target/riscv32imc-esp-espidf/doc ./docs
+      - name: Deploy Documentation
+        if: ${{ github.ref == 'refs/heads/master' }}
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force_orphan: true
+          publish_dir: ./docs
+      - name: Get the crate version from cargo
+        run: |
+          version=$(cargo metadata --format-version=1 --no-deps | jq -r ".packages[] | select(.name == \"${{env.CRATE_NAME}}\") | .version")
+          echo "crate_version=$version" >> $GITHUB_ENV
+          echo "${{env.CRATE_NAME}} version: $version"
+      - name: Tag the new release
+        uses: rickstaa/action-create-tag@v1
+        with:
+          tag: v${{env.crate_version}}
+          message: "Release v${{env.crate_version}}"
