@@ -1,0 +1,74 @@
+[workspace]
+resolver = "2"
+members = ["esp-idf-sys", "esp-idf-hal", "esp-idf-svc"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.82"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/esp-rs/esp-idf"
+
+[workspace.dependencies]
+# The crates of this workspace. The `version` is what dependents pin to when the crates
+# are published; the `path` makes the workspace build against the in-tree sources.
+esp-idf-sys = { version = "0.38", path = "esp-idf-sys", default-features = false }
+esp-idf-hal = { version = "0.47", path = "esp-idf-hal", default-features = false }
+esp-idf-svc = { version = "0.53", path = "esp-idf-svc", default-features = false }
+
+# Build scripts
+embuild = "0.33.5"
+anyhow = "1"
+regex = "1.5"
+cmake = "0.1.52"
+cargo_metadata = "0.18"
+serde = { version = "1", default-features = false, features = ["derive"] }
+strum = { version = "0.24", features = ["derive"] }
+envy = "0.4.2"
+toml = "0.8"
+which = "4.4"
+
+# esp-idf-sys
+libc = "0.2"
+compile-fmt = "0.1"
+build-time = "0.1"
+const_format = "0.2"
+
+# embedded-* traits
+nb = { version = "1", default-features = false }
+embedded-can = { version = "0.4.1", default-features = false }
+embedded-hal = { version = "1", default-features = false }
+embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
+embedded-hal-nb = { version = "1", default-features = false }
+embedded-hal-async = { version = "1", default-features = false }
+embedded-io = { version = "0.7", default-features = false }
+embedded-io-async = { version = "0.7", default-features = false }
+embedded-svc = { version = "0.29", default-features = false }
+embedded-storage = { version = "0.3", default-features = false }
+embedded-graphics-core = { version = "0.4", default-features = false }
+
+# Utilities
+critical-section = { version = "1.2", features = ["restore-state-none"] }
+heapless = { version = "0.9", default-features = false }
+enumset = { version = "1.1.4", default-features = false }
+log = { version = "0.4", default-features = false }
+atomic-waker = { version = "1.1.1", default-features = false }
+num_enum = { version = "0.7", default-features = false }
+uncased = { version = "0.9.7", default-features = false }
+futures-io = "0.3"
+
+# embassy
+embassy-sync = { version = "0.8", default-features = false }
+embassy-futures = { version = "0.1.2", default-features = false }
+embassy-time-driver = { version = "0.2.1", features = ["tick-hz-1_000_000"] }
+embassy-time-queue-utils = "0.3"
+
+# Examples
+mipidsi = "0.5.0"
+display-interface-spi = "0.4.1"
+embedded-graphics = "0.7.1"
+futures = "0.3"
+serde_json = { version = "1", default-features = false, features = ["alloc"] }
+postcard = "1"
+# `async-io-mini` is a fork of `async-io` optimized for ESP-IDF: much smaller
+# RAM footprint (no large reactor thread stack, no per-fd heap bookkeeping)
+async-io = { package = "async-io-mini", version = "0.4", default-features = false, features = ["futures-io"] }

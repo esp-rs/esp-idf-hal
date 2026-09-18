@@ -2,18 +2,17 @@
 name = "esp-idf-sys"
 version = "0.38.1"
 authors = ["Alexey Arbuzov <aarbuzov@termt.com>", "sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>", "Dominik Gschwind <dominik.gschwind99@gmail.com>"]
-edition = "2021"
-resolver = "2"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 categories = ["embedded", "hardware-support"]
 keywords = ["sys", "idf", "esp-idf", "esp32"]
 description = "Bindings for ESP-IDF (Espressif's IoT Development Framework)"
-repository = "https://github.com/esp-rs/esp-idf"
-license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf"
 build = "build/build.rs"
 documentation = "https://esp-rs.github.io/esp-idf/esp-idf-sys"
-rust-version = "1.82"
 
 [lib]
 harness = false
@@ -30,19 +29,19 @@ native = []
 pio = ["embuild/pio"]
 
 [dependencies]
-libc = "0.2" # For compile-time libc compatibility checks
-compile-fmt = "0.1" # For compile-time libc compatibility checks
-build-time = "0.1"   # For esp_app_desc!()
-const_format = "0.2" # For esp_app_desc!()
+libc = { workspace = true } # For compile-time libc compatibility checks
+compile-fmt = { workspace = true } # For compile-time libc compatibility checks
+build-time = { workspace = true }   # For esp_app_desc!()
+const_format = { workspace = true } # For esp_app_desc!()
 
 [build-dependencies]
-embuild = { version = "0.33.5", features = ["glob", "kconfig", "cmake", "espidf"] }
-anyhow = "1"
-regex = "1.5"
-cmake = "0.1.52"
-cargo_metadata = "0.18"
-serde = { version = "1.0", features = ["derive"] }
-strum = { version = "0.24", features = ["derive"] }
-envy = "0.4.2"
-toml = "0.8"
-which = "4.4"
+embuild = { workspace = true, features = ["glob", "kconfig", "cmake", "espidf"] }
+anyhow = { workspace = true }
+regex = { workspace = true }
+cmake = { workspace = true }
+cargo_metadata = { workspace = true }
+serde = { workspace = true, features = ["std"] }
+strum = { workspace = true }
+envy = { workspace = true }
+toml = { workspace = true }
+which = { workspace = true }

@@ -2,18 +2,17 @@
 name = "esp-idf-hal"
 version = "0.47.0"
 authors = ["sapir <yasapir@gmail.com>", "Ivan Markov <ivan.markov@gmail.com>"]
-edition = "2021"
-resolver = "2"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
 categories = ["embedded", "hardware-support"]
 keywords = ["hal", "idf", "esp-idf", "esp32"]
 description = "A Hardware abstraction layer for Espressif's ESP family of microcontrollers based on the ESP-IDF framework."
-repository = "https://github.com/esp-rs/esp-idf"
-license = "MIT OR Apache-2.0"
 readme = "README.md"
 links = "esp_idf_hal"
 build = "build.rs"
 documentation = "https://esp-rs.github.io/esp-idf/esp-idf-hal"
-rust-version = "1.82"
 
 [lib]
 harness = false
@@ -53,29 +52,29 @@ timer-legacy = []
 embedded-graphics = ["dep:embedded-graphics-core"]
 
 [dependencies]
-nb = { version = "1", default-features = false }
-embedded-can = { version = "0.4.1", default-features = false }
-embedded-hal = { version = "1", default-features = false }
-embedded-hal-0-2 = { package = "embedded-hal", version = "0.2.7", features = ["unproven"] }
-embedded-hal-nb = { version = "1", default-features = false }
-embedded-hal-async = { version = "1", default-features = false }
-embedded-io = { version = "0.7", default-features = false }
-embedded-io-async = { version = "0.7", default-features = false }
-esp-idf-sys = { version = "0.38", default-features = false }
-critical-section = { version = "1.2", optional = true, features = ["restore-state-none"] }
-heapless = { version = "0.9", default-features = false }
-enumset = { version = "1.1.4", default-features = false }
-log = { version = "0.4", default-features = false }
-atomic-waker = { version = "1.1.1", default-features = false }
-embassy-sync = { version = "0.8", default-features = false }
-embedded-graphics-core = { version = "0.4", default-features = false, optional = true }
+nb = { workspace = true }
+embedded-can = { workspace = true }
+embedded-hal = { workspace = true }
+embedded-hal-0-2 = { workspace = true }
+embedded-hal-nb = { workspace = true }
+embedded-hal-async = { workspace = true }
+embedded-io = { workspace = true }
+embedded-io-async = { workspace = true }
+esp-idf-sys = { workspace = true }
+critical-section = { workspace = true, optional = true }
+heapless = { workspace = true }
+enumset = { workspace = true }
+log = { workspace = true }
+atomic-waker = { workspace = true }
+embassy-sync = { workspace = true }
+embedded-graphics-core = { workspace = true, optional = true }
 
 [build-dependencies]
-embuild = "0.33.5"
+embuild = { workspace = true }
 
 [dev-dependencies]
-anyhow = "1"
-esp-idf-sys = { version = "0.38", features = ["binstart"] }
-mipidsi = "0.5.0"
-display-interface-spi = "0.4.1"
-embedded-graphics = "0.7.1"
+anyhow = { workspace = true }
+esp-idf-sys = { workspace = true, features = ["std", "binstart"] }
+mipidsi = { workspace = true }
+display-interface-spi = { workspace = true }
+embedded-graphics = { workspace = true }
