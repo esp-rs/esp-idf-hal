@@ -70,8 +70,7 @@ jobs:
         if: matrix.target != 'riscv32imc-esp-espidf'
         run: |
           host=$(rustup show | grep "Default host" | sed -e 's/.* //')
-          .github/retry.sh curl -sSfL https://github.com/esp-rs/espup/releases/latest/download/espup-$host.zip -o espup.zip
-          unzip -o espup.zip -d "$HOME/.cargo/bin"
+          .github/retry.sh curl -sSfL https://github.com/esp-rs/espup/releases/latest/download/espup-$host -o "$HOME/.cargo/bin/espup"
           chmod +x "$HOME/.cargo/bin/espup"
           # A failed install must not leave a partial toolchain behind for the next attempt to skip
           export ESPUP_EXPORT_FILE="$HOME/exports"
