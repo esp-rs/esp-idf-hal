@@ -18,10 +18,19 @@ MCU=esp32c3 cargo espflash flash --target riscv32imc-esp-espidf --example wifi -
 
 ## Getting started
 
-- The [Rust on ESP Book](https://esp-rs.github.io/book/)
 - The [esp-idf-template](https://github.com/esp-rs/esp-idf-template) project template
 - The `README.md` of each crate for its features and ESP-IDF version support
 - The [esp-rs Matrix channel](https://matrix.to/#/#esp-rs:matrix.org) for questions
+
+## Community Effort
+
+Please note that **all `esp-idf-*` crates are a community effort**, in that Espressif puts little to no paid developer time in these.
+So while ESP-IDF itself is very popular and well tested, the `esp-idf-*` crates:
+- Might be a bit lagging behind the latest stable ESP-IDF version
+- Are (currently) missing HIL tests
+- Need more documentation
+
+For a HAL which is officially supported by Espressif (as in - with paid developer time), please look at [`esp-hal`](https://github.com/esp-rs/esp-hal). Keep in mind that `esp-hal` is `no_std`-only, does not use ESP-IDF and requires async programming.
 
 ## Repository layout and history
 
