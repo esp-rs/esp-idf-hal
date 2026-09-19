@@ -20,7 +20,7 @@ harness = false
 [features]
 default = ["std", "binstart"]
 
-std = []
+std = ["dep:compile-fmt"]
 alloc_handler = []
 panic_handler = []
 binstart = []
@@ -30,7 +30,7 @@ pio = ["embuild/pio"]
 
 [dependencies]
 libc = { workspace = true } # For compile-time libc compatibility checks
-compile-fmt = { workspace = true } # For compile-time libc compatibility checks
+compile-fmt = { workspace = true, optional = true } # For compile-time libc compatibility checks (std only)
 build-time = { workspace = true }   # For esp_app_desc!()
 const_format = { workspace = true } # For esp_app_desc!()
 
