@@ -16,6 +16,8 @@ concurrency:
 
 env:
   rust_toolchain: nightly
+  CARGO_INCREMENTAL: 0
+  CARGO_TERM_COLOR: always
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   # Compile-time configuration of the networking examples
   WIFI_SSID: "ssid"
@@ -81,34 +83,38 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell
           df -h /
 
-      # The toolchain installs download from GitHub and static.rust-lang.org and fail now
-      # and then on a reset connection, hence the retries
+      # The toolchains are installed by hand rather than with the dtolnay/rust-toolchain and
+      # esp-rs/xtensa-toolchain actions, so that their downloads can be retried: they fail
+      # now and then on a reset connection, and composite actions cannot be wrapped in a retry
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'
-        uses: Wandalen/wretry.action@v3
-        with:
-          action: dtolnay/rust-toolchain@v1
-          with: |
-            toolchain: ${{ env.rust_toolchain }}
-            components: rustfmt, clippy, rust-src
-          attempt_limit: 3
-          attempt_delay: 20000
+        run: |
+          .github/retry.sh rustup toolchain install ${{ env.rust_toolchain }} --profile minimal --component rustfmt,clippy,rust-src
+          rustup default ${{ env.rust_toolchain }}
 
       - name: Setup | Rust for Xtensa
         if: matrix.target != 'riscv32imc-esp-espidf'
-        uses: Wandalen/wretry.action@v3
-        with:
-          action: esp-rs/xtensa-toolchain@v1.6
-          with: |
-            default: true
-            ldproxy: true
-          attempt_limit: 3
-          attempt_delay: 20000
+        run: |
+          host=$(rustup show | grep "Default host" | sed -e 's/.* //')
+          .github/retry.sh curl -sSfL https://github.com/esp-rs/espup/releases/latest/download/espup-$host.zip -o espup.zip
+          unzip -o espup.zip -d "$HOME/.cargo/bin"
+          chmod +x "$HOME/.cargo/bin/espup"
+          # A failed install must not leave a partial toolchain behind for the next attempt to skip
+          export ESPUP_EXPORT_FILE="$HOME/exports"
+          for attempt in 1 2 3; do
+            rm -rf "$HOME/.rustup/toolchains/esp"
+            "$HOME/.cargo/bin/espup" install -l debug --targets esp32,esp32s2,esp32s3 && break
+            [ "$attempt" -lt 3 ] && { echo "::warning::espup install attempt $attempt failed; retrying in 20s"; sleep 20; } || exit 1
+          done
+          source "$ESPUP_EXPORT_FILE"
+          echo "$PATH" >> "$GITHUB_PATH"
+          echo "LIBCLANG_PATH=${LIBCLANG_PATH}" >> "$GITHUB_ENV"
+          echo "CLANG_PATH=${CLANG_PATH}" >> "$GITHUB_ENV"
+          rustup default esp
 
       - name: Setup | ldproxy
-        if: matrix.target == 'riscv32imc-esp-espidf'
         run: |
-          curl --retry 5 --retry-all-errors --retry-delay 10 -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          .github/retry.sh curl -sSfL https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
           unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
           chmod a+x $HOME/.cargo/bin/ldproxy
 
@@ -166,34 +172,38 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell
           df -h /
 
-      # The toolchain installs download from GitHub and static.rust-lang.org and fail now
-      # and then on a reset connection, hence the retries
+      # The toolchains are installed by hand rather than with the dtolnay/rust-toolchain and
+      # esp-rs/xtensa-toolchain actions, so that their downloads can be retried: they fail
+      # now and then on a reset connection, and composite actions cannot be wrapped in a retry
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'
-        uses: Wandalen/wretry.action@v3
-        with:
-          action: dtolnay/rust-toolchain@v1
-          with: |
-            toolchain: ${{ env.rust_toolchain }}
-            components: rustfmt, clippy, rust-src
-          attempt_limit: 3
-          attempt_delay: 20000
+        run: |
+          .github/retry.sh rustup toolchain install ${{ env.rust_toolchain }} --profile minimal --component rustfmt,clippy,rust-src
+          rustup default ${{ env.rust_toolchain }}
 
       - name: Setup | Rust for Xtensa
         if: matrix.target != 'riscv32imc-esp-espidf'
-        uses: Wandalen/wretry.action@v3
-        with:
-          action: esp-rs/xtensa-toolchain@v1.6
-          with: |
-            default: true
-            ldproxy: true
-          attempt_limit: 3
-          attempt_delay: 20000
+        run: |
+          host=$(rustup show | grep "Default host" | sed -e 's/.* //')
+          .github/retry.sh curl -sSfL https://github.com/esp-rs/espup/releases/latest/download/espup-$host.zip -o espup.zip
+          unzip -o espup.zip -d "$HOME/.cargo/bin"
+          chmod +x "$HOME/.cargo/bin/espup"
+          # A failed install must not leave a partial toolchain behind for the next attempt to skip
+          export ESPUP_EXPORT_FILE="$HOME/exports"
+          for attempt in 1 2 3; do
+            rm -rf "$HOME/.rustup/toolchains/esp"
+            "$HOME/.cargo/bin/espup" install -l debug --targets esp32,esp32s2,esp32s3 && break
+            [ "$attempt" -lt 3 ] && { echo "::warning::espup install attempt $attempt failed; retrying in 20s"; sleep 20; } || exit 1
+          done
+          source "$ESPUP_EXPORT_FILE"
+          echo "$PATH" >> "$GITHUB_PATH"
+          echo "LIBCLANG_PATH=${LIBCLANG_PATH}" >> "$GITHUB_ENV"
+          echo "CLANG_PATH=${CLANG_PATH}" >> "$GITHUB_ENV"
+          rustup default esp
 
       - name: Setup | ldproxy
-        if: matrix.target == 'riscv32imc-esp-espidf'
         run: |
-          curl --retry 5 --retry-all-errors --retry-delay 10 -L https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
+          .github/retry.sh curl -sSfL https://github.com/esp-rs/embuild/releases/latest/download/ldproxy-x86_64-unknown-linux-gnu.zip -o $HOME/.cargo/bin/ldproxy.zip
           unzip "$HOME/.cargo/bin/ldproxy.zip" -d "$HOME/.cargo/bin/"
           chmod a+x $HOME/.cargo/bin/ldproxy
 
@@ -255,29 +265,34 @@ jobs:
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell
           df -h /
 
-      # The toolchain installs download from GitHub and static.rust-lang.org and fail now
-      # and then on a reset connection, hence the retries
+      # The toolchains are installed by hand rather than with the dtolnay/rust-toolchain and
+      # esp-rs/xtensa-toolchain actions, so that their downloads can be retried: they fail
+      # now and then on a reset connection, and composite actions cannot be wrapped in a retry
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'
-        uses: Wandalen/wretry.action@v3
-        with:
-          action: dtolnay/rust-toolchain@v1
-          with: |
-            toolchain: ${{ env.rust_toolchain }}
-            components: rustfmt, clippy, rust-src
-          attempt_limit: 3
-          attempt_delay: 20000
+        run: |
+          .github/retry.sh rustup toolchain install ${{ env.rust_toolchain }} --profile minimal --component rustfmt,clippy,rust-src
+          rustup default ${{ env.rust_toolchain }}
 
       - name: Setup | Rust for Xtensa
         if: matrix.target != 'riscv32imc-esp-espidf'
-        uses: Wandalen/wretry.action@v3
-        with:
-          action: esp-rs/xtensa-toolchain@v1.6
-          with: |
-            default: true
-            ldproxy: true
-          attempt_limit: 3
-          attempt_delay: 20000
+        run: |
+          host=$(rustup show | grep "Default host" | sed -e 's/.* //')
+          .github/retry.sh curl -sSfL https://github.com/esp-rs/espup/releases/latest/download/espup-$host.zip -o espup.zip
+          unzip -o espup.zip -d "$HOME/.cargo/bin"
+          chmod +x "$HOME/.cargo/bin/espup"
+          # A failed install must not leave a partial toolchain behind for the next attempt to skip
+          export ESPUP_EXPORT_FILE="$HOME/exports"
+          for attempt in 1 2 3; do
+            rm -rf "$HOME/.rustup/toolchains/esp"
+            "$HOME/.cargo/bin/espup" install -l debug --targets esp32,esp32s2,esp32s3 && break
+            [ "$attempt" -lt 3 ] && { echo "::warning::espup install attempt $attempt failed; retrying in 20s"; sleep 20; } || exit 1
+          done
+          source "$ESPUP_EXPORT_FILE"
+          echo "$PATH" >> "$GITHUB_PATH"
+          echo "LIBCLANG_PATH=${LIBCLANG_PATH}" >> "$GITHUB_ENV"
+          echo "CLANG_PATH=${CLANG_PATH}" >> "$GITHUB_ENV"
+          rustup default esp
 
       # The old ESP-IDF releases deprecate APIs the bindings still expose, hence -Adeprecated
       - name: Build | Clippy
