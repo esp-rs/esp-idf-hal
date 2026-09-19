@@ -9,6 +9,11 @@ on:
     - cron: "50 4 * * *"
   workflow_dispatch:
 
+# A new run for the same branch or PR cancels the one still in progress
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   rust_toolchain: nightly
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
