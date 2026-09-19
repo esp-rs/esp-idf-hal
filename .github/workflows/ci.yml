@@ -68,6 +68,14 @@ jobs:
       - name: Setup | Checkout
         uses: actions/checkout@v3
 
+      # A CI cell builds ESP-IDF twice (the std and no_std variants of esp-idf-sys differ in
+      # features, hence in build-script output directory) and links all examples, which
+      # does not fit next to the pre-installed toolchains of the runner image
+      - name: Setup | Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell
+          df -h /
+
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'
         uses: dtolnay/rust-toolchain@v1
@@ -134,6 +142,14 @@ jobs:
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
+
+      # A CI cell builds ESP-IDF twice (the std and no_std variants of esp-idf-sys differ in
+      # features, hence in build-script output directory) and links all examples, which
+      # does not fit next to the pre-installed toolchains of the runner image
+      - name: Setup | Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell
+          df -h /
 
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'
@@ -205,6 +221,14 @@ jobs:
     steps:
       - name: Setup | Checkout
         uses: actions/checkout@v3
+
+      # A CI cell builds ESP-IDF twice (the std and no_std variants of esp-idf-sys differ in
+      # features, hence in build-script output directory) and links all examples, which
+      # does not fit next to the pre-installed toolchains of the runner image
+      - name: Setup | Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/powershell
+          df -h /
 
       - name: Setup | Rust
         if: matrix.target == 'riscv32imc-esp-espidf'

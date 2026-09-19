@@ -10,6 +10,8 @@ rustflags = [ "--cfg",  "espidf_time64"]
 build-std = ["std", "panic_abort"]
 
 [env]
+# The workspace is virtual, so name the crate whose `[package.metadata.esp-idf-sys]` applies
+ESP_IDF_SYS_ROOT_CRATE = "esp-idf-examples"
 ESP_IDF_SDKCONFIG_DEFAULTS = "sdkconfig.defaults"
 ESP_IDF_VERSION = "v5.5.5"
 #MCU = "esp32h2"
