@@ -3478,7 +3478,11 @@ where
 
         let mut wait = wait;
 
-        wait.wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+        // Moving a `&mut` into the closure keeps the future `Send` without requiring the
+        // netif status to be `Sync`
+        let wifi = &mut self.wifi;
+
+        wait.wait_while(move || wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
             .await
     }
 

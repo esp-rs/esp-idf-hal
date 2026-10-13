@@ -1805,7 +1805,11 @@ where
             crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?
                 .also::<EthConnectedEvent>(&self.event_loop)?;
 
-        wait.wait_while(|| self.eth.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+        // Moving a `&mut` into the closure keeps the future `Send` without requiring the
+        // netif status to be `Sync`
+        let eth = &mut self.eth;
+
+        wait.wait_while(move || eth.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
             .await
     }
 
