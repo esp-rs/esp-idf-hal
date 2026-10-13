@@ -310,10 +310,10 @@ mod hw_key {
         /// peripheral.
         #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
         pub(crate) fn ds_data(&self) -> *mut core::ffi::c_void {
-            self.ds
-                .as_ref()
-                .map(|(_, ctx)| &**ctx as *const DsDataCtx as *mut _)
-                .unwrap_or(core::ptr::null_mut())
+            match &self.ds {
+                Some((_, ctx)) => &**ctx as *const DsDataCtx as *mut _,
+                None => core::ptr::null_mut(),
+            }
         }
 
         /// The eFuse block to set in the ESP-IDF configuration when using the ECDSA peripheral.

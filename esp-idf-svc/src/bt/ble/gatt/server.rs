@@ -630,17 +630,13 @@ where
         status: GattStatus,
         response: Option<&GattResponse>,
     ) -> Result<(), EspError> {
+        let response = match response {
+            Some(response) => &response.0 as *const _ as *mut _,
+            None => core::ptr::null_mut(),
+        };
+
         esp!(unsafe {
-            #[allow(clippy::unwrap_or_default)]
-            esp_ble_gatts_send_response(
-                gatts_if,
-                conn_id,
-                trans_id,
-                status as _,
-                response
-                    .map(|response| &response.0 as *const _)
-                    .unwrap_or(core::ptr::null()) as *mut _,
-            )
+            esp_ble_gatts_send_response(gatts_if, conn_id, trans_id, status as _, response)
         })
     }
 

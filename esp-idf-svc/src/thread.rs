@@ -1653,11 +1653,10 @@ impl<'d> EspThread<'d, BorderRouter> {
     #[cfg(not(esp_idf_version_major = "4"))]
     pub unsafe fn set_backbone_netif(backbone_netif: Option<&EspNetif>) {
         unsafe {
-            esp_openthread_set_backbone_netif(
-                backbone_netif
-                    .map(|netif| netif.handle())
-                    .unwrap_or(core::ptr::null_mut()),
-            );
+            esp_openthread_set_backbone_netif(match backbone_netif {
+                Some(netif) => netif.handle(),
+                None => core::ptr::null_mut(),
+            });
         }
     }
 

@@ -373,26 +373,26 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
             network_timeout_ms: conf.network_timeout_ms.as_millis() as _,
             ping_interval_sec: conf.ping_interval_sec.as_secs() as _,
 
-            cert_pem: conf
-                .server_cert
-                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
-                .unwrap_or(core::ptr::null_mut()),
+            cert_pem: match conf.server_cert {
+                Some(cert) => cert.as_esp_idf_raw_ptr() as _,
+                None => core::ptr::null_mut(),
+            },
             cert_len: conf
                 .server_cert
                 .map(|cert| cert.as_esp_idf_raw_len())
                 .unwrap_or(0),
-            client_cert: conf
-                .client_cert
-                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
-                .unwrap_or(core::ptr::null_mut()),
+            client_cert: match conf.client_cert {
+                Some(cert) => cert.as_esp_idf_raw_ptr() as _,
+                None => core::ptr::null_mut(),
+            },
             client_cert_len: conf
                 .client_cert
                 .map(|cert| cert.as_esp_idf_raw_len())
                 .unwrap_or(0),
-            client_key: conf
-                .client_key
-                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
-                .unwrap_or(core::ptr::null_mut()),
+            client_key: match conf.client_key {
+                Some(cert) => cert.as_esp_idf_raw_ptr() as _,
+                None => core::ptr::null_mut(),
+            },
             client_key_len: conf
                 .client_key
                 .map(|cert| cert.as_esp_idf_raw_len())

@@ -378,14 +378,16 @@ where
     T: EspEventLoopType,
 {
     fn drop(&mut self) {
-        #[allow(clippy::unwrap_or_default)]
+        let source = match self.source {
+            Some(source) => source.as_ptr(),
+            None => core::ptr::null(),
+        };
+
         if let Some(handle) = self.event_loop_handle.upgrade() {
             if T::is_system() {
                 unsafe {
                     esp!(esp_event_handler_instance_unregister(
-                        self.source
-                            .map(ffi::CStr::as_ptr)
-                            .unwrap_or(core::ptr::null()),
+                        source,
                         self.event_id,
                         self.handler_instance
                     ))
@@ -398,9 +400,7 @@ where
 
                     esp!(esp_event_handler_instance_unregister_with(
                         user.0,
-                        self.source
-                            .map(ffi::CStr::as_ptr)
-                            .unwrap_or(core::ptr::null()),
+                        source,
                         self.event_id,
                         self.handler_instance
                     ))
@@ -679,10 +679,15 @@ where
 
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
+        let source = match S::source() {
+            Some(source) => source.as_ptr(),
+            None => ptr::null(),
+        };
+
         if T::is_system() {
             esp!(unsafe {
                 esp_event_handler_instance_register(
-                    S::source().map(ffi::CStr::as_ptr).unwrap_or(ptr::null()),
+                    source,
                     S::event_id().unwrap_or(ESP_EVENT_ANY_ID),
                     Some(EspSubscription::<System>::handle),
                     unsafe_callback.as_ptr(),
@@ -696,7 +701,7 @@ where
 
                 esp_event_handler_instance_register_with(
                     user.0,
-                    S::source().map(ffi::CStr::as_ptr).unwrap_or(ptr::null()),
+                    source,
                     S::event_id().unwrap_or(ESP_EVENT_ANY_ID),
                     Some(EspSubscription::<User<T>>::handle),
                     unsafe_callback.as_ptr(),

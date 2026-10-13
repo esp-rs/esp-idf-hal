@@ -392,12 +392,11 @@ pub mod thread {
 
     impl From<&ThreadSpawnConfiguration> for esp_pthread_cfg_t {
         fn from(conf: &ThreadSpawnConfiguration) -> Self {
-            #[allow(clippy::unwrap_or_default)]
             Self {
-                thread_name: conf
-                    .name
-                    .map(|name| name.as_ptr() as _)
-                    .unwrap_or(core::ptr::null()),
+                thread_name: match conf.name {
+                    Some(name) => name.as_ptr() as _,
+                    None => core::ptr::null(),
+                },
                 stack_size: conf.stack_size as _,
                 prio: conf.priority as _,
                 inherit_cfg: conf.inherit,
