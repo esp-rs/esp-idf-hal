@@ -1309,6 +1309,7 @@ pub mod ws {
 
     extern crate alloc;
     use alloc::boxed::Box;
+    use alloc::collections::BTreeSet;
     use alloc::sync::Arc;
 
     use ::log::*;
@@ -1640,9 +1641,26 @@ pub mod ws {
                 user_ctx: Box::into_raw(Box::new(req_handler)) as *mut _,
                 handler: Some(EspHttpServer::handle_req),
                 is_websocket: true,
+                // Since ESP-IDF 5.5.5 / 6.0.1, the handler is no longer called for the handshake
+                #[cfg(esp_idf_httpd_ws_post_handshake_cb_support)]
+                ws_post_handshake_cb: Some(EspHttpServer::handle_req),
                 // TODO: Expose as a parameter in future: handle_ws_control_frames: true,
                 ..Default::default()
             };
+
+            #[cfg(all(
+                any(
+                    esp_idf_version_patch_at_least_5_5_5,
+                    esp_idf_version_patch_at_least_6_0_1,
+                    esp_idf_version_at_least_6_1_0
+                ),
+                not(esp_idf_httpd_ws_post_handshake_cb_support)
+            ))]
+            warn!(
+                "WS handshakes for URI \"{}\" will not be reported to the handler; \
+                 enable `CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT` for that",
+                uri_c_str.to_str().unwrap()
+            );
 
             let subproto_c_str; // SAFETY: same scope as httpd_register_uri_handler required!
             if let Some(subprotocol_list) = subprotocol_list {
@@ -1713,11 +1731,23 @@ pub mod ws {
                 }
             });
 
+            // The sockets of the sessions of this handler: the server reports every closed
+            // socket - including plain HTTP ones and the ones of other WS handlers - while only
+            // the closing of its own sessions is to be reported to the handler
+            let sessions = Arc::new(Mutex::new(BTreeSet::new()));
+
             let req_handler = {
                 let boxed_handler = boxed_handler.clone();
+                let sessions = sessions.clone();
 
                 Box::new(move |raw_req: *mut httpd_req_t| {
                     let req = unsafe { raw_req.as_ref() }.unwrap();
+
+                    // A session is recorded on its handshake, or - when handshakes are not
+                    // reported to the handler - when it receives its first frame
+                    sessions
+                        .lock()
+                        .insert(unsafe { httpd_req_to_sockfd(raw_req) });
 
                     (boxed_handler)(if req.method == http_method_HTTP_GET as i32 {
                         EspHttpWsConnection::New(server_handle, raw_req)
@@ -1728,7 +1758,9 @@ pub mod ws {
             };
 
             let close_handler = Box::new(move |fd| {
-                (boxed_handler)(EspHttpWsConnection::Closed(fd));
+                if sessions.lock().remove(&fd) {
+                    (boxed_handler)(EspHttpWsConnection::Closed(fd));
+                }
             });
 
             (req_handler, close_handler)
