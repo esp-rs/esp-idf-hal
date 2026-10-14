@@ -418,7 +418,7 @@ pub mod embassy_time_driver {
                 if now < next_at {
                     let after = next_at - now;
 
-                    if after <= MAX_SAFE_TIMEOUT_US {
+                    if next_at <= MAX_SAFE_TIMEOUT_US {
                         // Why?
                         // The ESP-IDF Timer API does not have a `Timer::at` method so we have to call it with
                         // `Timer::after(next_at - now)` instead. The problem is - even though the ESP IDF
@@ -430,8 +430,8 @@ pub mod embassy_time_driver {
                         // trigger the timer after 1us:
                         // https://github.com/espressif/esp-idf/blob/b5ac4fbdf9e9fb320bb0a98ee4fbaa18f8566f37/components/esp_timer/src/esp_timer.c#L188
                         //
-                        // To workaround this problem, we make sure to never call `Timer::after(ms)` with `ms` greater than `MAX_SAFE_TIMEOUT_US`
-                        // (i.e. the end of epoch - one day).
+                        // To workaround this problem, we make sure to never arm the timer for a deadline (`next_at`)
+                        // greater than `MAX_SAFE_TIMEOUT_US` (i.e. the end of epoch - one day).
                         //
                         // Thus, even if we are un-scheduled between the calculation of our own `now` and the driver's newer `now`,
                         // there is one extra **day** of millis to accomodate for the potential overflow. If the overflow does happen still
