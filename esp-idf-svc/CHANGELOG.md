@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Eth, Wi-Fi: `wait_netif_up` of `BlockingEth` / `AsyncEth` timed out with a static IP, as ESP-IDF posts no IP event when a netif comes up with a static IP; `BlockingWifi` / `AsyncWifi` could do the same in a race with ESP-IDF's handling of the STA connecting or the AP starting
 - HTTP server: a WS handler was called with a closed connection for every socket the server closed, including plain HTTP connections and the sessions of other WS handlers; only the closing of its own sessions is reported to it now
 - HTTP server: with ESP-IDF v5.5.5+ / v6.0.1+, which no longer call the URI handler for the WS handshake, the handshake (`EspHttpWsConnection::is_new`) is reported to the WS handler via the post-handshake callback, which requires `CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT=y` (a warning is logged otherwise)
+- `embassy-time-driver`: fix a lock-up after 24h of uptime caused by empty timer queue handling
 
 ### Breaking
 - TLS: client authentication with a private key kept in hardware - an RSA key used through the Digital Signature peripheral (`EspDsKey`), or an ECDSA key in eFuse used through the ECDSA peripheral (`EspEcdsaKey`, requires `CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN=y`). `tls::Config`, `http::client::Configuration` and `MqttClientConfiguration` have a new `hw_private_key: Option<HwPrivateKey>` field, which is mutually exclusive with their private key (`ESP_ERR_INVALID_ARG`). `http::client::Configuration` is no longer `Copy`
