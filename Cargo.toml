@@ -16,7 +16,7 @@ esp-idf-hal = { version = "0.47", path = "esp-idf-hal", default-features = false
 esp-idf-svc = { version = "0.53", path = "esp-idf-svc", default-features = false }
 
 # Build scripts
-embuild = "0.33.5"
+embuild = "0.33.6"
 anyhow = "1"
 regex = "1.5"
 cmake = "0.1.52"
