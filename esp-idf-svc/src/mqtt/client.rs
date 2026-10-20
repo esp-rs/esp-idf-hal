@@ -1113,7 +1113,68 @@ impl asynch::Connection for EspAsyncMqttConnection {
     }
 }
 
-static ERROR: EspError = EspError::from_infallible::<ESP_FAIL>();
+/// An MQTT error event, including the error details supplied by ESP-IDF.
+///
+/// Error payloads borrow these details from ESP-IDF for the event lifetime.
+/// Copy the error to retain a snapshot. Check [`Self::error_type`] before
+/// interpreting the other fields: TLS and socket errors apply to transport
+/// failures, while the connect return code applies to connections refused by
+/// the broker.
+#[repr(transparent)]
+#[derive(Clone, Copy, Debug)]
+pub struct EspMqttError(esp_mqtt_error_codes_t);
+
+impl EspMqttError {
+    /// The complete ESP-IDF error details.
+    ///
+    /// If ESP-IDF supplied no error handle, all fields are zero, including
+    /// `error_type` (`MQTT_ERROR_TYPE_NONE`).
+    pub fn raw(&self) -> &esp_mqtt_error_codes_t {
+        &self.0
+    }
+
+    /// The source of the error, as an ESP-IDF `MQTT_ERROR_TYPE_*` value.
+    pub fn error_type(&self) -> esp_mqtt_error_type_t {
+        self.0.error_type
+    }
+
+    /// The last ESP-TLS error, or `None` if it is `ESP_OK` or details are unavailable.
+    pub fn esp_tls_last_esp_err(&self) -> Option<EspError> {
+        EspError::from(self.0.esp_tls_last_esp_err)
+    }
+
+    /// The underlying TLS stack error code. Returns zero if details are unavailable.
+    pub fn esp_tls_stack_err(&self) -> core::ffi::c_int {
+        self.0.esp_tls_stack_err
+    }
+
+    /// The TLS certificate verification flags. Returns zero if details are unavailable.
+    pub fn esp_tls_cert_verify_flags(&self) -> core::ffi::c_int {
+        self.0.esp_tls_cert_verify_flags
+    }
+
+    /// The broker's connection refusal code. Returns zero if details are unavailable.
+    pub fn connect_return_code(&self) -> esp_mqtt_connect_return_code_t {
+        self.0.connect_return_code
+    }
+
+    /// The underlying socket's `errno`. Returns zero if details are unavailable.
+    pub fn esp_transport_sock_errno(&self) -> core::ffi::c_int {
+        self.0.esp_transport_sock_errno
+    }
+}
+
+impl core::fmt::Display for EspMqttError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        write!(f, "MQTT error: {:?}", self.raw())
+    }
+}
+
+impl core::error::Error for EspMqttError {}
+
+// SAFETY: The ESP-IDF error structure consists entirely of integer fields;
+// zero represents MQTT_ERROR_TYPE_NONE and no recorded error codes.
+static UNKNOWN_ERROR: EspMqttError = EspMqttError(unsafe { core::mem::zeroed() });
 
 pub struct EspMqttEvent<'a>(&'a esp_mqtt_event_t);
 
@@ -1123,9 +1184,15 @@ impl<'a> EspMqttEvent<'a> {
     }
 
     #[allow(non_upper_case_globals, non_snake_case)]
-    pub fn payload(&self) -> EventPayload<'_, EspError> {
+    pub fn payload(&self) -> EventPayload<'_, EspMqttError> {
         match self.0.event_id {
-            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => EventPayload::Error(&ERROR), // TODO
+            esp_mqtt_event_id_t_MQTT_EVENT_ERROR => {
+                // SAFETY: EspMqttError is transparent over esp_mqtt_error_codes_t.
+                // ESP-IDF keeps the handle valid while the event is being handled;
+                // the returned borrow is bounded by this event's lifetime.
+                let error = unsafe { self.0.error_handle.cast::<EspMqttError>().as_ref() };
+                EventPayload::Error(error.unwrap_or(&UNKNOWN_ERROR))
+            }
             esp_mqtt_event_id_t_MQTT_EVENT_BEFORE_CONNECT => EventPayload::BeforeConnect,
             esp_mqtt_event_id_t_MQTT_EVENT_CONNECTED => {
                 EventPayload::Connected(self.0.session_present != 0)
@@ -1196,11 +1263,97 @@ unsafe impl Send for EspMqttEvent<'_> {}
 unsafe impl Sync for EspMqttEvent<'_> {}
 
 impl ErrorType for EspMqttEvent<'_> {
-    type Error = EspError;
+    type Error = EspMqttError;
 }
 
 impl Event for EspMqttEvent<'_> {
     fn payload(&self) -> EventPayload<'_, Self::Error> {
         EspMqttEvent::payload(self)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_details_survive_the_event() {
+        let error = {
+            let mut raw_error = esp_mqtt_error_codes_t {
+                error_type: esp_mqtt_error_type_t_MQTT_ERROR_TYPE_TCP_TRANSPORT,
+                esp_tls_last_esp_err: ESP_FAIL,
+                esp_tls_stack_err: -0x1234,
+                esp_tls_cert_verify_flags: 0x42,
+                esp_transport_sock_errno: 104,
+                ..Default::default()
+            };
+            let raw_event = esp_mqtt_event_t {
+                event_id: esp_mqtt_event_id_t_MQTT_EVENT_ERROR,
+                error_handle: &mut raw_error,
+                ..Default::default()
+            };
+            let event = EspMqttEvent::new(&raw_event);
+            match event.payload() {
+                EventPayload::Error(error) => {
+                    assert!(core::ptr::eq(error.raw(), raw_event.error_handle));
+                    *error
+                }
+                _ => panic!("expected error payload"),
+            }
+        };
+
+        assert_eq!(
+            error.error_type(),
+            esp_mqtt_error_type_t_MQTT_ERROR_TYPE_TCP_TRANSPORT
+        );
+        assert_eq!(error.esp_tls_last_esp_err().unwrap().code(), ESP_FAIL);
+        assert_eq!(error.esp_tls_stack_err(), -0x1234);
+        assert_eq!(error.esp_tls_cert_verify_flags(), 0x42);
+        assert_eq!(error.esp_transport_sock_errno(), 104);
+    }
+
+    #[test]
+    fn broker_refusal_does_not_require_a_tls_error() {
+        let mut raw_error = esp_mqtt_error_codes_t {
+            error_type: esp_mqtt_error_type_t_MQTT_ERROR_TYPE_CONNECTION_REFUSED,
+            connect_return_code:
+                esp_mqtt_connect_return_code_t_MQTT_CONNECTION_REFUSE_NOT_AUTHORIZED,
+            ..Default::default()
+        };
+        let raw_event = esp_mqtt_event_t {
+            event_id: esp_mqtt_event_id_t_MQTT_EVENT_ERROR,
+            error_handle: &mut raw_error,
+            ..Default::default()
+        };
+        let event = EspMqttEvent::new(&raw_event);
+        let EventPayload::Error(error) = event.payload() else {
+            panic!("expected error payload");
+        };
+
+        assert!(error.esp_tls_last_esp_err().is_none());
+        assert_eq!(
+            error.connect_return_code(),
+            esp_mqtt_connect_return_code_t_MQTT_CONNECTION_REFUSE_NOT_AUTHORIZED
+        );
+    }
+
+    #[test]
+    fn missing_error_handle_is_supported() {
+        let raw_event = esp_mqtt_event_t {
+            event_id: esp_mqtt_event_id_t_MQTT_EVENT_ERROR,
+            ..Default::default()
+        };
+        let event = EspMqttEvent::new(&raw_event);
+        let EventPayload::Error(error) = event.payload() else {
+            panic!("expected error payload");
+        };
+
+        assert_eq!(
+            error.error_type(),
+            esp_mqtt_error_type_t_MQTT_ERROR_TYPE_NONE
+        );
+        assert_eq!(error.esp_tls_stack_err(), 0);
+        assert_eq!(error.esp_transport_sock_errno(), 0);
+        assert!(error.esp_tls_last_esp_err().is_none());
     }
 }
