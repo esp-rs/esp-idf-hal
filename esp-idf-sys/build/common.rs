@@ -262,6 +262,26 @@ pub fn build_profile() -> String {
     std::env::var("PROFILE").expect("No cargo `PROFILE` environment variable")
 }
 
+/// The files [`list_specific_sdkconfigs`] finds for `path`, most specific first,
+/// with a warning if there are none although the user `configured` the path.
+pub fn configured_sdkconfigs(
+    path: PathBuf,
+    profile: &str,
+    chip: &str,
+    configured: bool,
+) -> Vec<PathBuf> {
+    let found = list_specific_sdkconfigs(path.clone(), profile, chip).collect::<Vec<_>>();
+
+    if found.is_empty() && configured {
+        cargo::print_warning(format_args!(
+            "No sdkconfig file found for `{}` (chip `{chip}`, profile `{profile}`); it is ignored",
+            path.display()
+        ));
+    }
+
+    found
+}
+
 /// List all appropriate sdkconfig files.
 ///
 /// Returns an iterator of paths with the following patterns and ordering if they exist
@@ -387,8 +407,28 @@ impl Display for InstallDir {
     }
 }
 
+/// The workspace directory: what relative paths in the build configuration are
+/// relative to, and where `.embuild` goes by default.
+///
+/// embuild derives it from the out dir, assuming the target dir is
+/// `<workspace>/target`. With another target dir inside the workspace (e.g.
+/// `CARGO_TARGET_DIR=target/foo`) that is a directory inside the target dir, so
+/// this walks up to the one with the workspace's `Cargo.lock`. An explicit
+/// `CARGO_WORKSPACE_DIR` is taken as is.
 pub fn workspace_dir() -> Result<PathBuf> {
-    cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))
+    let dir =
+        cargo::workspace_dir().ok_or_else(|| anyhow!("Cannot fetch crate's workspace dir"))?;
+
+    if std::env::var_os("CARGO_WORKSPACE_DIR").is_some_and(|dir| !dir.is_empty()) {
+        return Ok(dir);
+    }
+
+    let root = dir
+        .ancestors()
+        .find(|dir| dir.join("Cargo.lock").is_file())
+        .map(Path::to_path_buf);
+
+    Ok(root.unwrap_or(dir))
 }
 
 pub fn manifest_dir() -> Result<PathBuf> {

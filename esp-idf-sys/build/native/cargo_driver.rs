@@ -21,7 +21,7 @@ use strum::IntoEnumIterator;
 
 use self::chip::Chip;
 use crate::common::{
-    self, list_specific_sdkconfigs, manifest_dir, sanitize_c_env_vars, sanitize_project_path,
+    self, configured_sdkconfigs, manifest_dir, sanitize_c_env_vars, sanitize_project_path,
     setup_clang_env, workspace_dir, EspIdfBuildOutput, EspIdfComponents, InstallDir,
 };
 use crate::config::{BuildConfig, ESP_IDF_GLOB_VAR_PREFIX, ESP_IDF_TOOLS_INSTALL_DIR_VAR};
@@ -406,7 +406,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
     let sdkconfig = {
         let file = config.esp_idf_sdkconfig();
         let path = Path::new(&file).abspath_relative_to(&workspace_dir);
-        let cfg = list_specific_sdkconfigs(path, &profile, &chip_name).next();
+        let cfg = configured_sdkconfigs(
+            path,
+            &profile,
+            &chip_name,
+            config.esp_idf_sdkconfig_specified(),
+        )
+        .into_iter()
+        .next();
         if let Some(ref file) = cfg {
             cargo::track_file(file);
         }
@@ -423,13 +430,15 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 .esp_idf_sdkconfig_defaults()
                 .into_iter()
                 .flat_map(|v| {
-                    list_specific_sdkconfigs(
+                    configured_sdkconfigs(
                         v.abspath_relative_to(&workspace_dir),
                         &profile,
                         &chip_name,
+                        config.esp_idf_sdkconfig_defaults_specified(),
                     )
                     // We need to reverse the order here so that the more
                     // specific defaults come last.
+                    .into_iter()
                     .rev()
                     .inspect(|p| cargo::track_file(p))
                 }),

@@ -58,8 +58,8 @@ pub mod espnow;
     esp_idf_comp_esp_event_enabled,
 ))]
 #[cfg(any(
-    // On-chip EMAC (ESP32); RMII PHYs such as lan87xx are used only with EMAC
-    all(esp32, esp_idf_eth_use_esp32_emac),
+    // On-chip EMAC; RMII PHYs such as lan87xx are used only with EMAC
+    esp_idf_eth_use_esp32_emac,
     any(
         esp_idf_eth_spi_ethernet_dm9051,
         esp_idf_eth_spi_ethernet_w5500,

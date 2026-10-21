@@ -48,7 +48,7 @@ pub mod lcd;
 #[cfg(esp32p4)]
 pub mod ldo;
 pub mod ledc;
-#[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
+#[cfg(any(esp_idf_eth_use_esp32_emac, esp_idf_eth_use_openeth))]
 pub mod mac;
 #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
 pub mod modem;

@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- MAC: the internal Ethernet MAC peripheral on all chips that have one (e.g. esp32p4), not just the esp32
 - Support for esp32h4 and esp32h21 (ESP-IDF v6.1+)
 - Support for the esp32s31 (ESP-IDF v6.1+): GPIO, dual-core, UART0-3, SPI2/3, I2C0/1, I2S0/1, timers, RMT, temperature sensor, USB Serial/JTAG and sleep
 - modem: `Modem::split()` / `split_reborrow()` into Wi-Fi, Thread and Bluetooth modems on the esp32s31

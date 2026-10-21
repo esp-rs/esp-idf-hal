@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Eth: RMII Ethernet on the internal EMAC of chips other than the esp32 (e.g. esp32p4), with freely routable data pins and an `RmiiClockConfig` of `Input` / `Output` pins
 - Support for esp32h4 and esp32h21 (ESP-IDF v6.1+)
 - esp32s31: Wi-Fi, netif and the other services compile for the new chip (ESP-IDF v6.1+)
 - thread: esp32s31 support (native IEEE 802.15.4 radio, host mode; ESP-IDF v6.1+)
