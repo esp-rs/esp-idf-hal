@@ -30,10 +30,12 @@ use crate::private::mutex::{Condvar, Mutex};
 use crate::sys::*;
 use crate::thread::srp::OtSrp;
 
+pub use diag::*;
 pub use srp::*;
 
 extern crate alloc;
 
+mod diag;
 mod srp;
 
 /// A trait shared between the `Host` and `RCP` modes providing the option for these

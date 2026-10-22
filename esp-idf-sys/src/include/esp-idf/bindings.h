@@ -257,6 +257,9 @@
 #endif
 #include "openthread/netdata.h"
 #include "openthread/thread.h"
+#ifdef CONFIG_OPENTHREAD_FTD
+#include "openthread/thread_ftd.h"
+#endif
 #include "openthread/srp_client_buffers.h"
 #include "openthread/srp_client.h"
 #include "openthread/platform/settings.h"

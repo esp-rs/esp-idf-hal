@@ -332,6 +332,46 @@ impl TryFrom<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
     }
 }
 
+/// The PHY mode the station negotiated with the AP
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum PhyMode {
+    /// Espressif Low Rate
+    LowRate,
+    /// 802.11b
+    B,
+    /// 802.11g
+    G,
+    /// 802.11a
+    A,
+    /// 802.11n, 20 MHz
+    Ht20,
+    /// 802.11n, 40 MHz
+    Ht40,
+    /// 802.11ax, 20 MHz
+    He20,
+    /// 802.11ac, 20 MHz
+    Vht20,
+}
+
+#[allow(non_upper_case_globals)]
+impl TryFrom<wifi_phy_mode_t> for PhyMode {
+    type Error = EspError;
+
+    fn try_from(mode: wifi_phy_mode_t) -> Result<Self, Self::Error> {
+        Ok(match mode {
+            wifi_phy_mode_t_WIFI_PHY_MODE_LR => Self::LowRate,
+            wifi_phy_mode_t_WIFI_PHY_MODE_11B => Self::B,
+            wifi_phy_mode_t_WIFI_PHY_MODE_11G => Self::G,
+            wifi_phy_mode_t_WIFI_PHY_MODE_11A => Self::A,
+            wifi_phy_mode_t_WIFI_PHY_MODE_HT20 => Self::Ht20,
+            wifi_phy_mode_t_WIFI_PHY_MODE_HT40 => Self::Ht40,
+            wifi_phy_mode_t_WIFI_PHY_MODE_HE20 => Self::He20,
+            wifi_phy_mode_t_WIFI_PHY_MODE_VHT20 => Self::Vht20,
+            _ => Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>())?,
+        })
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WifiDeviceId {
     Ap,
@@ -1262,6 +1302,14 @@ impl<'d> WifiDriver<'d> {
         Ok(ap_info)
     }
 
+    /// Get the PHY mode the station negotiated with the AP it is associated with.
+    pub fn get_negotiated_phy_mode(&self) -> Result<PhyMode, EspError> {
+        let mut mode: wifi_phy_mode_t = 0;
+        esp!(unsafe { esp_wifi_sta_get_negotiated_phymode(&mut mode) })?;
+
+        mode.try_into()
+    }
+
     /// Set RSSI threshold below which APP will get an WifiEvent::StaBssRssiLow,
     /// as per [`crate::sys::esp_wifi_set_rssi_threshold`](crate::sys::esp_wifi_set_rssi_threshold)
     /// `rssi_threshold`: threshold value in dbm between -100 to 0
@@ -2157,6 +2205,11 @@ impl<'d> EspWifi<'d> {
     /// Useful to get the current signal strength of the AP.
     pub fn get_ap_info(&self) -> Result<AccessPointInfo, EspError> {
         self.driver().get_ap_info()
+    }
+
+    /// Get the PHY mode the station negotiated with the AP it is associated with.
+    pub fn get_negotiated_phy_mode(&self) -> Result<PhyMode, EspError> {
+        self.driver().get_negotiated_phy_mode()
     }
 }
 
