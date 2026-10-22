@@ -423,6 +423,53 @@ impl<T> Drop for SpiEth<T> {
     }
 }
 
+/// The speed of the Ethernet link
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Speed {
+    /// 10 Mbps
+    Mbps10,
+    /// 100 Mbps
+    Mbps100,
+    /// 1000 Mbps
+    #[cfg(esp_idf_version_at_least_6_1_0)]
+    Mbps1000,
+}
+
+#[allow(non_upper_case_globals)]
+impl TryFrom<eth_speed_t> for Speed {
+    type Error = EspError;
+
+    fn try_from(speed: eth_speed_t) -> Result<Self, Self::Error> {
+        Ok(match speed {
+            eth_speed_t_ETH_SPEED_10M => Self::Mbps10,
+            eth_speed_t_ETH_SPEED_100M => Self::Mbps100,
+            #[cfg(esp_idf_version_at_least_6_1_0)]
+            eth_speed_t_ETH_SPEED_1000M => Self::Mbps1000,
+            _ => Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>())?,
+        })
+    }
+}
+
+/// The duplex mode of the Ethernet link
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Duplex {
+    Half,
+    Full,
+}
+
+#[allow(non_upper_case_globals)]
+impl TryFrom<eth_duplex_t> for Duplex {
+    type Error = EspError;
+
+    fn try_from(duplex: eth_duplex_t) -> Result<Self, Self::Error> {
+        Ok(match duplex {
+            eth_duplex_t_ETH_DUPLEX_HALF => Self::Half,
+            eth_duplex_t_ETH_DUPLEX_FULL => Self::Full,
+            _ => Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>())?,
+        })
+    }
+}
+
 /// This struct provides a safe wrapper over the ESP IDF Ethernet C driver.
 ///
 /// The driver works on Layer 2 (Data Link) in the OSI model, in that it provides
@@ -1248,6 +1295,34 @@ impl<'d, T> EthDriver<'d, T> {
         Ok(*guard == Status::Connected)
     }
 
+    /// Get the speed of the link, as negotiated with (or configured for) the link partner.
+    pub fn get_speed(&self) -> Result<Speed, EspError> {
+        let mut speed: eth_speed_t = 0;
+        esp!(unsafe {
+            esp_eth_ioctl(
+                self.handle,
+                esp_eth_io_cmd_t_ETH_CMD_G_SPEED,
+                &mut speed as *mut _ as *mut _,
+            )
+        })?;
+
+        speed.try_into()
+    }
+
+    /// Get the duplex mode of the link, as negotiated with (or configured for) the link partner.
+    pub fn get_duplex(&self) -> Result<Duplex, EspError> {
+        let mut duplex: eth_duplex_t = 0;
+        esp!(unsafe {
+            esp_eth_ioctl(
+                self.handle,
+                esp_eth_io_cmd_t_ETH_CMD_G_DUPLEX_MODE,
+                &mut duplex as *mut _ as *mut _,
+            )
+        })?;
+
+        duplex.try_into()
+    }
+
     pub fn start(&mut self) -> Result<(), EspError> {
         esp!(unsafe { esp_eth_start(self.handle) })?;
 
@@ -1581,6 +1656,16 @@ impl<'d, T> EspEth<'d, T> {
 
     pub fn is_connected(&self) -> Result<bool, EspError> {
         self.driver().is_connected()
+    }
+
+    /// Get the speed of the link, as negotiated with (or configured for) the link partner.
+    pub fn get_speed(&self) -> Result<Speed, EspError> {
+        self.driver().get_speed()
+    }
+
+    /// Get the duplex mode of the link, as negotiated with (or configured for) the link partner.
+    pub fn get_duplex(&self) -> Result<Duplex, EspError> {
+        self.driver().get_duplex()
     }
 
     pub fn is_up(&self) -> Result<bool, EspError> {

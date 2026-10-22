@@ -1,18 +1,19 @@
 //! Diagnostics of the local Thread node: network parameters, neighbor and route tables,
-//! the Active Operational Dataset and the MAC counters.
+//! the Operational Datasets and the MLE and MAC counters.
 
 use core::ffi::CStr;
 use core::mem::MaybeUninit;
 
 use crate::sys::{
-    esp_openthread_get_instance, otDatasetGetActive, otDatasetIsCommissioned,
+    esp_openthread_get_instance, otDatasetGetActive, otDatasetGetPending, otDatasetIsCommissioned,
     otError_OT_ERROR_NONE, otLinkGetChannel, otLinkGetCounters, otLinkGetExtendedAddress,
-    otLinkGetPanId, otLinkResetCounters, otMacCounters, otNeighborInfo, otNeighborInfoIterator,
-    otNetDataGetStableVersion, otNetDataGetVersion, otOperationalDataset,
+    otLinkGetPanId, otLinkResetCounters, otMacCounters, otMleCounters, otNeighborInfo,
+    otNeighborInfoIterator, otNetDataGetStableVersion, otNetDataGetVersion, otOperationalDataset,
     otOperationalDatasetComponents, otRouterInfo, otSecurityPolicy, otThreadGetExtendedPanId,
     otThreadGetLeaderRouterId, otThreadGetLeaderWeight, otThreadGetLinkMode,
-    otThreadGetMeshLocalPrefix, otThreadGetNetworkName, otThreadGetNextNeighborInfo,
-    otThreadGetPartitionId, otThreadGetRloc16, EspError, OT_NEIGHBOR_INFO_ITERATOR_INIT,
+    otThreadGetMeshLocalPrefix, otThreadGetMleCounters, otThreadGetNetworkName,
+    otThreadGetNextNeighborInfo, otThreadGetPartitionId, otThreadGetRloc16,
+    otThreadResetMleCounters, otTimestamp, EspError, OT_NEIGHBOR_INFO_ITERATOR_INIT,
     OT_RADIO_RSSI_INVALID,
 };
 
@@ -208,6 +209,68 @@ impl From<&otMacCounters> for MacCounters {
     }
 }
 
+/// Thread MLE counters (`otMleCounters`).
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct MleCounters {
+    pub disabled_role: u16,
+    pub detached_role: u16,
+    pub child_role: u16,
+    pub router_role: u16,
+    pub leader_role: u16,
+    pub attach_attempts: u16,
+    pub partition_id_changes: u16,
+    pub better_partition_attach_attempts: u16,
+    pub better_parent_attach_attempts: u16,
+    pub parent_changes: u16,
+    pub disabled_time_millis: u64,
+    pub detached_time_millis: u64,
+    pub child_time_millis: u64,
+    pub router_time_millis: u64,
+    pub leader_time_millis: u64,
+    pub tracked_time_millis: u64,
+}
+
+impl From<&otMleCounters> for MleCounters {
+    fn from(c: &otMleCounters) -> Self {
+        Self {
+            disabled_role: c.mDisabledRole,
+            detached_role: c.mDetachedRole,
+            child_role: c.mChildRole,
+            router_role: c.mRouterRole,
+            leader_role: c.mLeaderRole,
+            attach_attempts: c.mAttachAttempts,
+            partition_id_changes: c.mPartitionIdChanges,
+            better_partition_attach_attempts: c.mBetterPartitionAttachAttempts,
+            better_parent_attach_attempts: c.mBetterParentAttachAttempts,
+            parent_changes: c.mParentChanges,
+            disabled_time_millis: c.mDisabledTime,
+            detached_time_millis: c.mDetachedTime,
+            child_time_millis: c.mChildTime,
+            router_time_millis: c.mRouterTime,
+            leader_time_millis: c.mLeaderTime,
+            tracked_time_millis: c.mTrackedTime,
+        }
+    }
+}
+
+/// An Operational Dataset timestamp (`otTimestamp`).
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct Timestamp {
+    pub seconds: u64,
+    pub ticks: u16,
+    pub authoritative: bool,
+}
+
+impl From<&otTimestamp> for Timestamp {
+    fn from(t: &otTimestamp) -> Self {
+        Self {
+            seconds: t.mSeconds,
+            ticks: t.mTicks,
+            authoritative: t.mAuthoritative,
+        }
+    }
+}
+
 /// The Security Policy of an Operational Dataset (`otSecurityPolicy`).
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct SecurityPolicy {
@@ -282,12 +345,23 @@ impl OperationalDatasetComponents {
 /// The diagnostic-relevant parts of the Active Operational Dataset.
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
 pub struct ActiveDatasetDiag {
+    /// The Active Timestamp, if present in the dataset.
+    pub active_timestamp: Option<Timestamp>,
     /// The Security Policy, if present in the dataset.
     pub security_policy: Option<SecurityPolicy>,
     /// The page 0 Channel Mask (bit `n` = channel `n`), if present in the dataset.
     pub channel_mask: Option<u32>,
     /// Which components are present in the dataset.
     pub components: OperationalDatasetComponents,
+}
+
+/// The diagnostic-relevant parts of the Pending Operational Dataset.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub struct PendingDatasetDiag {
+    /// The Pending Timestamp, if present in the dataset.
+    pub pending_timestamp: Option<Timestamp>,
+    /// The Delay Timer in milliseconds, if present in the dataset.
+    pub delay: Option<u32>,
 }
 
 impl<T> ThreadDriver<'_, T>
@@ -488,6 +562,9 @@ where
         let components = OperationalDatasetComponents::load_raw(&dataset.mComponents);
 
         Ok(Some(ActiveDatasetDiag {
+            active_timestamp: components
+                .active_timestamp_present
+                .then(|| (&dataset.mActiveTimestamp).into()),
             security_policy: components
                 .security_policy_present
                 .then(|| SecurityPolicy::load_raw(&dataset.mSecurityPolicy)),
@@ -496,6 +573,46 @@ where
                 .then_some(dataset.mChannelMask),
             components,
         }))
+    }
+
+    /// Return the diagnostic-relevant parts of the Pending Operational Dataset,
+    /// or `None` if the node has no Pending Operational Dataset.
+    pub fn pending_dataset_diag(&self) -> Result<Option<PendingDatasetDiag>, EspError> {
+        let _lock = self.inner();
+
+        let mut dataset = MaybeUninit::<otOperationalDataset>::uninit();
+
+        if unsafe { otDatasetGetPending(esp_openthread_get_instance(), dataset.as_mut_ptr()) }
+            != otError_OT_ERROR_NONE
+        {
+            return Ok(None);
+        }
+
+        let dataset = unsafe { dataset.assume_init_ref() };
+        let components = &dataset.mComponents;
+
+        Ok(Some(PendingDatasetDiag {
+            pending_timestamp: components
+                .mIsPendingTimestampPresent
+                .then(|| (&dataset.mPendingTimestamp).into()),
+            delay: components.mIsDelayPresent.then_some(dataset.mDelay),
+        }))
+    }
+
+    /// Return the Thread MLE counters.
+    pub fn mle_counters(&self) -> Result<MleCounters, EspError> {
+        let _lock = self.inner();
+
+        Ok(unsafe { &*otThreadGetMleCounters(esp_openthread_get_instance()) }.into())
+    }
+
+    /// Reset the Thread MLE counters.
+    pub fn reset_mle_counters(&self) -> Result<(), EspError> {
+        let _lock = self.inner();
+
+        unsafe { otThreadResetMleCounters(esp_openthread_get_instance()) };
+
+        Ok(())
     }
 
     /// Return the IEEE 802.15.4 MAC counters.
@@ -622,6 +739,22 @@ where
     /// or `None` if the node has no Active Operational Dataset.
     pub fn active_dataset_diag(&self) -> Result<Option<ActiveDatasetDiag>, EspError> {
         self.driver().active_dataset_diag()
+    }
+
+    /// Return the diagnostic-relevant parts of the Pending Operational Dataset,
+    /// or `None` if the node has no Pending Operational Dataset.
+    pub fn pending_dataset_diag(&self) -> Result<Option<PendingDatasetDiag>, EspError> {
+        self.driver().pending_dataset_diag()
+    }
+
+    /// Return the Thread MLE counters.
+    pub fn mle_counters(&self) -> Result<MleCounters, EspError> {
+        self.driver().mle_counters()
+    }
+
+    /// Reset the Thread MLE counters.
+    pub fn reset_mle_counters(&self) -> Result<(), EspError> {
+        self.driver().reset_mle_counters()
     }
 
     /// Return the IEEE 802.15.4 MAC counters.
