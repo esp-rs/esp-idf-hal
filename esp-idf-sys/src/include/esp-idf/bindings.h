@@ -12,6 +12,10 @@
 
 #include "esp_rom_crc.h"
 #include "esp_log.h"
+#ifdef CONFIG_LOG_VERSION_2
+// The log timestamp, formatted as `CONFIG_LOG_TIMESTAMP_SOURCE` says
+#include "esp_private/log_timestamp.h"
+#endif
 #include "esp_debug_helpers.h"
 
 #include "esp_sleep.h"

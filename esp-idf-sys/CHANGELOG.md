@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Bindings for formatting the log timestamp with log v2 (`esp_log_timestamp_str`, `esp_log_timestamp64`)
 - Support for esp32h4 and esp32h21 (ESP-IDF v6.1+)
 - Support for the esp32s31 (ESP-IDF v6.1+; select it with `MCU=esp32s31` on the `riscv32imafc-esp-espidf` target)
 - bindings: the Digital Signature peripheral (`esp_ds.h`) on the chips which have it (ESP-IDF v5.1+)

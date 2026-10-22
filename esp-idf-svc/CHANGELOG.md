@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Wi-Fi: WPA2 / WPA3 Enterprise (802.1X / EAP) authentication of the station with `EnterpriseConfiguration` and `WifiDriver::enable_enterprise` / `disable_enterprise` (and on `EspWifi`); ESP-IDF v5.0.5+, v5.1.2+ and v5.2+
 
 ### Fixed
+- Log: Rust log lines show the timestamp of every `CONFIG_LOG_TIMESTAMP_SOURCE` of log v2, e.g. the date and time, rather than none
 - Netif: align the default PPP client with ESP-IDF's PPP configuration, correctly deserialize `IP_EVENT_PPP_LOST_IP`, and keep custom driver lifecycle state in sync across start/stop calls.
 - Thread: fix compilation when `CONFIG_OPENTHREAD_LOG_LEVEL_DYNAMIC=n` is specified
 - WS client: `WebSocketEventType::Close` decoded the closing reason from the address of the payload rather than from its first two bytes
