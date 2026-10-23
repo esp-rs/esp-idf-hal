@@ -94,9 +94,7 @@ impl EspPing {
         tracker: &mut Tracker<F>,
     ) -> Result<(), EspError> {
         #[cfg(not(esp_idf_lwip_ipv6))]
-        let ta = ip4_addr_t {
-            addr: u32::from_be_bytes(ip.octets()),
-        };
+        let ta = Newtype::<ip4_addr_t>::from(ip).0;
         #[cfg(esp_idf_lwip_ipv6)]
         let ta = ip_addr_t {
             u_addr: ip_addr__bindgen_ty_1 {
@@ -214,9 +212,9 @@ impl EspPing {
         );
 
         #[cfg(not(esp_idf_lwip_ipv6))]
-        let addr = ipv4::Ipv4Addr::from(target_addr.addr);
+        let addr = ipv4::Ipv4Addr::from(Newtype(*target_addr));
         #[cfg(esp_idf_lwip_ipv6)]
-        let addr = ipv4::Ipv4Addr::from(target_addr.u_addr.ip4.addr);
+        let addr = ipv4::Ipv4Addr::from(Newtype(target_addr.u_addr.ip4));
 
         info!("From {addr} icmp_seq={seqno} ttl={ttl} time={elapsed_time}ms bytes={recv_len}");
 

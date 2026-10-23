@@ -45,6 +45,42 @@ pub enum NetifStack {
     Slip,
     #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
     Thread,
+    /// Layer 2 bridge between other netifs (see [`EspNetifBridge`])
+    #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+    Bridge(BridgeConfiguration),
+}
+
+/// Configuration of a bridge netif (see [`NetifStack::Bridge`] and [`EspNetifBridge`]).
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "std", derive(Hash))]
+pub struct BridgeConfiguration {
+    /// Maximum number of entries in the dynamic forwarding database
+    pub max_fdb_dyn_entries: u16,
+    /// Maximum number of entries in the static forwarding database
+    pub max_fdb_sta_entries: u16,
+    /// Maximum number of ports of the bridge
+    pub max_ports: u8,
+}
+
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+impl BridgeConfiguration {
+    /// Create a configuration with the default values, which allow for an Ethernet and a
+    /// Wi-Fi access point port.
+    pub const fn new() -> Self {
+        Self {
+            max_fdb_dyn_entries: 10,
+            max_fdb_sta_entries: 2,
+            max_ports: 2,
+        }
+    }
+}
+
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+impl Default for BridgeConfiguration {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl NetifStack {
@@ -74,6 +110,11 @@ impl NetifStack {
             Self::Slip => NetifConfiguration::slip_default_client(),
             #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
             Self::Thread => NetifConfiguration::thread_default(),
+            #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+            Self::Bridge(_) => NetifConfiguration {
+                stack: *self,
+                ..NetifConfiguration::bridge_default()
+            },
         }
     }
 
@@ -113,6 +154,9 @@ impl NetifStack {
             #[cfg(esp_idf_esp_wifi_softap_support)]
             Self::Ap => Some(esp_mac_type_t_ESP_MAC_WIFI_SOFTAP),
             Self::Eth => Some(esp_mac_type_t_ESP_MAC_ETH),
+            // The bridge shares the MAC address of its Ethernet port(s)
+            #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+            Self::Bridge(_) => Some(esp_mac_type_t_ESP_MAC_ETH),
             #[cfg(all(esp_idf_comp_openthread_enabled, esp_idf_openthread_enabled,))]
             Self::Thread => {
                 #[cfg(esp_idf_soc_ieee802154_supported)]
@@ -151,6 +195,8 @@ impl NetifStack {
                     not(esp_idf_version_major = "4")
                 ))]
                 Self::Thread => &g_esp_netif_netstack_default_openthread,
+                #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+                Self::Bridge(_) => _g_esp_netif_netstack_default_br,
             }
         }
     }
@@ -170,6 +216,26 @@ pub struct NetifConfiguration {
 }
 
 impl NetifConfiguration {
+    /// The default configuration of a bridge netif, which gets its IP configuration as a DHCP
+    /// client (see [`EspNetifBridge`]).
+    #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+    pub fn bridge_default() -> Self {
+        Self {
+            flags: esp_netif_flags_ESP_NETIF_FLAG_GARP
+                | esp_netif_flags_ESP_NETIF_FLAG_EVENT_IP_MODIFIED,
+            got_ip_event_id: NonZeroU32::new(ip_event_t_IP_EVENT_ETH_GOT_IP as _),
+            lost_ip_event_id: NonZeroU32::new(ip_event_t_IP_EVENT_ETH_LOST_IP as _),
+            key: "BR0".try_into().unwrap(),
+            description: "br0".try_into().unwrap(),
+            route_priority: 70,
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Client(
+                Default::default(),
+            )),
+            stack: NetifStack::Bridge(BridgeConfiguration::new()),
+            custom_mac: None,
+        }
+    }
+
     pub fn eth_default_client() -> Self {
         Self {
             flags: esp_netif_flags_ESP_NETIF_FLAG_GARP
@@ -179,7 +245,9 @@ impl NetifConfiguration {
             key: "ETH_DEF".try_into().unwrap(),
             description: "eth".try_into().unwrap(),
             route_priority: 60,
-            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Client(
+                Default::default(),
+            )),
             stack: NetifStack::Eth,
             custom_mac: None,
         }
@@ -193,7 +261,9 @@ impl NetifConfiguration {
             key: "ETH_RT_DEF".try_into().unwrap(),
             description: "ethrt".try_into().unwrap(),
             route_priority: 50,
-            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Router(
+                Default::default(),
+            )),
             stack: NetifStack::Eth,
             custom_mac: None,
         }
@@ -208,7 +278,9 @@ impl NetifConfiguration {
             key: "WIFI_STA_DEF".try_into().unwrap(),
             description: "sta".try_into().unwrap(),
             route_priority: 100,
-            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Client(
+                Default::default(),
+            )),
             stack: NetifStack::Sta,
             custom_mac: None,
         }
@@ -223,7 +295,9 @@ impl NetifConfiguration {
             key: "WIFI_AP_DEF".try_into().unwrap(),
             description: "ap".try_into().unwrap(),
             route_priority: 10,
-            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Router(
+                Default::default(),
+            )),
             stack: NetifStack::Ap,
             custom_mac: None,
         }
@@ -256,7 +330,9 @@ impl NetifConfiguration {
             key: "PPP_RT_DEF".try_into().unwrap(),
             description: "ppprt".try_into().unwrap(),
             route_priority: 20,
-            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Router(
+                Default::default(),
+            )),
             stack: NetifStack::Ppp,
             custom_mac: None,
         }
@@ -271,7 +347,9 @@ impl NetifConfiguration {
             key: "SLIP_CL_DEF".try_into().unwrap(),
             description: "slip".try_into().unwrap(),
             route_priority: 35,
-            ip_configuration: Some(ipv4::Configuration::Client(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Client(
+                Default::default(),
+            )),
             stack: NetifStack::Slip,
             custom_mac: None,
         }
@@ -286,7 +364,9 @@ impl NetifConfiguration {
             key: "SLIP_RT_DEF".try_into().unwrap(),
             description: "sliprt".try_into().unwrap(),
             route_priority: 25,
-            ip_configuration: Some(ipv4::Configuration::Router(Default::default())),
+            ip_configuration: default_ip_configuration(ipv4::Configuration::Router(
+                Default::default(),
+            )),
             stack: NetifStack::Slip,
             custom_mac: None,
         }
@@ -306,6 +386,13 @@ impl NetifConfiguration {
             custom_mac: None,
         }
     }
+}
+
+/// Return `conf` as the default IP configuration of a netif, or `None` without IPv4, as
+/// ESP-IDF then has neither a DHCP client / server nor static IPv4 addressing.
+// `CONFIG_LWIP_IPV4` only exists since ESP-IDF 5.1; before that IPv4 is always enabled
+fn default_ip_configuration(conf: ipv4::Configuration) -> Option<ipv4::Configuration> {
+    cfg!(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))).then_some(conf)
 }
 
 static INITALIZED: mutex::Mutex<bool> = mutex::Mutex::new(false);
@@ -336,6 +423,12 @@ impl EspNetif {
 
     #[allow(unused_mut)]
     pub fn new_with_conf(conf: &NetifConfiguration) -> Result<Self, EspError> {
+        // Without IPv4, ESP-IDF has neither a DHCP client / server nor static IPv4 addressing
+        #[cfg(not(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))))]
+        if conf.ip_configuration.is_some() {
+            return Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>());
+        }
+
         initialize_netif_stack()?;
 
         let c_if_key = to_cstring_arg(conf.key.as_str())?;
@@ -461,6 +554,21 @@ impl EspNetif {
             esp_inherent_config.ip_info = ip_info;
         }
 
+        // ESP-IDF copies the bridge configuration when creating the netif
+        #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+        let mut bridge_info: bridgeif_config_t;
+        #[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+        if let NetifStack::Bridge(bridge_conf) = conf.stack {
+            bridge_info = bridgeif_config_t {
+                max_fdb_dyn_entries: bridge_conf.max_fdb_dyn_entries,
+                max_fdb_sta_entries: bridge_conf.max_fdb_sta_entries,
+                max_ports: bridge_conf.max_ports,
+            };
+
+            esp_inherent_config.flags |= esp_netif_flags_ESP_NETIF_FLAG_IS_BRIDGE;
+            esp_inherent_config.bridge_info = &mut bridge_info;
+        }
+
         let cfg = esp_netif_config_t {
             base: &esp_inherent_config,
             driver: ptr::null(),
@@ -478,22 +586,26 @@ impl EspNetif {
             netif.set_dns(dns);
 
             if dhcps {
-                #[cfg(esp_idf_version_major = "4")]
-                let mut dhcps_dns_value: dhcps_offer_t = dhcps_offer_option_OFFER_DNS as _;
+                // The DHCP server only exists with IPv4, and `dhcps` is always `false` without it
+                #[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
+                {
+                    #[cfg(esp_idf_version_major = "4")]
+                    let mut dhcps_dns_value: dhcps_offer_t = dhcps_offer_option_OFFER_DNS as _;
 
-                // Strangely dhcps_offer_t and dhcps_offer_option_* are not included in ESP-IDF V5's bindings
-                #[cfg(not(esp_idf_version_major = "4"))]
-                let mut dhcps_dns_value: u8 = 2_u8;
+                    // Strangely dhcps_offer_t and dhcps_offer_option_* are not included in ESP-IDF V5's bindings
+                    #[cfg(not(esp_idf_version_major = "4"))]
+                    let mut dhcps_dns_value: u8 = 2_u8;
 
-                esp!(unsafe {
-                    esp_netif_dhcps_option(
-                        netif.handle,
-                        esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET,
-                        esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER,
-                        &mut dhcps_dns_value as *mut _ as *mut _,
-                        core::mem::size_of_val(&dhcps_dns_value) as u32,
-                    )
-                })?;
+                    esp!(unsafe {
+                        esp_netif_dhcps_option(
+                            netif.handle,
+                            esp_netif_dhcp_option_mode_t_ESP_NETIF_OP_SET,
+                            esp_netif_dhcp_option_id_t_ESP_NETIF_DOMAIN_NAME_SERVER,
+                            &mut dhcps_dns_value as *mut _ as *mut _,
+                            core::mem::size_of_val(&dhcps_dns_value) as u32,
+                        )
+                    })?;
+                }
             }
         }
 
@@ -517,13 +629,26 @@ impl EspNetif {
         if !self.is_netif_up()? {
             Ok(false)
         } else {
-            let mut ip_info = Default::default();
-            unsafe { esp!(esp_netif_get_ip_info(self.handle, &mut ip_info)) }?;
+            #[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
+            {
+                let mut ip_info = Default::default();
+                unsafe { esp!(esp_netif_get_ip_info(self.handle, &mut ip_info)) }?;
 
-            Ok(ipv4::IpInfo::from(Newtype(ip_info)).ip != ipv4::Ipv4Addr::new(0, 0, 0, 0))
+                Ok(ipv4::IpInfo::from(Newtype(ip_info)).ip != ipv4::Ipv4Addr::new(0, 0, 0, 0))
+            }
+
+            // Without IPv4, the netif is up once it has an IPv6 address
+            #[cfg(not(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))))]
+            {
+                let mut ip6_addrs =
+                    [esp_ip6_addr_t::default(); CONFIG_LWIP_IPV6_NUM_ADDRESSES as usize];
+
+                Ok(unsafe { esp_netif_get_all_ip6(self.handle, ip6_addrs.as_mut_ptr()) } > 0)
+            }
         }
     }
 
+    #[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
     pub fn get_ip_info(&self) -> Result<ipv4::IpInfo, EspError> {
         let mut ip_info = Default::default();
         unsafe { esp!(esp_netif_get_ip_info(self.handle, &mut ip_info)) }?;
@@ -566,6 +691,25 @@ impl EspNetif {
 
     pub fn set_mac(&mut self, mac: &[u8; 6]) -> Result<(), EspError> {
         esp!(unsafe { esp_netif_set_mac(self.handle, mac.as_ptr() as *mut _) })?;
+        Ok(())
+    }
+
+    /// Return the MTU (in bytes) of the netif.
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    pub fn get_mtu(&self) -> Result<u16, EspError> {
+        let mut mtu = 0;
+
+        esp!(unsafe { esp_netif_get_mtu(self.handle, &mut mtu) })?;
+        Ok(mtu)
+    }
+
+    /// Set the MTU (in bytes) of the netif.
+    ///
+    /// TCP derives the maximum segment size of a connection from the MTU when the
+    /// connection is established, so the MTU should be set before opening connections.
+    #[cfg(esp_idf_version_at_least_6_0_0)]
+    pub fn set_mtu(&mut self, mtu: u16) -> Result<(), EspError> {
+        esp!(unsafe { esp_netif_set_mtu(self.handle, mtu) })?;
         Ok(())
     }
 
@@ -672,6 +816,97 @@ impl RawHandle for EspNetif {
         self.handle
     }
 }
+
+/// A layer 2 bridge between netifs (its ports), e.g. between Ethernet and a Wi-Fi access point.
+///
+/// The bridge has a netif of its own, created with [`NetifStack::Bridge`] (see
+/// [`NetifConfiguration::bridge_default`]): it is this netif which gets the IP configuration of
+/// the device, while the netifs of the ports only pass frames to and from the bridge.
+///
+/// As in ESP-IDF's bridge example:
+/// - The netifs of the ports should have no IP configuration (`ip_configuration: None`), so
+///   that they run neither a DHCP client nor a DHCP server
+/// - The Ethernet ports should share their MAC address with the bridge netif, and should be in
+///   promiscuous mode (see [`EthDriver::set_promiscuous`](crate::eth::EthDriver::set_promiscuous))
+/// - Ports have to be added before they are started; the bridge starts with its first port
+///
+/// Requires `CONFIG_ESP_NETIF_BRIDGE_EN=y` and `CONFIG_LWIP_NUM_NETIF_CLIENT_DATA=1`.
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+pub struct EspNetifBridge {
+    glue: esp_netif_br_glue_handle_t,
+    netif: EspNetif,
+}
+
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+impl EspNetifBridge {
+    /// Create a bridge with the given bridge netif.
+    ///
+    /// Returns `ESP_ERR_INVALID_ARG` if the netif was not created with [`NetifStack::Bridge`].
+    pub fn new(netif: EspNetif) -> Result<Self, EspError> {
+        if unsafe { esp_netif_get_flags(netif.handle) } & esp_netif_flags_ESP_NETIF_FLAG_IS_BRIDGE
+            == 0
+        {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
+        let glue = unsafe { esp_netif_br_glue_new() };
+        if glue.is_null() {
+            return Err(EspError::from_infallible::<ESP_ERR_NO_MEM>());
+        }
+
+        // The bridge netif has to be attached before any of the ports starts
+        if let Err(err) = esp!(unsafe { esp_netif_attach(netif.handle, glue as *mut _) }) {
+            unsafe { esp_netif_br_glue_del(glue) };
+
+            return Err(err);
+        }
+
+        Ok(Self { glue, netif })
+    }
+
+    /// Add a netif - e.g. the netif of an Ethernet driver - as a port of the bridge.
+    ///
+    /// # Safety
+    ///
+    /// The bridge keeps a pointer to the netif, so the netif must not be dropped before the
+    /// bridge.
+    pub unsafe fn add_port(&mut self, netif: &EspNetif) -> Result<(), EspError> {
+        esp!(esp_netif_br_glue_add_port(self.glue, netif.handle))
+    }
+
+    /// Add the netif of the Wi-Fi access point as a port of the bridge.
+    ///
+    /// A bridge can have only one Wi-Fi port, and it has to be the access point netif.
+    ///
+    /// # Safety
+    ///
+    /// The bridge keeps a pointer to the netif, so the netif must not be dropped before the
+    /// bridge.
+    pub unsafe fn add_wifi_port(&mut self, netif: &EspNetif) -> Result<(), EspError> {
+        esp!(esp_netif_br_glue_add_wifi_port(self.glue, netif.handle))
+    }
+
+    /// Return the bridge netif.
+    pub fn netif(&self) -> &EspNetif {
+        &self.netif
+    }
+
+    /// Return the bridge netif.
+    pub fn netif_mut(&mut self) -> &mut EspNetif {
+        &mut self.netif
+    }
+}
+
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+impl Drop for EspNetifBridge {
+    fn drop(&mut self) {
+        // Stops the bridge netif, so it has to happen before the netif is destroyed
+        unsafe { esp_netif_br_glue_del(self.glue) };
+    }
+}
+
+#[cfg(all(esp_idf_esp_netif_tcpip_lwip, esp_idf_esp_netif_bridge_en))]
+unsafe impl Send for EspNetifBridge {}
 
 #[derive(Copy, Clone)]
 pub struct ApStaIpAssignment<'a>(&'a ip_event_ap_staipassigned_t);
@@ -1024,7 +1259,12 @@ mod driver {
     use core::borrow::BorrowMut;
 
     use ::log::debug;
+    use alloc::{sync::Arc, vec::Vec};
+    use embassy_futures::select::{select, Either};
+    use embassy_sync::channel::Channel;
+    use embedded_io_async::{Read, Write};
 
+    use crate::hal::task::embassy_sync::EspRawMutex;
     use crate::handle::RawHandle;
     use crate::sys::*;
 
@@ -1041,6 +1281,175 @@ mod driver {
     // The C driver retains a pointer to `inner`, whose allocation remains stable
     // when this outer value moves. Both callbacks are Send and `T` owns the netif.
     unsafe impl<T> Send for EspNetifDriver<'_, T> where T: BorrowMut<EspNetif> + Send {}
+
+    /// The default number of outbound packets buffered by [`AsyncEspNetifChannel`].
+    pub const ASYNC_NETIF_TX_QUEUE_SIZE: usize = 8;
+
+    /// An error produced while forwarding bytes from an asynchronous transport
+    /// into an [`EspNetifDriver`].
+    #[derive(Debug)]
+    pub enum AsyncEspNetifChannelError<E> {
+        /// Reading from the transport failed.
+        Read(E),
+        /// Writing to the transport failed.
+        Write(E),
+        /// Passing the received bytes to ESP-NETIF failed.
+        Netif(EspError),
+    }
+
+    impl<E> core::fmt::Display for AsyncEspNetifChannelError<E>
+    where
+        E: core::fmt::Display,
+    {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            match self {
+                Self::Read(error) => write!(f, "transport read failed: {error}"),
+                Self::Write(error) => write!(f, "transport write failed: {error}"),
+                Self::Netif(error) => write!(f, "ESP-NETIF receive failed: {error}"),
+            }
+        }
+    }
+
+    #[cfg(feature = "std")]
+    impl<E> std::error::Error for AsyncEspNetifChannelError<E> where
+        E: core::fmt::Debug + core::fmt::Display
+    {
+    }
+
+    /// Bridges an [`EspNetifDriver`] to asynchronous byte streams.
+    ///
+    /// This adapter is intended for PPP byte streams. A modem driver must
+    /// complete command negotiation and enter PPP data mode before calling
+    /// [`Self::run`]. ESP-IDF's PPP input deframes the byte stream, so reads may
+    /// contain partial frames, multiple frames, or splits within an escape
+    /// sequence. Use a reasonably large receive buffer to avoid a heap
+    /// allocation and TCP/IP mailbox message for every small read.
+    ///
+    /// Other netif types may require exactly one complete L2 frame per receive
+    /// call and different buffer ownership. Do not use this adapter for them
+    /// without checking their ESP-IDF input contract.
+    ///
+    /// ESP-NETIF invokes its transmit callback synchronously, while
+    /// [`Write`] is asynchronous. Outbound packets are therefore
+    /// copied into a bounded queue. If that queue is full, ESP-NETIF is notified
+    /// with `ESP_ERR_NO_MEM` instead of blocking its TCP/IP task.
+    ///
+    /// A modem-specific driver remains responsible for entering PPP data mode. For
+    /// example, after obtaining an `a76xx::PppIo` stream from `connect_ppp`:
+    ///
+    /// ```ignore
+    /// let mut bridge = AsyncEspNetifChannel::<_, 8>::new(
+    ///     EspNetif::new(NetifStack::Ppp)?,
+    ///     |netif| netif.set_ppp_conf(&PppConfiguration::default()),
+    /// )?;
+    /// bridge.driver_mut().start()?;
+    ///
+    /// let mut rx_buffer = [0; 1536];
+    /// bridge.run(&mut ppp_io, &mut rx_buffer).await?;
+    /// ```
+    pub struct AsyncEspNetifChannel<'d, T, const TX_QUEUE_SIZE: usize = ASYNC_NETIF_TX_QUEUE_SIZE>
+    where
+        T: BorrowMut<EspNetif>,
+    {
+        driver: EspNetifDriver<'d, T>,
+        tx_queue: Arc<Channel<EspRawMutex, Vec<u8>, TX_QUEUE_SIZE>>,
+    }
+
+    impl<T, const TX_QUEUE_SIZE: usize> AsyncEspNetifChannel<'static, T, TX_QUEUE_SIZE>
+    where
+        T: BorrowMut<EspNetif>,
+    {
+        /// Creates an asynchronous adapter around the provided ESP-NETIF instance.
+        pub fn new<P>(netif: T, post_attach_cfg: P) -> Result<Self, EspError>
+        where
+            P: FnMut(&mut EspNetif) -> Result<(), EspError> + Send + 'static,
+        {
+            Self::new_nonstatic(netif, post_attach_cfg)
+        }
+    }
+
+    impl<'d, T, const TX_QUEUE_SIZE: usize> AsyncEspNetifChannel<'d, T, TX_QUEUE_SIZE>
+    where
+        T: BorrowMut<EspNetif>,
+    {
+        /// Creates an asynchronous adapter which may borrow non-static data from
+        /// `post_attach_cfg`.
+        ///
+        /// # Safety
+        ///
+        /// This has the same leak-safety requirements as
+        /// [`EspNetifDriver::new_nonstatic`]. The adapter must not be forgotten.
+        pub fn new_nonstatic<P>(netif: T, post_attach_cfg: P) -> Result<Self, EspError>
+        where
+            P: FnMut(&mut EspNetif) -> Result<(), EspError> + Send + 'd,
+        {
+            if TX_QUEUE_SIZE == 0 {
+                return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+            }
+
+            let tx_queue = Arc::new(Channel::new());
+            let callback_queue = tx_queue.clone();
+            let driver = EspNetifDriver::new_nonstatic(netif, post_attach_cfg, move |data| {
+                callback_queue
+                    .try_send(Vec::from(data))
+                    .map_err(|_| EspError::from_infallible::<ESP_ERR_NO_MEM>())
+            })?;
+
+            Ok(Self { driver, tx_queue })
+        }
+
+        /// Runs both directions of the bridge over one bidirectional PPP stream.
+        ///
+        /// This is convenient for transports such as `a76xx::PppIo` which implement
+        /// both [`embedded_io_async::Read`] and [`embedded_io_async::Write`] but do
+        /// not expose separate halves. The transport's read operation must be
+        /// cancellation-safe: it is cancelled whenever ESP-NETIF has an outbound
+        /// packet ready to write.
+        ///
+        /// The method returns successfully if the transport reports end-of-stream
+        /// by returning zero bytes.
+        pub async fn run<IO>(
+            &self,
+            mut io: IO,
+            rx_buffer: &mut [u8],
+        ) -> Result<(), AsyncEspNetifChannelError<IO::Error>>
+        where
+            IO: Read + Write,
+        {
+            loop {
+                match select(io.read(rx_buffer), self.tx_queue.receive()).await {
+                    Either::First(result) => {
+                        let len = result.map_err(AsyncEspNetifChannelError::Read)?;
+                        if len == 0 {
+                            return Ok(());
+                        }
+                        self.driver
+                            .rx(&rx_buffer[..len])
+                            .map_err(AsyncEspNetifChannelError::Netif)?;
+                    }
+                    Either::Second(packet) => io
+                        .write_all(&packet)
+                        .await
+                        .map_err(AsyncEspNetifChannelError::Write)?,
+                }
+            }
+        }
+
+        /// Returns the underlying ESP-NETIF driver.
+        pub fn driver(&self) -> &EspNetifDriver<'d, T> {
+            &self.driver
+        }
+
+        /// Returns the underlying ESP-NETIF driver mutably.
+        pub fn driver_mut(&mut self) -> &mut EspNetifDriver<'d, T> {
+            &mut self.driver
+        }
+
+        /// Unwraps the adapter and returns the underlying ESP-NETIF driver.
+        pub fn into_driver(self) -> EspNetifDriver<'d, T> {
+            self.driver
+        }
+    }
 
     impl<T> EspNetifDriver<'static, T>
     where

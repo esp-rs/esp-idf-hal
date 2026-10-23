@@ -115,11 +115,13 @@ pub struct MqttClientConfiguration<'a> {
     pub private_key: Option<X509<'static>>,
     pub private_key_password: Option<&'a str>,
 
+    /// A private key kept in hardware, used instead of `private_key`
+    pub hw_private_key: Option<HwPrivateKey>,
+
     #[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
     pub psk: Option<Psk<'a>>,
     // pub alpn_protos: &'a [&'a str],
     // pub use_secure_element: bool,
-    // void *ds_data;                          /*!< carrier of handle for digital signature parameters */
 }
 
 impl Default for MqttClientConfiguration<'_> {
@@ -160,6 +162,8 @@ impl Default for MqttClientConfiguration<'_> {
             client_certificate: None,
             private_key: None,
             private_key_password: None,
+
+            hw_private_key: None,
 
             #[cfg(all(esp_idf_esp_tls_psk_verification, feature = "alloc"))]
             psk: None,
@@ -347,16 +351,24 @@ impl<'a> TryFrom<&'a MqttClientConfiguration<'a>>
             c_conf.broker.verification.certificate_len = cert.as_esp_idf_raw_len();
         }
 
-        if let (Some(cert), Some(private_key)) = (conf.client_certificate, conf.private_key) {
+        if conf.private_key.is_some() && conf.hw_private_key.is_some() {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
+        let has_private_key = conf.private_key.is_some() || conf.hw_private_key.is_some();
+
+        if let (Some(cert), true) = (conf.client_certificate, has_private_key) {
             c_conf.credentials.authentication.certificate = cert.as_esp_idf_raw_ptr() as _;
             c_conf.credentials.authentication.certificate_len = cert.as_esp_idf_raw_len();
 
-            c_conf.credentials.authentication.key = private_key.as_esp_idf_raw_ptr() as _;
-            c_conf.credentials.authentication.key_len = private_key.as_esp_idf_raw_len();
+            if let Some(private_key) = conf.private_key {
+                c_conf.credentials.authentication.key = private_key.as_esp_idf_raw_ptr() as _;
+                c_conf.credentials.authentication.key_len = private_key.as_esp_idf_raw_len();
 
-            if let Some(pass) = conf.private_key_password {
-                c_conf.credentials.authentication.key_password = pass.as_ptr() as _;
-                c_conf.credentials.authentication.key_password_len = pass.len() as _;
+                if let Some(pass) = conf.private_key_password {
+                    c_conf.credentials.authentication.key_password = pass.as_ptr() as _;
+                    c_conf.credentials.authentication.key_password_len = pass.len() as _;
+                }
             }
         }
 
@@ -399,6 +411,7 @@ pub struct EspMqttClient<'a> {
     raw_client: esp_mqtt_client_handle_t,
     _boxed_raw_callback: Box<dyn FnMut(esp_mqtt_event_handle_t) + Send + 'a>,
     _tls_psk_conf: Option<TlsPsk>,
+    _hw_private_key: RawHwPrivateKey,
 }
 
 impl RawHandle for EspMqttClient<'_> {
@@ -525,6 +538,19 @@ impl<'a> EspMqttClient<'a> {
             }
         }
 
+        let hw_private_key = RawHwPrivateKey::new(conf.hw_private_key.as_ref());
+
+        #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+        {
+            c_conf.credentials.authentication.ds_data = hw_private_key.ds_data();
+        }
+
+        #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+        if let Some(efuse_block) = hw_private_key.ecdsa_efuse_block() {
+            c_conf.credentials.authentication.use_ecdsa_peripheral = true;
+            c_conf.credentials.authentication.ecdsa_key_efuse_blk = efuse_block;
+        }
+
         let raw_client = unsafe { esp_mqtt_client_init(&c_conf as *const _) };
         if raw_client.is_null() {
             return Err(EspError::from_infallible::<ESP_FAIL>());
@@ -534,6 +560,7 @@ impl<'a> EspMqttClient<'a> {
             raw_client,
             _boxed_raw_callback: boxed_raw_callback,
             _tls_psk_conf: tls_psk_conf,
+            _hw_private_key: hw_private_key,
         };
 
         esp!(unsafe {

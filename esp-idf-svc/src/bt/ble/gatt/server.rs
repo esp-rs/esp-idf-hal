@@ -570,6 +570,12 @@ where
         })
     }
 
+    /// Add a descriptor to the characteristic which was added last to the service.
+    ///
+    /// ESP-IDF lays out the attributes of a service in the order in which they are added, so the
+    /// descriptors of a characteristic have to be added right after the characteristic itself,
+    /// before adding the next characteristic. There is no need to wait for the
+    /// `CharacteristicAdded` event of the characteristic first.
     pub fn add_descriptor(
         &self,
         service_handle: Handle,
@@ -624,17 +630,13 @@ where
         status: GattStatus,
         response: Option<&GattResponse>,
     ) -> Result<(), EspError> {
+        let response = match response {
+            Some(response) => &response.0 as *const _ as *mut _,
+            None => core::ptr::null_mut(),
+        };
+
         esp!(unsafe {
-            #[allow(clippy::unwrap_or_default)]
-            esp_ble_gatts_send_response(
-                gatts_if,
-                conn_id,
-                trans_id,
-                status as _,
-                response
-                    .map(|response| &response.0 as *const _)
-                    .unwrap_or(core::ptr::null()) as *mut _,
-            )
+            esp_ble_gatts_send_response(gatts_if, conn_id, trans_id, status as _, response)
         })
     }
 

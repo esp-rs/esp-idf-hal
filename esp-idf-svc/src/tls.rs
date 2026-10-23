@@ -115,6 +115,220 @@ impl Debug for X509<'_> {
     }
 }
 
+#[cfg(feature = "alloc")]
+pub use self::hw_key::*;
+
+#[cfg(feature = "alloc")]
+mod hw_key {
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    use core::fmt::Debug;
+
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    use alloc::{boxed::Box, sync::Arc};
+
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    use crate::sys::*;
+
+    /// A private key for TLS client authentication which never leaves the hardware.
+    ///
+    /// It is used instead of a private key in memory, so it is mutually exclusive with the
+    /// private key setting of the configuration it is used with. The client certificate
+    /// matching the key still has to be configured.
+    ///
+    /// Which variants are available depends on the chip and on the ESP-IDF configuration.
+    #[derive(Clone, Debug)]
+    pub enum HwPrivateKey {
+        /// An RSA key used through the Digital Signature (DS) peripheral
+        #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+        Ds(EspDsKey),
+        /// An ECDSA key used through the ECDSA peripheral
+        /// (requires `CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN=y`)
+        #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+        Ecdsa(EspEcdsaKey),
+    }
+
+    /// An RSA private key, encrypted for the Digital Signature (DS) peripheral of this chip.
+    ///
+    /// The key is provisioned once, e.g. with `configure_esp_secure_cert.py` of
+    /// `esp_secure_cert_mgr`: an HMAC key is burned into an eFuse key block, and the RSA key
+    /// is encrypted with a key derived from it. The DS peripheral decrypts and uses the RSA key
+    /// internally, and the encrypted key is useless on any other chip.
+    ///
+    /// Clones share the encrypted key, so cloning is cheap.
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    #[derive(Clone)]
+    pub struct EspDsKey {
+        data: Arc<esp_ds_data_t>,
+        hmac_key_id: u8,
+        rsa_key_bits: u16,
+    }
+
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    impl EspDsKey {
+        /// Create a key from the outputs of its provisioning.
+        ///
+        /// - `ciphertext`: the encrypted key parameters
+        /// - `iv`: the initialization vector they were encrypted with
+        /// - `rsa_key_bits`: the length of the RSA key in bits (1024, 2048, 3072 or 4096)
+        /// - `hmac_key_id`: the index (0 to 5) of the eFuse key block (`KEY0` to `KEY5`) holding
+        ///   the HMAC key
+        ///
+        /// Returns `ESP_ERR_INVALID_ARG` if any of these does not match the DS peripheral.
+        pub fn new(
+            ciphertext: &[u8],
+            iv: &[u8],
+            rsa_key_bits: u16,
+            hmac_key_id: u8,
+        ) -> Result<Self, EspError> {
+            let rsa_length = match rsa_key_bits {
+                1024 => esp_digital_signature_length_t_ESP_DS_RSA_1024,
+                2048 => esp_digital_signature_length_t_ESP_DS_RSA_2048,
+                3072 => esp_digital_signature_length_t_ESP_DS_RSA_3072,
+                4096 => esp_digital_signature_length_t_ESP_DS_RSA_4096,
+                _ => return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>()),
+            };
+
+            let mut data = Arc::new(esp_ds_data_t::default());
+            let raw = Arc::get_mut(&mut data).unwrap();
+
+            if ciphertext.len() != raw.c.len()
+                || iv.len() != core::mem::size_of_val(&raw.iv)
+                || hmac_key_id as u32 >= hmac_key_id_t_HMAC_KEY_MAX
+            {
+                return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+            }
+
+            raw.rsa_length = rsa_length;
+            raw.c.copy_from_slice(ciphertext);
+
+            // The IV is stored as native-endian words; the chips are little-endian
+            for (word, bytes) in raw.iv.iter_mut().zip(iv.chunks_exact(4)) {
+                *word = u32::from_le_bytes(bytes.try_into().unwrap());
+            }
+
+            Ok(Self {
+                data,
+                hmac_key_id,
+                rsa_key_bits,
+            })
+        }
+
+        /// Return the length of the RSA key in bits.
+        pub const fn rsa_key_bits(&self) -> u16 {
+            self.rsa_key_bits
+        }
+
+        /// Return the index of the eFuse key block holding the HMAC key.
+        pub const fn hmac_key_id(&self) -> u8 {
+            self.hmac_key_id
+        }
+    }
+
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    impl Debug for EspDsKey {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            f.debug_struct("EspDsKey")
+                .field("rsa_key_bits", &self.rsa_key_bits)
+                .field("hmac_key_id", &self.hmac_key_id)
+                .finish_non_exhaustive()
+        }
+    }
+
+    /// An ECDSA (P-256) private key burned into an eFuse key block, used through the ECDSA
+    /// peripheral.
+    #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+    #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+    pub struct EspEcdsaKey {
+        efuse_block: u8,
+    }
+
+    #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+    impl EspEcdsaKey {
+        /// Create a key from the eFuse block holding it, as an `esp_efuse_block_t`
+        /// (e.g. `EFUSE_BLK_KEY0`).
+        pub const fn new(efuse_block: u8) -> Self {
+            Self { efuse_block }
+        }
+
+        /// Return the eFuse block holding the key.
+        pub const fn efuse_block(&self) -> u8 {
+            self.efuse_block
+        }
+    }
+
+    /// Mirror of ESP-IDF's `esp_ds_data_ctx_t`, which the TLS configurations of ESP-IDF take
+    /// as their `ds_data`. It is not part of the bindings, as each ESP-IDF release defines it
+    /// in a different internal header of its mbedTLS port; its layout is the same in all of them.
+    #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+    #[repr(C)]
+    struct DsDataCtx {
+        esp_ds_data: *mut esp_ds_data_t,
+        efuse_key_id: u8,
+        rsa_length_bits: u16,
+    }
+
+    /// The C-side state of a [`HwPrivateKey`].
+    ///
+    /// ESP-IDF keeps a pointer to it in the configuration of the client using the key, so it has
+    /// to live as long as that client.
+    #[derive(Default)]
+    pub(crate) struct RawHwPrivateKey {
+        #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+        ds: Option<(EspDsKey, Box<DsDataCtx>)>,
+        #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+        ecdsa_efuse_block: Option<u8>,
+    }
+
+    impl RawHwPrivateKey {
+        #[allow(unused_variables)]
+        pub(crate) fn new(key: Option<&HwPrivateKey>) -> Self {
+            Self {
+                #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+                ds: match key {
+                    Some(HwPrivateKey::Ds(key)) => {
+                        let ctx = Box::new(DsDataCtx {
+                            esp_ds_data: Arc::as_ptr(&key.data) as *mut _,
+                            efuse_key_id: key.hmac_key_id,
+                            rsa_length_bits: key.rsa_key_bits,
+                        });
+
+                        Some((key.clone(), ctx))
+                    }
+                    #[allow(unreachable_patterns)]
+                    _ => None,
+                },
+                #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+                ecdsa_efuse_block: match key {
+                    Some(HwPrivateKey::Ecdsa(key)) => Some(key.efuse_block),
+                    #[allow(unreachable_patterns)]
+                    _ => None,
+                },
+            }
+        }
+
+        /// The `ds_data` to set in the ESP-IDF configuration; null when not using the DS
+        /// peripheral.
+        #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+        pub(crate) fn ds_data(&self) -> *mut core::ffi::c_void {
+            match &self.ds {
+                Some((_, ctx)) => &**ctx as *const DsDataCtx as *mut _,
+                None => core::ptr::null_mut(),
+            }
+        }
+
+        /// The eFuse block to set in the ESP-IDF configuration when using the ECDSA peripheral.
+        #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+        pub(crate) fn ecdsa_efuse_block(&self) -> Option<u8> {
+            self.ecdsa_efuse_block
+        }
+    }
+
+    // SAFETY: ESP-IDF only reads the context and the encrypted key it points to, which are
+    // owned here and never modified after construction
+    unsafe impl Send for RawHwPrivateKey {}
+    unsafe impl Sync for RawHwPrivateKey {}
+}
+
 #[cfg(all(
     esp_idf_comp_esp_tls_enabled,
     any(esp_idf_esp_tls_using_mbedtls, esp_idf_esp_tls_using_wolfssl)
@@ -162,7 +376,9 @@ mod esptls {
         /// whether to use esp_crt_bundle_attach, see <https://docs.espressif.com/projects/esp-idf/en/latest/esp32s2/api-reference/protocols/esp_crt_bundle.html>
         #[cfg(esp_idf_mbedtls_certificate_bundle)]
         pub use_crt_bundle_attach: bool,
-        // TODO ds_data not implemented
+        /// A private key kept in hardware, used instead of `client_key`
+        #[cfg(feature = "alloc")]
+        pub hw_private_key: Option<super::HwPrivateKey>,
         pub is_plain_tcp: bool,
     }
 
@@ -184,6 +400,8 @@ mod esptls {
                 psk_hint_key: None,
                 #[cfg(esp_idf_mbedtls_certificate_bundle)]
                 use_crt_bundle_attach: true,
+                #[cfg(feature = "alloc")]
+                hw_private_key: None,
                 is_plain_tcp: false,
             }
         }
@@ -211,6 +429,26 @@ mod esptls {
                 rcfg.clientkey_password_len = ckp.len() as u32;
             }
 
+            #[cfg(feature = "alloc")]
+            {
+                if self.hw_private_key.is_some() && self.client_key.is_some() {
+                    return Err(EspError::from_infallible::<{ sys::ESP_ERR_INVALID_ARG }>());
+                }
+
+                bufs.hw_private_key = super::RawHwPrivateKey::new(self.hw_private_key.as_ref());
+
+                #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+                {
+                    rcfg.ds_data = bufs.hw_private_key.ds_data();
+                }
+
+                #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+                if let Some(efuse_block) = bufs.hw_private_key.ecdsa_efuse_block() {
+                    rcfg.use_ecdsa_peripheral = true;
+                    rcfg.ecdsa_key_efuse_blk = efuse_block;
+                }
+            }
+
             // allow up to 9 protocols
             if let Some(protos) = self.alpn_protos {
                 bufs.alpn_protos = cstr_arr_from_str_slice(protos, &mut bufs.alpn_protos_cbuf)?;
@@ -229,15 +467,14 @@ mod esptls {
 
             rcfg.skip_common_name = self.skip_common_name;
 
-            let mut raw_kac: sys::tls_keep_alive_cfg;
             if let Some(kac) = &self.keep_alive_cfg {
-                raw_kac = sys::tls_keep_alive_cfg {
+                bufs.keep_alive_cfg = sys::tls_keep_alive_cfg {
                     keep_alive_enable: kac.enable,
                     keep_alive_idle: kac.idle.as_secs() as i32,
                     keep_alive_interval: kac.interval.as_secs() as i32,
                     keep_alive_count: kac.count as i32,
                 };
-                rcfg.keep_alive_cfg = &mut raw_kac as *mut _;
+                rcfg.keep_alive_cfg = &mut bufs.keep_alive_cfg as *mut _;
             }
 
             #[cfg(any(
@@ -249,16 +486,13 @@ mod esptls {
                 esp_idf_version = "5.3",
                 esp_idf_version = "5.4",
             ))]
-            {
-                let mut raw_psk: sys::psk_key_hint;
-                if let Some(psk) = &self.psk_hint_key {
-                    raw_psk = sys::psk_key_hint {
-                        key: psk.key.as_ptr(),
-                        key_size: psk.key.len(),
-                        hint: psk.hint.as_ptr(),
-                    };
-                    rcfg.psk_hint_key = &mut raw_psk as *mut _;
-                }
+            if let Some(psk) = &self.psk_hint_key {
+                bufs.psk_hint_key = sys::psk_key_hint {
+                    key: psk.key.as_ptr(),
+                    key_size: psk.key.len(),
+                    hint: psk.hint.as_ptr(),
+                };
+                rcfg.psk_hint_key = &bufs.psk_hint_key as *const _;
             }
 
             #[cfg(esp_idf_mbedtls_certificate_bundle)]
@@ -283,10 +517,24 @@ mod esptls {
         }
     }
 
+    /// Data which the raw configuration points to, and which ESP-IDF reads while connecting
     struct RawConfigBufs {
         alpn_protos: [*const c_char; 10],
         alpn_protos_cbuf: [u8; 99],
         common_name_buf: [u8; MAX_COMMON_NAME_LENGTH + 1],
+        keep_alive_cfg: sys::tls_keep_alive_cfg,
+        #[cfg(any(
+            esp_idf_esp_tls_psk_verification,
+            esp_idf_version_major = "4",
+            esp_idf_version = "5.0",
+            esp_idf_version = "5.1",
+            esp_idf_version = "5.2",
+            esp_idf_version = "5.3",
+            esp_idf_version = "5.4",
+        ))]
+        psk_hint_key: sys::psk_key_hint,
+        #[cfg(feature = "alloc")]
+        hw_private_key: super::RawHwPrivateKey,
     }
 
     unsafe impl Send for RawConfigBufs {}
@@ -297,6 +545,19 @@ mod esptls {
                 alpn_protos: [core::ptr::null(); 10],
                 alpn_protos_cbuf: [0; 99],
                 common_name_buf: [0; MAX_COMMON_NAME_LENGTH + 1],
+                keep_alive_cfg: Default::default(),
+                #[cfg(any(
+                    esp_idf_esp_tls_psk_verification,
+                    esp_idf_version_major = "4",
+                    esp_idf_version = "5.0",
+                    esp_idf_version = "5.1",
+                    esp_idf_version = "5.2",
+                    esp_idf_version = "5.3",
+                    esp_idf_version = "5.4",
+                ))]
+                psk_hint_key: Default::default(),
+                #[cfg(feature = "alloc")]
+                hw_private_key: Default::default(),
             }
         }
     }

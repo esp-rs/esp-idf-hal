@@ -7,7 +7,12 @@
 use std::thread;
 use std::time::Duration;
 
-#[cfg(not(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4", esp32s31)))]
+#[cfg(not(any(
+    feature = "adc-oneshot-legacy",
+    esp_idf_version_major = "4",
+    esp32s31,
+    all(esp32h21, not(esp_idf_soc_adc_supported))
+)))]
 fn main() -> anyhow::Result<()> {
     use esp_idf_hal::adc::attenuation::DB_12;
     use esp_idf_hal::adc::oneshot::config::AdcChannelConfig;
@@ -29,7 +34,7 @@ fn main() -> anyhow::Result<()> {
         ..Default::default()
     };
 
-    #[cfg(not(any(esp32, esp32p4)))]
+    #[cfg(not(any(esp32, esp32p4, esp32h4)))]
     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio2, &config)?;
 
     #[cfg(esp32)]
@@ -38,6 +43,9 @@ fn main() -> anyhow::Result<()> {
     #[cfg(esp32p4)]
     let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio16, &config)?;
 
+    #[cfg(esp32h4)]
+    let mut adc_pin = AdcChannelDriver::new(&adc, peripherals.pins.gpio28, &config)?;
+
     loop {
         // you can change the sleep duration depending on how often you want to sample
         thread::sleep(Duration::from_millis(100));
@@ -45,10 +53,15 @@ fn main() -> anyhow::Result<()> {
     }
 }
 
-#[cfg(any(feature = "adc-oneshot-legacy", esp_idf_version_major = "4", esp32s31))]
+#[cfg(any(
+    feature = "adc-oneshot-legacy",
+    esp_idf_version_major = "4",
+    esp32s31,
+    all(esp32h21, not(esp_idf_soc_adc_supported))
+))]
 fn main() -> anyhow::Result<()> {
     println!(
-        "This example requires ESP-IDF v5.X or newer, feature `adc-oneshot-legacy` disabled and a chip other than the esp32s31"
+        "This example requires ESP-IDF v5.X or newer, feature `adc-oneshot-legacy` disabled and a chip with ADC support (not the esp32s31, nor the esp32h21 before ESP-IDF v6.2)"
     );
 
     loop {

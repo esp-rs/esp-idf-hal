@@ -12,6 +12,10 @@
 
 #include "esp_rom_crc.h"
 #include "esp_log.h"
+#ifdef CONFIG_LOG_VERSION_2
+// The log timestamp, formatted as `CONFIG_LOG_TIMESTAMP_SOURCE` says
+#include "esp_private/log_timestamp.h"
+#endif
 #include "esp_debug_helpers.h"
 
 #include "esp_sleep.h"
@@ -71,6 +75,12 @@
 #ifdef ESP_IDF_COMP_EFUSE_ENABLED
 #include "esp_efuse.h"
 #include "esp_efuse_table.h"
+#endif
+
+// Digital Signature peripheral; the header lives in `esp_hw_support` (ESP-IDF 5.x) or
+// `esp_security` (ESP-IDF 6+), and is chip-specific before ESP-IDF 5.1
+#if defined(CONFIG_SOC_DIG_SIGN_SUPPORTED) && ((ESP_IDF_VERSION_MAJOR > 5) || ((ESP_IDF_VERSION_MAJOR == 5) && (ESP_IDF_VERSION_MINOR >= 1)))
+#include "esp_ds.h"
 #endif
 
 #ifdef ESP_IDF_COMP_ESP_PM_ENABLED
@@ -251,6 +261,9 @@
 #endif
 #include "openthread/netdata.h"
 #include "openthread/thread.h"
+#ifdef CONFIG_OPENTHREAD_FTD
+#include "openthread/thread_ftd.h"
+#endif
 #include "openthread/srp_client_buffers.h"
 #include "openthread/srp_client.h"
 #include "openthread/platform/settings.h"
@@ -548,7 +561,7 @@
 
 // PCNT
 #if OLD_DRIVER_COMP || defined(ESP_IDF_COMP_ESP_DRIVER_PCNT_ENABLED)
-#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31)
+#if defined(CONFIG_IDF_TARGET_ESP32) || defined(CONFIG_IDF_TARGET_ESP32S2) || defined(CONFIG_IDF_TARGET_ESP32S3) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C5) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32P4) || defined(CONFIG_IDF_TARGET_ESP32S31) || defined(CONFIG_IDF_TARGET_ESP32H4) || defined(CONFIG_IDF_TARGET_ESP32H21)
 #if ESP_IDF_VERSION_MAJOR < 6
 #include "driver/pcnt.h"
 #endif
@@ -725,8 +738,10 @@
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/ulp.h"
 #endif
-#else
+#elif CONFIG_ULP_COPROC_TYPE_RISCV
 #include "ulp_riscv.h"
+#elif CONFIG_ULP_COPROC_TYPE_LP_CORE
+#include "ulp_lp_core.h"
 #endif
 #endif
 #else
@@ -877,16 +892,31 @@
 #ifdef ESP_IDF_COMP_ESPRESSIF__ESP_TINYUSB_ENABLED
 #include "tinyusb.h"
 #include "tinyusb_net.h"
+#include "tusb_config.h"
+#if __has_include("tinyusb_types.h")
+// esp_tinyusb < 2.0
 #include "tinyusb_types.h"
 #if CONFIG_TINYUSB_CDC_ENABLED
 #include "tusb_cdc_acm.h"
 #endif
-#include "tusb_config.h"
 #include "tusb_console.h"
 #include "tusb_tasks.h"
 #ifdef ESP_IDF_COMP_VFS_ENABLED
 #include "tusb_msc_storage.h"
 #include "vfs_tinyusb.h"
+#endif
+#else
+// esp_tinyusb >= 2.0
+#if CONFIG_TINYUSB_CDC_ENABLED
+#include "tinyusb_cdc_acm.h"
+#include "tinyusb_console.h"
+#ifdef ESP_IDF_COMP_VFS_ENABLED
+#include "vfs_tinyusb.h"
+#endif
+#endif
+#if CONFIG_TINYUSB_MSC_ENABLED
+#include "tinyusb_msc.h"
+#endif
 #endif
 #endif
 

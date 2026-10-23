@@ -19,6 +19,9 @@ impl From<Newtype<esp_ip4_addr_t>> for ipv4::Ipv4Addr {
     }
 }
 
+// lwIP's own IPv4 address type only exists with IPv4 enabled (`CONFIG_LWIP_IPV4` only exists
+// since ESP-IDF 5.1; before that IPv4 is always enabled)
+#[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
 impl From<ipv4::Ipv4Addr> for Newtype<ip4_addr_t> {
     fn from(ip: ipv4::Ipv4Addr) -> Self {
         let result: Newtype<esp_ip4_addr_t> = ip.into();
@@ -29,6 +32,7 @@ impl From<ipv4::Ipv4Addr> for Newtype<ip4_addr_t> {
     }
 }
 
+#[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
 impl From<Newtype<ip4_addr_t>> for ipv4::Ipv4Addr {
     fn from(ip: Newtype<ip4_addr_t>) -> Self {
         Newtype(esp_ip4_addr_t { addr: ip.0.addr }).into()
@@ -54,6 +58,7 @@ impl TryFrom<Newtype<esp_ip4_addr_t>> for Mask {
     }
 }
 
+#[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
 impl From<Mask> for Newtype<ip4_addr_t> {
     fn from(mask: Mask) -> Self {
         let ip: ipv4::Ipv4Addr = mask.into();
@@ -62,6 +67,7 @@ impl From<Mask> for Newtype<ip4_addr_t> {
     }
 }
 
+#[cfg(any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0)))]
 impl TryFrom<Newtype<ip4_addr_t>> for Mask {
     type Error = EspError;
 

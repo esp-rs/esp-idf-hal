@@ -30,10 +30,12 @@ use crate::private::mutex::{Condvar, Mutex};
 use crate::sys::*;
 use crate::thread::srp::OtSrp;
 
+pub use diag::*;
 pub use srp::*;
 
 extern crate alloc;
 
+mod diag;
 mod srp;
 
 /// A trait shared between the `Host` and `RCP` modes providing the option for these
@@ -272,7 +274,7 @@ pub enum Ipv6Incoming<'a> {
 /// The driver can work in two modes:
 /// - RCP (Radio Co-Processor) mode: The driver operates as a co-processor to the host,
 ///   which is expected to be another chip connected to ours via SPI or UART. This is
-///   of course only supported with MCUs that do have a Thread radio, like the esp32c6, esp32h2 and esp32s31
+///   of course only supported with MCUs that do have a Thread radio, like the esp32c6, esp32h2, esp32h21, esp32h4 and esp32s31
 /// - Host mode: The driver operates as a host, and if the chip does not have a Thread radio
 ///   it has to be connected via SPI or USB to a chip which runs the Thread stack in RCP mode
 pub struct ThreadDriver<'d, T>
@@ -1337,7 +1339,7 @@ where
 
         let instance = unsafe { esp_openthread_get_instance() };
 
-        #[cfg(not(esp_idf_openthread_radio))]
+        #[cfg(all(not(esp_idf_openthread_radio), esp_idf_openthread_log_level_dynamic))]
         unsafe {
             otLoggingSetLevel(CONFIG_LOG_DEFAULT_LEVEL as _);
         }
@@ -1653,11 +1655,10 @@ impl<'d> EspThread<'d, BorderRouter> {
     #[cfg(not(esp_idf_version_major = "4"))]
     pub unsafe fn set_backbone_netif(backbone_netif: Option<&EspNetif>) {
         unsafe {
-            esp_openthread_set_backbone_netif(
-                backbone_netif
-                    .map(|netif| netif.handle())
-                    .unwrap_or(core::ptr::null_mut()),
-            );
+            esp_openthread_set_backbone_netif(match backbone_netif {
+                Some(netif) => netif.handle(),
+                None => core::ptr::null_mut(),
+            });
         }
     }
 

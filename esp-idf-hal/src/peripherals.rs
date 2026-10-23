@@ -1,4 +1,4 @@
-#[cfg(not(esp32s31))]
+#[cfg(not(any(esp32s31, all(esp32h21, not(esp_idf_soc_adc_supported)))))]
 use crate::adc;
 use crate::can;
 use crate::gpio;
@@ -10,7 +10,7 @@ use crate::lcd;
 #[cfg(esp32p4)]
 use crate::ldo;
 use crate::ledc;
-#[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
+#[cfg(any(esp_idf_eth_use_esp32_emac, esp_idf_eth_use_openeth))]
 use crate::mac;
 #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
 use crate::modem;
@@ -39,7 +39,7 @@ use crate::temp_sensor;
 use crate::timer;
 use crate::uart;
 #[cfg(all(
-    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
+    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4, esp32s31),
     esp_idf_comp_ulp_enabled
 ))]
 use crate::ulp;
@@ -69,7 +69,7 @@ pub struct Peripherals {
     pub spi2: spi::SPI2<'static>,
     #[cfg(any(esp32, esp32s2, esp32s3, esp32p4, esp32s31))]
     pub spi3: spi::SPI3<'static>,
-    #[cfg(not(esp32s31))]
+    #[cfg(not(any(esp32s31, all(esp32h21, not(esp_idf_soc_adc_supported)))))]
     pub adc1: adc::ADC1<'static>,
     #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
     pub adc2: adc::ADC2<'static>,
@@ -127,11 +127,11 @@ pub struct Peripherals {
     #[cfg(feature = "rmt-legacy")]
     pub rmt: rmt_legacy::RMT,
     #[cfg(all(
-        any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
+        any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4, esp32s31),
         esp_idf_comp_ulp_enabled
     ))]
     pub ulp: ulp::ULP<'static>,
-    #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
+    #[cfg(any(esp_idf_eth_use_esp32_emac, esp_idf_eth_use_openeth))]
     pub mac: mac::MAC<'static>,
     #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
     pub modem: modem::Modem<'static>,
@@ -216,7 +216,7 @@ impl Peripherals {
             spi2: spi::SPI2::steal(),
             #[cfg(any(esp32, esp32s2, esp32s3, esp32p4, esp32s31))]
             spi3: spi::SPI3::steal(),
-            #[cfg(not(esp32s31))]
+            #[cfg(not(any(esp32s31, all(esp32h21, not(esp_idf_soc_adc_supported)))))]
             adc1: adc::ADC1::steal(),
             #[cfg(any(esp32, esp32s2, esp32s3, esp32c3))]
             adc2: adc::ADC2::steal(),
@@ -273,11 +273,11 @@ impl Peripherals {
             #[cfg(feature = "rmt-legacy")]
             rmt: rmt_legacy::RMT::new(),
             #[cfg(all(
-                any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
+                any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4, esp32s31),
                 esp_idf_comp_ulp_enabled
             ))]
             ulp: ulp::ULP::steal(),
-            #[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
+            #[cfg(any(esp_idf_eth_use_esp32_emac, esp_idf_eth_use_openeth))]
             mac: mac::MAC::steal(),
             #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
             modem: modem::Modem::steal(),

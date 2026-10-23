@@ -2112,7 +2112,6 @@ fn new_common<'d, UART: Uart + 'd>(
     }
 
     esp!(unsafe {
-        #[allow(clippy::unwrap_or_default)]
         uart_driver_install(
             UART::port(),
             if rx.is_some() {
@@ -2126,7 +2125,10 @@ fn new_common<'d, UART: Uart + 'd>(
                 0
             },
             config.queue_size as _,
-            queue.map(|q| q as *mut _).unwrap_or(ptr::null_mut()),
+            match queue {
+                Some(queue) => queue as *mut _,
+                None => ptr::null_mut(),
+            },
             InterruptType::to_native(config.intr_flags) as i32,
         )
     })?;

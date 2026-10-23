@@ -1,5 +1,6 @@
 //! WebSocket client
 
+use core::str::Utf8Error;
 use core::{ffi, time};
 
 extern crate alloc;
@@ -21,17 +22,12 @@ use crate::tls::X509;
 
 pub use embedded_svc::ws::{Final, Fragmented, FrameType};
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug)]
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Default)]
 pub enum EspWebSocketTransport {
+    #[default]
     TransportUnknown,
     TransportOverTCP,
     TransportOverSSL,
-}
-
-impl Default for EspWebSocketTransport {
-    fn default() -> Self {
-        Self::TransportUnknown
-    }
 }
 
 impl From<EspWebSocketTransport> for Newtype<esp_websocket_transport_t> {
@@ -60,9 +56,10 @@ impl<'a> WebSocketEvent<'a> {
         event_id: i32,
         event_data: &'a esp_websocket_event_data_t,
         state: Option<&Arc<EspWebSocketConnectionState>>,
+        tracker: &mut MessageTracker,
     ) -> Result<Self, EspIOError> {
         Ok(Self {
-            event_type: WebSocketEventType::new(event_id, event_data)?,
+            event_type: WebSocketEventType::new(event_id, event_data, tracker)?,
             state: state.cloned(),
         })
     }
@@ -112,6 +109,63 @@ impl WebSocketClosingReason {
     }
 }
 
+/// A text or binary message, or a chunk of one.
+///
+/// A message is delivered in several chunks - one event each - when:
+/// - Its payload is larger than [`EspWebSocketClientConfig::buffer_size`], and/or
+/// - The peer split it into several frames
+///
+/// Use [`complete`](Self::complete) to get a message delivered in a single event, or reassemble
+/// the chunks of a message using [`is_first`](Self::is_first) and [`is_last`](Self::is_last).
+///
+/// The data of a text message is not UTF-8 validated, as a chunk may end in the middle of a
+/// multi-byte character; see [`complete_str`](Self::complete_str).
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct WebSocketMessage<'a> {
+    data: &'a [u8],
+    offset: usize,
+    first: bool,
+    last: bool,
+}
+
+impl<'a> WebSocketMessage<'a> {
+    /// Return the data of this chunk.
+    pub const fn data(&self) -> &'a [u8] {
+        self.data
+    }
+
+    /// Return the offset of this chunk's data within the message.
+    pub const fn offset(&self) -> usize {
+        self.offset
+    }
+
+    /// Return `true` if this chunk starts a new message.
+    pub const fn is_first(&self) -> bool {
+        self.first
+    }
+
+    /// Return `true` if this chunk ends the message.
+    pub const fn is_last(&self) -> bool {
+        self.last
+    }
+
+    /// Return the whole message if it was delivered in this single event,
+    /// or `None` if this is only a chunk of it.
+    pub const fn complete(&self) -> Option<&'a [u8]> {
+        if self.first && self.last {
+            Some(self.data)
+        } else {
+            None
+        }
+    }
+
+    /// Return the whole message as a string if it was delivered in this single event,
+    /// or `None` if this is only a chunk of it.
+    pub fn complete_str(&self) -> Option<Result<&'a str, Utf8Error>> {
+        self.complete().map(core::str::from_utf8)
+    }
+}
+
 #[derive(Debug)]
 pub enum WebSocketEventType<'a> {
     BeforeConnect,
@@ -119,47 +173,48 @@ pub enum WebSocketEventType<'a> {
     Disconnected,
     Close(Option<WebSocketClosingReason>),
     Closed,
-    Text(&'a str),
-    Binary(&'a [u8]),
+    /// A text message, or a chunk of one
+    Text(WebSocketMessage<'a>),
+    /// A binary message, or a chunk of one
+    Binary(WebSocketMessage<'a>),
     Ping,
     Pong,
 }
 
 impl<'a> WebSocketEventType<'a> {
     #[allow(clippy::unnecessary_cast)]
-    fn new(event_id: i32, event_data: &'a esp_websocket_event_data_t) -> Result<Self, EspIOError> {
+    fn new(
+        event_id: i32,
+        event_data: &'a esp_websocket_event_data_t,
+        tracker: &mut MessageTracker,
+    ) -> Result<Self, EspIOError> {
         #[allow(non_upper_case_globals)]
         match event_id {
             esp_websocket_event_id_t_WEBSOCKET_EVENT_ERROR => {
                 Err(EspError::from_infallible::<ESP_FAIL>().into())
             }
-            esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED => Ok(Self::Connected),
-            esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED => Ok(Self::Disconnected),
+            esp_websocket_event_id_t_WEBSOCKET_EVENT_CONNECTED => {
+                tracker.reset();
+                Ok(Self::Connected)
+            }
+            esp_websocket_event_id_t_WEBSOCKET_EVENT_DISCONNECTED => {
+                tracker.reset();
+                Ok(Self::Disconnected)
+            }
             esp_websocket_event_id_t_WEBSOCKET_EVENT_DATA => {
                 match event_data.op_code {
-                    // Text frame
-                    1 => unsafe {
-                        let slice = core::slice::from_raw_parts(
-                            event_data.data_ptr as *const u8,
-                            event_data.data_len as usize,
-                        );
-                        core::str::from_utf8(slice)
-                    }
-                    .map_err(|_| EspError::from_infallible::<ESP_FAIL>().into())
-                    .map(Self::Text),
-                    // Binary frame
-                    2 => Ok(Self::Binary(unsafe {
-                        core::slice::from_raw_parts(
-                            event_data.data_ptr as *const u8,
-                            event_data.data_len as usize,
-                        )
-                    })),
+                    // Continuation, Text and Binary frames
+                    0..=2 => Self::new_message(event_data, tracker),
                     // Closing Frame
                     // may contain a reason for closing the connection
                     8 => Ok(Self::Close(if event_data.data_len >= 2 {
-                        Some(WebSocketClosingReason::new(u16::from_be(
-                            event_data.data_ptr as _,
-                        ))?)
+                        let code = unsafe {
+                            core::slice::from_raw_parts(event_data.data_ptr as *const u8, 2)
+                        };
+
+                        Some(WebSocketClosingReason::new(u16::from_be_bytes([
+                            code[0], code[1],
+                        ]))?)
                     } else {
                         None
                     })),
@@ -168,11 +223,86 @@ impl<'a> WebSocketEventType<'a> {
                     _ => Err(EspError::from_infallible::<ESP_ERR_NOT_FOUND>().into()),
                 }
             }
-            esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => Ok(Self::Closed),
-            #[cfg(esp_idf_version_major = "5")]
+            esp_websocket_event_id_t_WEBSOCKET_EVENT_CLOSED => {
+                tracker.reset();
+                Ok(Self::Closed)
+            }
+            #[cfg(not(esp_idf_version_major = "4"))]
             esp_websocket_event_id_t_WEBSOCKET_EVENT_BEFORE_CONNECT => Ok(Self::BeforeConnect),
             _ => Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>().into()),
         }
+    }
+
+    #[allow(clippy::unnecessary_cast)]
+    fn new_message(
+        event_data: &'a esp_websocket_event_data_t,
+        tracker: &mut MessageTracker,
+    ) -> Result<Self, EspIOError> {
+        let data = if event_data.data_len > 0 {
+            unsafe {
+                core::slice::from_raw_parts(
+                    event_data.data_ptr as *const u8,
+                    event_data.data_len as usize,
+                )
+            }
+        } else {
+            &[]
+        };
+
+        #[cfg(not(esp_idf_version_major = "4"))]
+        let fin = event_data.fin;
+        // The ESP-IDF 4.4 client does not report the FIN flag
+        #[cfg(esp_idf_version_major = "4")]
+        let fin = true;
+
+        // Frames larger than the receive buffer are delivered in several chunks
+        let payload_offset = event_data.payload_offset as usize;
+        let payload_len = event_data.payload_len as usize;
+
+        let (kind, offset) = match event_data.op_code {
+            // The first frame of a message, hence offsets within the frame are offsets within
+            // the message
+            1 => (MessageKind::Text, payload_offset),
+            2 => (MessageKind::Binary, payload_offset),
+            // A continuation frame, which belongs to the message being received
+            _ => tracker
+                .0
+                .ok_or_else(EspError::from_infallible::<ESP_ERR_INVALID_STATE>)?,
+        };
+
+        let first = event_data.op_code != 0 && payload_offset == 0;
+        let last = fin && payload_offset + data.len() >= payload_len;
+
+        tracker.0 = (!last).then_some((kind, offset + data.len()));
+
+        let message = WebSocketMessage {
+            data,
+            offset,
+            first,
+            last,
+        };
+
+        Ok(match kind {
+            MessageKind::Text => Self::Text(message),
+            MessageKind::Binary => Self::Binary(message),
+        })
+    }
+}
+
+#[derive(Copy, Clone, Debug)]
+enum MessageKind {
+    Text,
+    Binary,
+}
+
+/// Tracks the text or binary message being received - its kind and the offset of its next
+/// chunk - as continuation frames carry neither.
+#[derive(Default)]
+struct MessageTracker(Option<(MessageKind, usize)>);
+
+impl MessageTracker {
+    fn reset(&mut self) {
+        self.0 = None;
     }
 }
 
@@ -243,26 +373,26 @@ impl<'a> TryFrom<&'a EspWebSocketClientConfig<'a>> for (esp_websocket_client_con
             network_timeout_ms: conf.network_timeout_ms.as_millis() as _,
             ping_interval_sec: conf.ping_interval_sec.as_secs() as _,
 
-            cert_pem: conf
-                .server_cert
-                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
-                .unwrap_or(core::ptr::null_mut()),
+            cert_pem: match conf.server_cert {
+                Some(cert) => cert.as_esp_idf_raw_ptr() as _,
+                None => core::ptr::null_mut(),
+            },
             cert_len: conf
                 .server_cert
                 .map(|cert| cert.as_esp_idf_raw_len())
                 .unwrap_or(0),
-            client_cert: conf
-                .client_cert
-                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
-                .unwrap_or(core::ptr::null_mut()),
+            client_cert: match conf.client_cert {
+                Some(cert) => cert.as_esp_idf_raw_ptr() as _,
+                None => core::ptr::null_mut(),
+            },
             client_cert_len: conf
                 .client_cert
                 .map(|cert| cert.as_esp_idf_raw_len())
                 .unwrap_or(0),
-            client_key: conf
-                .client_key
-                .map(|cert| cert.as_esp_idf_raw_ptr() as _)
-                .unwrap_or(core::ptr::null_mut()),
+            client_key: match conf.client_key {
+                Some(cert) => cert.as_esp_idf_raw_ptr() as _,
+                None => core::ptr::null_mut(),
+            },
             client_key_len: conf
                 .client_key
                 .map(|cert| cert.as_esp_idf_raw_len())
@@ -358,7 +488,7 @@ impl Default for EspWebSocketConnectionState {
     }
 }
 
-pub struct EspWebSocketConnection(Arc<EspWebSocketConnectionState>);
+pub struct EspWebSocketConnection(Arc<EspWebSocketConnectionState>, MessageTracker);
 
 impl EspWebSocketConnection {
     // NOTE: cannot implement the `Iterator` trait as it requires that all the items can be alive
@@ -375,7 +505,7 @@ impl EspWebSocketConnection {
         let event_id = message.as_ref().unwrap().0;
         let event = unsafe { message.as_ref().unwrap().1 .0.as_ref() };
         if let Some(event) = event {
-            let wse = WebSocketEvent::new(event_id, event, Some(&self.0));
+            let wse = WebSocketEvent::new(event_id, event, Some(&self.0), &mut self.1);
             if wse.is_err() {
                 *message = None;
                 self.0.state_changed.notify_all();
@@ -430,7 +560,10 @@ impl EspWebSocketClient<'static> {
             }),
         )?;
 
-        Ok((client, EspWebSocketConnection(connection_state)))
+        Ok((
+            client,
+            EspWebSocketConnection(connection_state, Default::default()),
+        ))
     }
 
     pub fn new<F>(
@@ -488,6 +621,8 @@ impl<'a> EspWebSocketClient<'a> {
         timeout: time::Duration,
         mut callback: impl for<'r> FnMut(&'r Result<WebSocketEvent<'r>, EspIOError>) + Send + 'a,
     ) -> Result<Self, EspIOError> {
+        let mut tracker = MessageTracker::default();
+
         Self::new_raw(
             uri,
             config,
@@ -497,6 +632,7 @@ impl<'a> EspWebSocketClient<'a> {
                     event_id,
                     unsafe { event_handle.as_ref().unwrap() },
                     None,
+                    &mut tracker,
                 ));
             }),
         )

@@ -52,8 +52,8 @@ impl From<u32> for PinState {
 /// use esp_idf_hal::rmt::{Pulse, PinState, PulseTicks};
 /// use esp_idf_hal::units::FromValueType;
 ///
-/// let ticks = 1_000_000.Hz(); // 1 MHz
-/// let pulse = Pulse::new_with_duration(1_000_000.Hz(), PinState::High, Duration::from_nanos(300))?;
+/// let resolution = 10_000_000.Hz(); // 10 MHz, i.e. 100 ns per tick
+/// let pulse = Pulse::new_with_duration(resolution, PinState::High, Duration::from_nanos(300))?;
 /// # Ok(())
 /// # }
 /// ```
@@ -84,6 +84,7 @@ impl Pulse {
     ///
     /// If the duration is too long to be represented as ticks with the given resolution,
     /// an error with the code [`ERR_EOVERFLOW`] or [`ESP_ERR_INVALID_ARG`] will be returned.
+    /// A non-zero duration shorter than one tick returns [`ESP_ERR_INVALID_ARG`].
     pub const fn new_with_duration(
         resolution: Hertz,
         pin_state: PinState,
@@ -139,6 +140,7 @@ impl PulseTicks {
     ///
     /// If the duration is too long to be represented as ticks with the given resolution,
     /// an error with the code [`ERR_EOVERFLOW`] or [`ESP_ERR_INVALID_ARG`] will be returned.
+    /// A non-zero duration shorter than one tick returns [`ESP_ERR_INVALID_ARG`].
     pub const fn new_with_duration(
         resolution: Hertz,
         duration: Duration,
@@ -170,6 +172,12 @@ impl PulseTicks {
 const ONE_SECOND_IN_NANOS: u128 = Duration::from_secs(1).as_nanos();
 
 /// A utility to convert a duration into ticks, depending on the clock ticks.
+///
+/// # Errors
+///
+/// - [`ERR_EOVERFLOW`] if the duration is too long to be represented as `u16` ticks.
+/// - [`ESP_ERR_INVALID_ARG`] if a non-zero duration is shorter than one tick, as a zero-tick
+///   pulse is the RMT end-of-transmission marker and would silently truncate the signal.
 pub const fn duration_to_ticks(resolution: Hertz, duration: Duration) -> Result<u16, EspError> {
     let Some(ticks) = duration.as_nanos().checked_mul(resolution.0 as u128) else {
         return Err(EspError::from_infallible::<ERR_EOVERFLOW>());
@@ -183,6 +191,10 @@ pub const fn duration_to_ticks(resolution: Hertz, duration: Duration) -> Result<
     // to get the correct result.
 
     let ticks = ticks / ONE_SECOND_IN_NANOS;
+
+    if ticks == 0 && !duration.is_zero() {
+        return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+    }
 
     if ticks > u16::MAX as u128 {
         return Err(EspError::from_infallible::<ERR_EOVERFLOW>());

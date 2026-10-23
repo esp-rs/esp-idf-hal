@@ -28,7 +28,8 @@ extern crate alloc;
 
 // NOTE: the esp32s31 ADC (ESP-IDF v6.1) has no attenuation, no calibration scheme and 17-bit
 // weighted-sum raw codes; it is left out until ESP-IDF's support for it settles
-#[cfg(not(esp32s31))]
+// NOTE: ESP-IDF v6.1 has no ADC driver for the esp32h21 (`SOC_ADC_SUPPORTED` is only set from v6.2)
+#[cfg(not(any(esp32s31, all(esp32h21, not(esp_idf_soc_adc_supported)))))]
 pub mod adc;
 pub mod can;
 pub mod cpu;
@@ -47,7 +48,7 @@ pub mod lcd;
 #[cfg(esp32p4)]
 pub mod ldo;
 pub mod ledc;
-#[cfg(any(all(esp32, esp_idf_eth_use_esp32_emac), esp_idf_eth_use_openeth))]
+#[cfg(any(esp_idf_eth_use_esp32_emac, esp_idf_eth_use_openeth))]
 pub mod mac;
 #[cfg(any(not(esp32p4), esp_idf_comp_espressif__esp_wifi_remote_enabled))]
 pub mod modem;
@@ -158,7 +159,7 @@ pub mod timer {
 
 pub mod uart;
 #[cfg(all(
-    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4),
+    any(esp32, esp32s2, esp32s3, esp32c5, esp32c6, esp32p4, esp32s31),
     esp_idf_comp_ulp_enabled
 ))]
 pub mod ulp;

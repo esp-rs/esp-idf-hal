@@ -8,13 +8,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Thread: diagnostics of the local node - network parameters, neighbor and route tables, Operational Datasets, MLE and MAC counters
+- Eth: `EthDriver::get_speed` / `get_duplex` (and on `EspEth`)
+- Wi-Fi: `WifiDriver::get_negotiated_phy_mode` (and on `EspWifi`)
+- Eth: RMII Ethernet on the internal EMAC of chips other than the esp32 (e.g. esp32p4), with freely routable data pins and an `RmiiClockConfig` of `Input` / `Output` pins
+- Support for esp32h4 and esp32h21 (ESP-IDF v6.1+)
 - esp32s31: Wi-Fi, netif and the other services compile for the new chip (ESP-IDF v6.1+)
 - thread: esp32s31 support (native IEEE 802.15.4 radio, host mode; ESP-IDF v6.1+)
 - bt: esp32s31 support in all three controller modes
 - ble: esp32s31 support (NimBLE, BLE-only controller mode)
+- Netif: add an asynchronous PPP byte-stream bridge for `EspNetifDriver`.
+- Netif: `EspNetif::get_mtu` / `set_mtu` (ESP-IDF v6.0+)
+- mDNS: `EspMdns::enable_netif` / `disable_netif` / `announce_netif`, e.g. for enabling mDNS on an Ethernet netif running a DHCP server, on which mDNS does not enable itself, and `register_netif` / `unregister_netif` for netifs other than ESP-IDF's default ones (`espressif/mdns` component only)
+- Netif: layer 2 bridging between netifs (e.g. Ethernet and a Wi-Fi access point) with `EspNetifBridge`, whose netif is created with the new `NetifStack::Bridge` stack (`NetifConfiguration::bridge_default`); requires `CONFIG_ESP_NETIF_BRIDGE_EN=y`
+- Event loop: `Wait::also` / `AsyncWait::also`, for waiting on events of several sources
+- Wi-Fi: `WifiDriver::set_power_save` / `get_power_save` (and on `EspWifi`), e.g. for disabling modem sleep, which delays receiving data by up to the DTIM period
+- Wi-Fi: WPA2 / WPA3 Enterprise (802.1X / EAP) authentication of the station with `EnterpriseConfiguration` and `WifiDriver::enable_enterprise` / `disable_enterprise` (and on `EspWifi`); ESP-IDF v5.0.5+, v5.1.2+ and v5.2+
 
 ### Fixed
+- Log: Rust log lines show the timestamp of every `CONFIG_LOG_TIMESTAMP_SOURCE` of log v2, e.g. the date and time, rather than none
 - Netif: align the default PPP client with ESP-IDF's PPP configuration, correctly deserialize `IP_EVENT_PPP_LOST_IP`, and keep custom driver lifecycle state in sync across start/stop calls.
+- Thread: fix compilation when `CONFIG_OPENTHREAD_LOG_LEVEL_DYNAMIC=n` is specified
+- WS client: `WebSocketEventType::Close` decoded the closing reason from the address of the payload rather than from its first two bytes
+- WS client: `WEBSOCKET_EVENT_BEFORE_CONNECT` was reported as an error rather than as `WebSocketEventType::BeforeConnect` on ESP-IDF 6+
+- Fix compilation and linking with IPv4 disabled (`CONFIG_LWIP_IPV4=n`). Without IPv4: the `ping` module and `EspNetif::get_ip_info` are not available; the default `NetifConfiguration`s have no `ip_configuration` (ESP-IDF then has no DHCP client / server and no static IPv4 addressing) and `EspNetif::new_with_conf` returns `ESP_ERR_NOT_SUPPORTED` for one that has; `EspNetif::is_up` reports whether the netif has an IPv6 address
+- Ping: the address of a reply (logged, and reported in `Info::addr`) was byte-swapped, and with `CONFIG_LWIP_IPV6=n` the echo requests were sent to the byte-swapped address
+- TLS: the keep-alive and PSK settings of `tls::Config` were passed to ESP-IDF as pointers to temporaries which no longer existed when ESP-IDF read them while connecting
+- Wi-Fi: fix compilation with ESP-IDF 5.3.0 - 5.3.2 and 5.4.0, where the report of `WifiEvent::StaNeighborRep` is a fixed-size array rather than a flexible array member
+- Wi-Fi: the `pmf_cfg` of a `ClientConfiguration` was ignored, so PMF could not be required
+- Eth: dropping an `EthDriver` did not delete its MAC and PHY, leaking their resources (e.g. the MAC's receive task). With an SPI Ethernet chip on ESP-IDF 5+, the SPI device the MAC had added was left on the bus, so dropping the `SpiDriver` afterwards panicked with "not all CSses freed". The MAC and PHY are now also deleted when the driver fails to initialize
+- Eth, Wi-Fi: `wait_netif_up` of `BlockingEth` / `AsyncEth` timed out with a static IP, as ESP-IDF posts no IP event when a netif comes up with a static IP; `BlockingWifi` / `AsyncWifi` could do the same in a race with ESP-IDF's handling of the STA connecting or the AP starting
+- HTTP server: a WS handler was called with a closed connection for every socket the server closed, including plain HTTP connections and the sessions of other WS handlers; only the closing of its own sessions is reported to it now
+- HTTP server: with ESP-IDF v5.5.5+ / v6.0.1+, which no longer call the URI handler for the WS handshake, the handshake (`EspHttpWsConnection::is_new`) is reported to the WS handler via the post-handshake callback, which requires `CONFIG_HTTPD_WS_POST_HANDSHAKE_CB_SUPPORT=y` (a warning is logged otherwise)
+- `embassy-time-driver`: after 24h of uptime, an empty timer queue armed the ESP-IDF timer with a timeout that overflowed, so it fired and re-armed itself in a loop which starved the idle task and tripped the task watchdog. Far-away deadlines could overflow in the same way. The ESP-IDF timer is now not armed at all for an empty queue, and is armed for at most one day, with later deadlines reached in several steps (#616)
+
+### Breaking
+- TLS: client authentication with a private key kept in hardware - an RSA key used through the Digital Signature peripheral (`EspDsKey`), or an ECDSA key in eFuse used through the ECDSA peripheral (`EspEcdsaKey`, requires `CONFIG_MBEDTLS_HARDWARE_ECDSA_SIGN=y`). `tls::Config`, `http::client::Configuration` and `MqttClientConfiguration` have a new `hw_private_key: Option<HwPrivateKey>` field, which is mutually exclusive with their private key (`ESP_ERR_INVALID_ARG`). `http::client::Configuration` is no longer `Copy`
+- Eth: all `EthDriver` constructors (`new`, `new_rmii`, `new_openeth`, `new_spi`, `new_spi_with_event_source`) take a new `config: &EthConfiguration` argument (before `sysloop`), which sets the stack size and the priority of the receive task, which runs the receive callbacks. Pass `&EthConfiguration::new()` for the previous defaults
+- WS client: `WebSocketEventType::Text` and `Binary` now carry a `WebSocketMessage`, which is either a whole message or a chunk of one (a message larger than `buffer_size`, or split by the peer into several frames, arrives in several chunks). `WebSocketMessage::complete()` / `complete_str()` return a message delivered in a single event; `data()`, `offset()`, `is_first()` and `is_last()` allow reassembling the chunks of a larger one. Previously each chunk was emitted as a separate `Text(&str)` / `Binary(&[u8])` event with no way to tell where the message ends, a text chunk splitting a multi-byte UTF-8 character failed with an error, and continuation frames were reported as errors
 
 ## [0.53.0] - 2026-09-25
 

@@ -122,45 +122,43 @@ impl Symbol {
     /// desired duration.
     ///
     /// If the given duration is not a multiple of the symbol duration,
-    /// the last symbol will be adjusted to occupy the remaining time.
+    /// the last symbol will be adjusted to occupy the remaining time,
+    /// rounded down to whole ticks.
     ///
     /// # Panics
     ///
     /// If `self` has a duration of zero.
     pub fn repeat_for(&self, resolution: Hertz, duration: Duration) -> impl Iterator<Item = Self> {
-        // Calculate the maximum allowed duration for a single symbol consisting of two pulses:
-        // let max_duration = PulseTicks::max().duration(resolution) * 2;
-
-        let symbol_duration = self.duration(resolution);
+        let ticks0 = self.level0().ticks.ticks() as u128;
+        let symbol_ticks = ticks0 + self.level1().ticks.ticks() as u128;
 
         // Handle edge-case to prevent an infinite loop:
-        if symbol_duration.is_zero() {
+        if symbol_ticks == 0 {
             panic!("Cannot repeat a symbol with zero duration for {duration:?}");
         }
 
-        let count = duration.as_nanos() / symbol_duration.as_nanos();
-        let remainder =
-            Duration::from_nanos((duration.as_nanos() % symbol_duration.as_nanos()) as u64);
+        let duration_ticks =
+            duration.as_nanos() * resolution.0 as u128 / Duration::from_secs(1).as_nanos();
 
-        let last_symbol = {
-            if remainder.is_zero() {
-                None
-            } else {
-                let duration0 = self.level0().ticks.duration(resolution).min(remainder);
-                let duration1 = remainder.saturating_sub(duration0);
+        let count = duration_ticks / symbol_ticks;
+        let remainder = duration_ticks % symbol_ticks;
 
-                Some(
-                    Self::new_with(
-                        resolution,
-                        self.level0().pin_state,
-                        duration0,
-                        self.level1().pin_state,
-                        duration1,
-                    )
-                    .unwrap(),
-                )
-            }
-        };
+        let last_symbol = (remainder > 0).then(|| {
+            // `remainder < symbol_ticks`, so both halves fit into their `PulseTicks`
+            let remainder0 = ticks0.min(remainder);
+            let remainder1 = remainder - remainder0;
+
+            Self::new(
+                Pulse::new(
+                    self.level0().pin_state,
+                    PulseTicks::new(remainder0 as u16).unwrap(),
+                ),
+                Pulse::new(
+                    self.level1().pin_state,
+                    PulseTicks::new(remainder1 as u16).unwrap(),
+                ),
+            )
+        });
 
         core::iter::repeat_n(*self, count as usize).chain(core::iter::once(last_symbol).flatten())
     }
@@ -463,13 +461,13 @@ pub enum ClockSource {
     #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
     APB,
     #[cfg(any(
-        esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3, esp32s31
+        esp32c3, esp32c5, esp32c6, esp32h2, esp32h21, esp32h4, esp32p4, esp32s3, esp32s31
     ))]
     RcFast,
     #[cfg(any(esp32, esp32s2))]
     RefTick,
     #[cfg(any(
-        esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3, esp32s31
+        esp32c3, esp32c5, esp32c6, esp32h2, esp32h21, esp32h4, esp32p4, esp32s3, esp32s31
     ))]
     XTAL,
     #[cfg(any(esp32c5, esp32c6, esp32p4, esp32s31))]
@@ -483,13 +481,13 @@ impl From<ClockSource> for rmt_clock_source_t {
             #[cfg(any(esp32, esp32c3, esp32s2, esp32s3))]
             ClockSource::APB => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_APB,
             #[cfg(any(
-                esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3, esp32s31
+                esp32c3, esp32c5, esp32c6, esp32h2, esp32h21, esp32h4, esp32p4, esp32s3, esp32s31
             ))]
             ClockSource::RcFast => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_RC_FAST,
             #[cfg(any(esp32, esp32s2))]
             ClockSource::RefTick => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_REF_TICK,
             #[cfg(any(
-                esp32c3, esp32c5, esp32c6, esp32h2, esp32h4, esp32p4, esp32s3, esp32s31
+                esp32c3, esp32c5, esp32c6, esp32h2, esp32h21, esp32h4, esp32p4, esp32s3, esp32s31
             ))]
             ClockSource::XTAL => soc_periph_rmt_clk_src_t_RMT_CLK_SRC_XTAL,
             #[cfg(any(esp32c5, esp32c6, esp32p4, esp32s31))]

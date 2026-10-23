@@ -100,6 +100,7 @@ pub mod example {
             20_u32.MHz().into(),
             Some(&[0x02, 0x00, 0x00, 0x12, 0x34, 0x56]),
             None,
+            &eth::EthConfiguration::new(),
             sysloop.clone(),
         )?)?;
 

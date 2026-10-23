@@ -371,20 +371,9 @@ where
             if let Some(color) = color {
                 write!(stdout_writer, "\x1b[0;{color}m").unwrap();
             }
-            write!(stdout_writer, "{marker} (").unwrap();
-            if cfg!(esp_idf_log_timestamp_source_rtos) {
-                let timestamp = unsafe { esp_log_timestamp() };
-                write!(stdout_writer, "{timestamp}").unwrap();
-            } else if cfg!(esp_idf_log_timestamp_source_system) {
-                // TODO: https://github.com/esp-rs/esp-idf-svc/pull/494 - official usage of
-                // `esp_log_timestamp_str()` should be tracked and replace the not thread-safe
-                // `esp_log_system_timestamp()` which has a race condition flaw due to
-                // returning a pointer to a static buffer containing the c-string.
-                let timestamp =
-                    unsafe { CStr::from_ptr(esp_log_system_timestamp()).to_str().unwrap() };
-                write!(stdout_writer, "{timestamp}").unwrap();
-            }
-            write!(stdout_writer, ") {target}: {args}").unwrap();
+            write!(stdout_writer, "{marker} ").unwrap();
+            write_timestamp(&mut stdout_writer);
+            write!(stdout_writer, "{target}: {args}").unwrap();
             if color.is_some() {
                 write!(stdout_writer, "\x1b[0m").unwrap();
             }
@@ -393,6 +382,45 @@ where
     }
 
     fn flush(&self) {}
+}
+
+/// Write the timestamp of a log line, `(...) `, as ESP-IDF's own log lines show it.
+///
+/// Log v2 formats it as `CONFIG_LOG_TIMESTAMP_SOURCE` says, from the date and the time of day
+/// down to no timestamp at all.
+#[cfg(esp_idf_log_version_2)]
+fn write_timestamp(writer: &mut impl Write) {
+    if cfg!(esp_idf_log_timestamp_source_none) {
+        return;
+    }
+
+    let mut timestamp = [0 as core::ffi::c_char; 32];
+
+    // SAFETY: `timestamp` is as long as the buffer ESP-IDF formats its own timestamps into.
+    let timestamp = unsafe {
+        esp_log_timestamp_str(false, esp_log_timestamp64(false), timestamp.as_mut_ptr());
+        CStr::from_ptr(timestamp.as_ptr())
+    };
+
+    write!(writer, "({}) ", timestamp.to_str().unwrap()).unwrap();
+}
+
+/// Write the timestamp of a log line, `(...) `, as ESP-IDF's own log lines show it.
+#[cfg(not(esp_idf_log_version_2))]
+fn write_timestamp(writer: &mut impl Write) {
+    write!(writer, "(").unwrap();
+    if cfg!(esp_idf_log_timestamp_source_rtos) {
+        let timestamp = unsafe { esp_log_timestamp() };
+        write!(writer, "{timestamp}").unwrap();
+    } else if cfg!(esp_idf_log_timestamp_source_system) {
+        // TODO: https://github.com/esp-rs/esp-idf-svc/pull/494 - official usage of
+        // `esp_log_timestamp_str()` should be tracked and replace the not thread-safe
+        // `esp_log_system_timestamp()` which has a race condition flaw due to
+        // returning a pointer to a static buffer containing the c-string.
+        let timestamp = unsafe { CStr::from_ptr(esp_log_system_timestamp()).to_str().unwrap() };
+        write!(writer, "{timestamp}").unwrap();
+    }
+    write!(writer, ") ").unwrap();
 }
 
 /// Initialize the Rust logging system with the ESP-IDF logger and with the noop log filter backend

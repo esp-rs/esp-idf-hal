@@ -8,6 +8,8 @@ use core::{ffi, mem, ptr, slice};
 extern crate alloc;
 use alloc::boxed::Box;
 use alloc::sync::{Arc, Weak};
+use alloc::vec;
+use alloc::vec::Vec;
 
 use embedded_svc::channel;
 
@@ -376,14 +378,16 @@ where
     T: EspEventLoopType,
 {
     fn drop(&mut self) {
-        #[allow(clippy::unwrap_or_default)]
+        let source = match self.source {
+            Some(source) => source.as_ptr(),
+            None => core::ptr::null(),
+        };
+
         if let Some(handle) = self.event_loop_handle.upgrade() {
             if T::is_system() {
                 unsafe {
                     esp!(esp_event_handler_instance_unregister(
-                        self.source
-                            .map(ffi::CStr::as_ptr)
-                            .unwrap_or(core::ptr::null()),
+                        source,
                         self.event_id,
                         self.handler_instance
                     ))
@@ -396,9 +400,7 @@ where
 
                     esp!(esp_event_handler_instance_unregister_with(
                         user.0,
-                        self.source
-                            .map(ffi::CStr::as_ptr)
-                            .unwrap_or(core::ptr::null()),
+                        source,
                         self.event_id,
                         self.handler_instance
                     ))
@@ -677,10 +679,15 @@ where
 
         let unsafe_callback = UnsafeCallback::from(&mut callback);
 
+        let source = match S::source() {
+            Some(source) => source.as_ptr(),
+            None => ptr::null(),
+        };
+
         if T::is_system() {
             esp!(unsafe {
                 esp_event_handler_instance_register(
-                    S::source().map(ffi::CStr::as_ptr).unwrap_or(ptr::null()),
+                    source,
                     S::event_id().unwrap_or(ESP_EVENT_ANY_ID),
                     Some(EspSubscription::<System>::handle),
                     unsafe_callback.as_ptr(),
@@ -694,7 +701,7 @@ where
 
                 esp_event_handler_instance_register_with(
                     user.0,
-                    S::source().map(ffi::CStr::as_ptr).unwrap_or(ptr::null()),
+                    source,
                     S::event_id().unwrap_or(ESP_EVENT_ANY_ID),
                     Some(EspSubscription::<User<T>>::handle),
                     unsafe_callback.as_ptr(),
@@ -843,7 +850,7 @@ where
     T: EspEventLoopType,
 {
     waitable: Arc<Waitable<()>>,
-    _subscription: EspSubscription<'static, T>,
+    subscriptions: Vec<EspSubscription<'static, T>>,
 }
 
 impl<T> Wait<T>
@@ -863,8 +870,22 @@ where
 
         Ok(Self {
             waitable,
-            _subscription: subscription,
+            subscriptions: vec![subscription],
         })
+    }
+
+    /// Also wake up on the events of `S`, for waiting on events of several sources.
+    pub fn also<S>(mut self, event_loop: &EspEventLoop<T>) -> Result<Self, EspError>
+    where
+        S: EspEventSource,
+    {
+        let s_waitable = self.waitable.clone();
+        self.subscriptions
+            .push(event_loop.subscribe_raw::<S, _>(move |_| {
+                s_waitable.cvar.notify_all();
+            })?);
+
+        Ok(self)
     }
 
     pub fn wait_while<F: FnMut() -> Result<bool, EspError>>(
@@ -906,12 +927,16 @@ mod async_wait {
 
     extern crate alloc;
     use alloc::sync::Arc;
+    use alloc::vec;
+    use alloc::vec::Vec;
 
     use esp_idf_hal::task::asynch::Notification;
 
     use ::log::debug;
 
-    use super::{EspEventDeserializer, EspEventLoop, EspEventLoopType, EspSubscription};
+    use super::{
+        EspEventDeserializer, EspEventLoop, EspEventLoopType, EspEventSource, EspSubscription,
+    };
     use crate::sys::{esp, EspError, ESP_ERR_TIMEOUT};
     use crate::timer::{EspAsyncTimer, EspTimerService, Task};
 
@@ -922,7 +947,7 @@ mod async_wait {
     {
         notification: Arc<Notification>,
         timer: EspAsyncTimer,
-        _subscription: EspSubscription<'static, T>,
+        subscriptions: Vec<EspSubscription<'static, T>>,
         _deserializer: PhantomData<fn() -> D>,
     }
 
@@ -938,16 +963,30 @@ mod async_wait {
             let notification = Arc::new(Notification::new());
 
             Ok(Self {
-                _subscription: {
+                subscriptions: vec![{
                     let notification = notification.clone();
                     event_loop.subscribe::<D, _>(move |_| {
                         notification.notify_lsb();
                     })?
-                },
+                }],
                 notification,
                 timer: timer_service.timer_async()?,
                 _deserializer: PhantomData,
             })
+        }
+
+        /// Also wake up on the events of `S`, for waiting on events of several sources.
+        pub fn also<S>(mut self, event_loop: &EspEventLoop<T>) -> Result<Self, EspError>
+        where
+            S: EspEventSource,
+        {
+            let notification = self.notification.clone();
+            self.subscriptions
+                .push(event_loop.subscribe_raw::<S, _>(move |_| {
+                    notification.notify_lsb();
+                })?);
+
+            Ok(self)
         }
 
         pub async fn wait_while<F: FnMut() -> Result<bool, EspError>>(

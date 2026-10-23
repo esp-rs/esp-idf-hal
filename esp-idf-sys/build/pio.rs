@@ -97,7 +97,14 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 let path = config
                     .esp_idf_sdkconfig()
                     .abspath_relative_to(&workspace_dir);
-                let cfg = list_specific_sdkconfigs(path, &profile, &resolution.mcu).next();
+                let cfg = configured_sdkconfigs(
+                    path,
+                    &profile,
+                    &resolution.mcu,
+                    config.esp_idf_sdkconfig_specified(),
+                )
+                .into_iter()
+                .next();
 
                 cfg.map(|path| {
                     cargo::track_file(&path);
@@ -110,13 +117,15 @@ pub fn build() -> Result<EspIdfBuildOutput> {
                 .esp_idf_sdkconfig_defaults()
                 .into_iter()
                 .flat_map(|v| {
-                    list_specific_sdkconfigs(
+                    configured_sdkconfigs(
                         v.abspath_relative_to(&workspace_dir),
                         &profile,
                         &resolution.mcu,
+                        config.esp_idf_sdkconfig_defaults_specified(),
                     )
                     // We need to reverse the order here so that the more specific
                     // defaults come last.
+                    .into_iter()
                     .rev()
                 })
                 .map(|path| {

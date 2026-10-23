@@ -26,7 +26,7 @@ use crate::handle::RawHandle;
 use crate::io::EspIOError;
 use crate::private::common::Newtype;
 use crate::private::cstr::*;
-use crate::tls::X509;
+use crate::tls::{HwPrivateKey, RawHwPrivateKey, X509};
 
 pub use embedded_svc::http::client::{Connection, Request, Response};
 
@@ -68,7 +68,7 @@ pub enum FollowRedirectsPolicy {
     FollowAll,
 }
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct Configuration {
     pub buffer_size: Option<usize>,
     pub buffer_size_tx: Option<usize>,
@@ -77,6 +77,8 @@ pub struct Configuration {
     pub client_certificate: Option<X509<'static>>,
     pub server_certificate: Option<X509<'static>>,
     pub private_key: Option<X509<'static>>,
+    /// A private key kept in hardware, used instead of `private_key`
+    pub hw_private_key: Option<HwPrivateKey>,
     pub use_global_ca_store: bool,
     pub crt_bundle_attach: Option<unsafe extern "C" fn(conf: *mut core::ffi::c_void) -> esp_err_t>,
     pub raw_request_body: bool,
@@ -104,6 +106,7 @@ pub struct EspHttpConnection {
     follow_redirects: bool,
     headers: BTreeMap<Uncased<'static>, String>,
     content_len_header: UnsafeCell<Option<Option<String>>>,
+    _hw_private_key: RawHwPrivateKey,
 }
 
 impl EspHttpConnection {
@@ -149,9 +152,14 @@ impl EspHttpConnection {
             native_config.cert_len = cert.as_esp_idf_raw_len();
         }
 
-        if let (Some(cert), Some(private_key)) =
-            (configuration.client_certificate, configuration.private_key)
-        {
+        if configuration.private_key.is_some() && configuration.hw_private_key.is_some() {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
+        let has_private_key =
+            configuration.private_key.is_some() || configuration.hw_private_key.is_some();
+
+        if let (Some(cert), true) = (configuration.client_certificate, has_private_key) {
             #[cfg(esp_idf_version_at_least_5_5_0)]
             {
                 native_config.__bindgen_anon_2.client_cert_pem = cert.as_esp_idf_raw_ptr() as _;
@@ -164,8 +172,23 @@ impl EspHttpConnection {
 
             native_config.client_cert_len = cert.as_esp_idf_raw_len();
 
-            native_config.client_key_pem = private_key.as_esp_idf_raw_ptr() as _;
-            native_config.client_key_len = private_key.as_esp_idf_raw_len();
+            if let Some(private_key) = configuration.private_key {
+                native_config.client_key_pem = private_key.as_esp_idf_raw_ptr() as _;
+                native_config.client_key_len = private_key.as_esp_idf_raw_len();
+            }
+        }
+
+        let hw_private_key = RawHwPrivateKey::new(configuration.hw_private_key.as_ref());
+
+        #[cfg(all(esp_idf_esp_tls_use_ds_peripheral, esp_idf_version_at_least_5_1_0))]
+        {
+            native_config.ds_data = hw_private_key.ds_data();
+        }
+
+        #[cfg(esp_idf_mbedtls_hardware_ecdsa_sign)]
+        if let Some(efuse_block) = hw_private_key.ecdsa_efuse_block() {
+            native_config.use_ecdsa_peripheral = true;
+            native_config.ecdsa_key_efuse_blk = efuse_block;
         }
 
         if configuration.keep_alive_enable {
@@ -194,6 +217,7 @@ impl EspHttpConnection {
                 follow_redirects: false,
                 headers: BTreeMap::new(),
                 content_len_header: UnsafeCell::new(None),
+                _hw_private_key: hw_private_key,
             })
         }
     }

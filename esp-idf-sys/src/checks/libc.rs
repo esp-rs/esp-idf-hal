@@ -11,6 +11,11 @@
 //! present / the expected size when `CONFIG_LWIP_IPV6=y`, so their checks are gated on
 //! `esp_idf_lwip_ipv6` instead of the coarser `esp_idf_comp_lwip_enabled`.
 //!
+//! IPv4-specific items (`sockaddr_in`, and - as lwIP's IGMP support requires IPv4 - `ip_mreq`,
+//! `IP_ADD_MEMBERSHIP` and `IP_DROP_MEMBERSHIP`) are only present when `CONFIG_LWIP_IPV4=y`, so
+//! their checks are gated on `esp_idf_lwip_ipv4`. That option only exists since ESP-IDF 5.1;
+//! before that IPv4 is always enabled.
+//!
 //! Termios items (`termios`, `speed_t`, `tcflag_t`, `cc_t`, `NCCS`) are only present when
 //! `CONFIG_VFS_SUPPORT_TERMIOS=y`, so their checks additionally require
 //! `esp_idf_vfs_support_termios`.
@@ -104,7 +109,10 @@ check_types!(msghdr);
 check_types!(sockaddr);
 #[cfg(esp_idf_lwip_ipv6)]
 check_types!(sockaddr_in6);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(all(
+    esp_idf_comp_lwip_enabled,
+    any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))
+))]
 check_types!(sockaddr_in);
 // `sockaddr_storage` in LWIP is sized to hold the largest sockaddr subclass, which is
 // `sockaddr_in6` when IPv6 is enabled. Without IPv6, ESP-IDF's `sockaddr_storage`
@@ -207,7 +215,10 @@ check_types!(time_t);
 // structs
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(addrinfo);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(all(
+    esp_idf_comp_lwip_enabled,
+    any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))
+))]
 check_types!(ip_mreq);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_types!(in_addr);
@@ -514,9 +525,15 @@ check_constants!(IP_MULTICAST_IF);
 check_constants!(IP_MULTICAST_TTL);
 #[cfg(esp_idf_comp_lwip_enabled)]
 check_constants!(IP_MULTICAST_LOOP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(all(
+    esp_idf_comp_lwip_enabled,
+    any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))
+))]
 check_constants!(IP_ADD_MEMBERSHIP);
-#[cfg(esp_idf_comp_lwip_enabled)]
+#[cfg(all(
+    esp_idf_comp_lwip_enabled,
+    any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))
+))]
 check_constants!(IP_DROP_MEMBERSHIP);
 #[cfg(esp_idf_lwip_ipv6)]
 check_constants!(IPV6_UNICAST_HOPS);

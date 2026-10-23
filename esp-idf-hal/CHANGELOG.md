@@ -8,11 +8,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Basic support for the esp32s31 (ESP-IDF v6.1+): GPIO, dual-core, UART0-3, SPI2/3, I2C0/1, I2S0/1, timers, RMT, temperature sensor, USB Serial/JTAG and sleep
+- MAC: the internal Ethernet MAC peripheral on all chips that have one (e.g. esp32p4), not just the esp32
+- Support for esp32h4 and esp32h21 (ESP-IDF v6.1+)
+- Support for the esp32s31 (ESP-IDF v6.1+): GPIO, dual-core, UART0-3, SPI2/3, I2C0/1, I2S0/1, timers, RMT, temperature sensor, USB Serial/JTAG and sleep
 - modem: `Modem::split()` / `split_reborrow()` into Wi-Fi, Thread and Bluetooth modems on the esp32s31
+- ULP: `UlpDriver` supports the LP core (`CONFIG_ULP_COPROC_TYPE_LP_CORE`) of the esp32c5, esp32c6, esp32p4 and esp32s31
 
 ### Fixed
+- GPIO: `PinDriver` now releases the USB Serial/JTAG D-/D+ pads (e.g. GPIO19/20 on the esp32s3, GPIO18/19 on the esp32c3) and the RTC IO MUX when routing a pad to GPIO, without resetting the pulls, drive strength or level of the pin (#614)
+- GPIO: the `PinDriver::try_into_*` mode conversions no longer reset the pin right after configuring it in the new mode. The converted driver used to end up disabled, with its pulls cleared
+- GPIO: `PinDriver::disabled` and `PinDriver::try_into_disabled` now actually disable the input and output of the pin
+- ULP: `UlpDriver` did not compile with the ULP enabled (`CONFIG_ULP_COPROC_ENABLED`) on any chip, as `PhantomData` was not imported and `impl ULP` lacked its lifetime. The workspace `sdkconfig.defaults` now enables the ULP, so CI builds the driver
 - ADC channel drivers no longer call `rtc_gpio_init` on pins that are not RTC (LP) pins, which fails with `ESP_ERR_INVALID_ARG` ("RTCIO number error") on chips whose ADC pins are plain GPIOs
+- RMT (new and legacy): `Pulse::new_with_duration` / `duration_to_ticks` now return `ESP_ERR_INVALID_ARG` instead of silently rounding a non-zero duration shorter than one tick to 0 ticks (the RMT end-of-transmission marker, so nothing was sent)
+- RMT: `Symbol::repeat_for` computes the repeat count and the trailing symbol in whole ticks, so a sub-tick remainder no longer produces a zero-tick end marker
+- RMT: the RX channel did not compile against ESP-IDF v5.3.0 and v5.3.1, which name the receive config flags struct `extra_flags` rather than `extra_rmt_receive_flags`
+- rmt-legacy: the `clock_divider` docs now note that the tick period depends on the chip's RMT source clock (e.g. 2.5 µs with the default divider on the esp32h2)
 
 ### Breaking
 - `rmt::encoder::EncoderState` is now `EnumSet<EncoderState>` instead of a standalone enum, fixing a panic/ISR-abort on real hardware when the RMT driver returned a combined state (e.g. `COMPLETE | MEM_FULL`).

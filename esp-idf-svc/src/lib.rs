@@ -43,7 +43,10 @@ pub mod bt;
 #[cfg(all(
     feature = "alloc",
     any(
-        all(not(any(esp32h2, esp32h4, esp32p4)), esp_idf_comp_esp_wifi_enabled),
+        all(
+            not(any(esp32h2, esp32h21, esp32h4, esp32p4)),
+            esp_idf_comp_esp_wifi_enabled
+        ),
         esp_idf_comp_espressif__esp_wifi_remote_enabled
     ),
     esp_idf_comp_esp_event_enabled,
@@ -55,8 +58,8 @@ pub mod espnow;
     esp_idf_comp_esp_event_enabled,
 ))]
 #[cfg(any(
-    // On-chip EMAC (ESP32); RMII PHYs such as lan87xx are used only with EMAC
-    all(esp32, esp_idf_eth_use_esp32_emac),
+    // On-chip EMAC; RMII PHYs such as lan87xx are used only with EMAC
+    esp_idf_eth_use_esp32_emac,
     any(
         esp_idf_eth_spi_ethernet_dm9051,
         esp_idf_eth_spi_ethernet_w5500,
@@ -104,7 +107,11 @@ pub mod nvs;
 pub mod ota;
 #[cfg(any(esp_idf_comp_spi_flash_enabled, esp_idf_comp_esp_partition_enabled))]
 pub mod partition;
-#[cfg(esp_idf_comp_esp_netif_enabled)]
+// `CONFIG_LWIP_IPV4` only exists since ESP-IDF 5.1; before that IPv4 is always enabled
+#[cfg(all(
+    esp_idf_comp_esp_netif_enabled,
+    any(esp_idf_lwip_ipv4, not(esp_idf_version_at_least_5_1_0))
+))]
 pub mod ping;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_netif_enabled))]
 pub mod sntp;
@@ -125,7 +132,10 @@ pub mod tls;
 #[cfg(all(
     feature = "alloc",
     any(
-        all(not(any(esp32h2, esp32h4, esp32p4)), esp_idf_comp_esp_wifi_enabled),
+        all(
+            not(any(esp32h2, esp32h21, esp32h4, esp32p4)),
+            esp_idf_comp_esp_wifi_enabled
+        ),
         esp_idf_comp_espressif__esp_wifi_remote_enabled
     ),
     esp_idf_comp_esp_event_enabled,

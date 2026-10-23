@@ -198,12 +198,20 @@ impl Default for PulseTicks {
 }
 
 /// A utility to convert a duration into ticks, depending on the clock ticks.
+///
+/// Returns [`ESP_ERR_INVALID_ARG`] if a non-zero `duration` is shorter than one tick,
+/// as a zero-tick pulse is the RMT end-of-transmission marker and would silently
+/// truncate the signal.
 pub fn duration_to_ticks(ticks_hz: Hertz, duration: &Duration) -> Result<u16, EspError> {
     let ticks = duration
         .as_nanos()
         .checked_mul(u32::from(ticks_hz) as u128)
         .ok_or_else(|| EspError::from(ERR_EOVERFLOW).unwrap())?
         / 1_000_000_000;
+
+    if ticks == 0 && !duration.is_zero() {
+        return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+    }
 
     u16::try_from(ticks).map_err(|_| EspError::from(ERR_EOVERFLOW).unwrap())
 }
@@ -329,6 +337,13 @@ pub mod config {
     /// Used when creating a [`Transmit`][crate::rmt::Transmit] instance.
     #[derive(Debug, Clone)]
     pub struct TransmitConfig {
+        /// Divider of the RMT source clock, which yields the tick frequency.
+        ///
+        /// The default of 80 gives a 1 µs tick only with an 80 MHz source clock. The source
+        /// clock is chip-specific (e.g. 32 MHz XTAL on the esp32h2, giving a 2.5 µs tick),
+        /// so use [`TxRmtDriver::counter_clock()`][crate::rmt::TxRmtDriver::counter_clock]
+        /// to get the actual tick frequency. Sub-microsecond protocols such as WS2812 need
+        /// a small divider (e.g. 1).
         pub clock_divider: u8,
         pub mem_block_num: u8,
         pub carrier: Option<CarrierConfig>,
@@ -474,7 +489,7 @@ pub mod config {
         /// Defaults from `<https://github.com/espressif/esp-idf/blob/master/components/driver/include/driver/rmt.h#L110>`
         fn default() -> Self {
             Self {
-                clock_divider: 80,        // one microsecond clock period
+                clock_divider: 80,     // one microsecond clock period with an 80 MHz source clock
                 mem_block_num: 1, // maximum of 448 rmt items can be captured (mem_block_num=0 will have max 512 rmt items)
                 idle_threshold: 12000, // 1.2 milliseconds, pulse greater than this will generate interrupt
                 filter_ticks_thresh: 100, // 100 microseconds, pulses less than this will be ignored

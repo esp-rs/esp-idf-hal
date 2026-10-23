@@ -426,8 +426,12 @@ mod example {
             Ok(())
         }
 
-        /// Add our two characteristics to the service
+        /// Add our two characteristics to the service, and the CCCD descriptor to the "indicate" one
         /// Called from within the event callback once we are notified that the service is created
+        ///
+        /// Note that a descriptor is always added to the characteristic which was added last, so
+        /// the descriptors of a characteristic have to be added right after it, before the next
+        /// characteristic. There is no need to wait for the events of the added attributes in between.
         fn add_characteristics(&self, service_handle: Handle) -> Result<(), EspError> {
             self.gatts.add_characteristic(
                 service_handle,
@@ -453,44 +457,34 @@ mod example {
                 &[],
             )?;
 
+            // The CCCD descriptor of the "indicate" characteristic, added right after it
+            self.gatts.add_descriptor(
+                service_handle,
+                &GattDescriptor {
+                    uuid: BtUuid::uuid16(0x2902), // CCCD
+                    permissions: enum_set!(Permission::Read | Permission::Write),
+                },
+            )?;
+
             Ok(())
         }
 
-        /// Add the CCCD descriptor
-        /// Called from within the event callback once we are notified that a char descriptor is added,
-        /// however the method will do something only if the added char is the "indicate" characteristics of course
+        /// Register the handle of one of our characteristics
+        /// Called from within the event callback once we are notified that a characteristic is added
         fn register_characteristic(
             &self,
             service_handle: Handle,
             attr_handle: Handle,
             char_uuid: BtUuid,
         ) -> Result<(), EspError> {
-            let indicate_char = {
-                let mut state = self.state.lock().unwrap();
+            let mut state = self.state.lock().unwrap();
 
-                if state.service_handle != Some(service_handle) {
-                    false
-                } else if char_uuid == BtUuid::uuid128(RECV_CHARACTERISTIC_UUID) {
+            if state.service_handle == Some(service_handle) {
+                if char_uuid == BtUuid::uuid128(RECV_CHARACTERISTIC_UUID) {
                     state.recv_handle = Some(attr_handle);
-
-                    false
                 } else if char_uuid == BtUuid::uuid128(IND_CHARACTERISTIC_UUID) {
                     state.ind_handle = Some(attr_handle);
-
-                    true
-                } else {
-                    false
                 }
-            };
-
-            if indicate_char {
-                self.gatts.add_descriptor(
-                    service_handle,
-                    &GattDescriptor {
-                        uuid: BtUuid::uuid16(0x2902), // CCCD
-                        permissions: enum_set!(Permission::Read | Permission::Write),
-                    },
-                )?;
             }
 
             Ok(())

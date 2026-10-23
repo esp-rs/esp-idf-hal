@@ -81,6 +81,16 @@ impl BuildConfig {
             .unwrap_or_else(|| DEFAULT_SDKCONFIG_FILE.into())
     }
 
+    /// Whether the user specified the sdkconfig.
+    pub fn esp_idf_sdkconfig_specified(&self) -> bool {
+        self.esp_idf_sdkconfig.is_some()
+    }
+
+    /// Whether the user specified the sdkconfig.defaults files.
+    pub fn esp_idf_sdkconfig_defaults_specified(&self) -> bool {
+        self.esp_idf_sdkconfig_defaults.is_some()
+    }
+
     /// Get a list of user-specified paths to sdkconfig.defaults files or
     /// [`DEFAULT_SDKCONFIG_DEFAULTS_FILE`] if unset.
     pub fn esp_idf_sdkconfig_defaults(&self) -> Vec<PathBuf> {

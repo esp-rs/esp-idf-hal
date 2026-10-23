@@ -56,6 +56,10 @@ CONFIG_BT_SPP_ENABLED=y
 # Compile-check the MQTT 5.0 code paths in CI.
 CONFIG_MQTT_PROTOCOL_5=y
 
+# Compile-check the `UlpDriver` in CI. The ULP type is the chip's default:
+# FSM on the esp32, RISC-V on the esp32s2/esp32s3 and the LP core on the esp32c5/esp32c6/esp32p4/esp32s31
+CONFIG_ULP_COPROC_ENABLED=y
+
 CONFIG_LWIP_PPP_SUPPORT=y
 #CONFIG_LWIP_SLIP_SUPPORT=y
 

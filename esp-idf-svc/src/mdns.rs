@@ -18,6 +18,10 @@ use embedded_svc::ipv4::Ipv6Addr;
 
 use crate::sys::*;
 
+#[cfg(esp_idf_comp_espressif__mdns_enabled)]
+use crate::handle::RawHandle;
+#[cfg(esp_idf_comp_espressif__mdns_enabled)]
+use crate::netif::EspNetif;
 use crate::private::cstr::to_cstring_arg;
 use crate::private::cstr::CStr;
 use crate::private::mutex::Mutex;
@@ -172,6 +176,85 @@ impl EspMdns {
         let instance_name = to_cstring_arg(instance_name.as_ref())?;
 
         esp!(unsafe { mdns_instance_name_set(instance_name.as_ptr()) })
+    }
+
+    /// Register a netif with mDNS, so that mDNS can be enabled on it with
+    /// [`Self::enable_netif`].
+    ///
+    /// ESP-IDF's default netifs (with keys `WIFI_STA_DEF`, `WIFI_AP_DEF` and `ETH_DEF`) are known
+    /// to mDNS already and must not be registered.
+    ///
+    /// # Safety
+    ///
+    /// mDNS keeps a pointer to the netif, so the netif must not be dropped while it is registered:
+    /// it has to be unregistered with [`Self::unregister_netif`] (or this `EspMdns` has to be
+    /// dropped) first.
+    #[cfg(esp_idf_comp_espressif__mdns_enabled)]
+    pub unsafe fn register_netif(&mut self, netif: &EspNetif) -> Result<(), EspError> {
+        esp!(mdns_register_netif(netif.handle()))
+    }
+
+    /// Unregister a netif registered with [`Self::register_netif`].
+    #[cfg(esp_idf_comp_espressif__mdns_enabled)]
+    pub fn unregister_netif(&mut self, netif: &EspNetif) -> Result<(), EspError> {
+        esp!(unsafe { mdns_unregister_netif(netif.handle()) })
+    }
+
+    /// Enable mDNS on a netif (probe, resolve conflicts and announce) over the given protocol.
+    ///
+    /// mDNS enables itself on ESP-IDF's default netifs when they connect or get an IP address.
+    /// Enabling it explicitly is necessary for netifs registered with [`Self::register_netif`],
+    /// and for default netifs for which this does not happen, e.g. an Ethernet netif (`ETH_DEF`)
+    /// running a DHCP server.
+    #[cfg(esp_idf_comp_espressif__mdns_enabled)]
+    pub fn enable_netif(&mut self, netif: &EspNetif, protocol: Protocol) -> Result<(), EspError> {
+        Self::netif_action(
+            netif,
+            protocol,
+            mdns_event_actions_t_MDNS_EVENT_ENABLE_IP4,
+            mdns_event_actions_t_MDNS_EVENT_ENABLE_IP6,
+        )
+    }
+
+    /// Disable mDNS on a netif over the given protocol, announcing its departure.
+    #[cfg(esp_idf_comp_espressif__mdns_enabled)]
+    pub fn disable_netif(&mut self, netif: &EspNetif, protocol: Protocol) -> Result<(), EspError> {
+        Self::netif_action(
+            netif,
+            protocol,
+            mdns_event_actions_t_MDNS_EVENT_DISABLE_IP4,
+            mdns_event_actions_t_MDNS_EVENT_DISABLE_IP6,
+        )
+    }
+
+    /// Announce the mDNS host and services on a netif over the given protocol again, e.g. after
+    /// its IP address changed.
+    #[cfg(esp_idf_comp_espressif__mdns_enabled)]
+    pub fn announce_netif(&mut self, netif: &EspNetif, protocol: Protocol) -> Result<(), EspError> {
+        Self::netif_action(
+            netif,
+            protocol,
+            mdns_event_actions_t_MDNS_EVENT_ANNOUNCE_IP4,
+            mdns_event_actions_t_MDNS_EVENT_ANNOUNCE_IP6,
+        )
+    }
+
+    #[cfg(esp_idf_comp_espressif__mdns_enabled)]
+    #[allow(unused_variables)]
+    fn netif_action(
+        netif: &EspNetif,
+        protocol: Protocol,
+        ipv4_action: mdns_event_actions_t,
+        ipv6_action: mdns_event_actions_t,
+    ) -> Result<(), EspError> {
+        let action = match protocol {
+            #[cfg(esp_idf_lwip_ipv4)]
+            Protocol::V4 => ipv4_action,
+            #[cfg(esp_idf_lwip_ipv6)]
+            Protocol::V6 => ipv6_action,
+        };
+
+        esp!(unsafe { mdns_netif_action(netif.handle(), action) })
     }
 
     pub fn add_service(

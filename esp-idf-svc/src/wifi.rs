@@ -29,6 +29,12 @@ use crate::private::cstr::*;
 use crate::private::mutex;
 #[cfg(all(feature = "alloc", esp_idf_comp_esp_timer_enabled))]
 use crate::timer::EspTaskTimerService;
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_0_5,
+    esp_idf_version_patch_at_least_5_1_2,
+    esp_idf_version_at_least_5_2_0
+))]
+use crate::tls::X509;
 
 pub use embedded_svc::wifi::{
     AccessPointConfiguration, AccessPointInfo, AuthMethod, Capability, ClientConfiguration,
@@ -190,9 +196,15 @@ impl TryFrom<&ClientConfiguration> for Newtype<wifi_sta_config_t> {
                 authmode: Newtype::<wifi_auth_mode_t>::from(conf.auth_method).0,
                 ..Default::default()
             },
-            pmf_cfg: wifi_pmf_config_t {
-                capable: false,
-                required: false,
+            pmf_cfg: match conf.pmf_cfg {
+                PmfConfiguration::NotCapable => wifi_pmf_config_t {
+                    capable: false,
+                    required: false,
+                },
+                PmfConfiguration::Capable { required } => wifi_pmf_config_t {
+                    capable: true,
+                    required,
+                },
             },
             ..Default::default()
         };
@@ -320,6 +332,46 @@ impl TryFrom<Newtype<&wifi_ap_record_t>> for AccessPointInfo {
     }
 }
 
+/// The PHY mode the station negotiated with the AP
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum PhyMode {
+    /// Espressif Low Rate
+    LowRate,
+    /// 802.11b
+    B,
+    /// 802.11g
+    G,
+    /// 802.11a
+    A,
+    /// 802.11n, 20 MHz
+    Ht20,
+    /// 802.11n, 40 MHz
+    Ht40,
+    /// 802.11ax, 20 MHz
+    He20,
+    /// 802.11ac, 20 MHz
+    Vht20,
+}
+
+#[allow(non_upper_case_globals)]
+impl TryFrom<wifi_phy_mode_t> for PhyMode {
+    type Error = EspError;
+
+    fn try_from(mode: wifi_phy_mode_t) -> Result<Self, Self::Error> {
+        Ok(match mode {
+            wifi_phy_mode_t_WIFI_PHY_MODE_LR => Self::LowRate,
+            wifi_phy_mode_t_WIFI_PHY_MODE_11B => Self::B,
+            wifi_phy_mode_t_WIFI_PHY_MODE_11G => Self::G,
+            wifi_phy_mode_t_WIFI_PHY_MODE_11A => Self::A,
+            wifi_phy_mode_t_WIFI_PHY_MODE_HT20 => Self::Ht20,
+            wifi_phy_mode_t_WIFI_PHY_MODE_HT40 => Self::Ht40,
+            wifi_phy_mode_t_WIFI_PHY_MODE_HE20 => Self::He20,
+            wifi_phy_mode_t_WIFI_PHY_MODE_VHT20 => Self::Vht20,
+            _ => Err(EspError::from_infallible::<ESP_ERR_NOT_SUPPORTED>())?,
+        })
+    }
+}
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum WifiDeviceId {
     Ap,
@@ -343,6 +395,143 @@ impl From<wifi_interface_t> for WifiDeviceId {
             wifi_interface_t_WIFI_IF_STA => WifiDeviceId::Sta,
             _ => unreachable!(),
         }
+    }
+}
+
+/// Power saving (modem sleep) of the Wi-Fi station.
+///
+/// With modem sleep, the station turns its radio off between the beacons of the access point,
+/// which buffers the frames for the station meanwhile. This saves power, but delays receiving
+/// data by up to the DTIM period ([`PowerSaveMode::Minimum`]) or the listen interval
+/// ([`PowerSaveMode::Maximum`]) - typically hundreds of milliseconds.
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Hash)]
+pub enum PowerSaveMode {
+    /// No modem sleep: the lowest latency, but the highest power consumption.
+    ///
+    /// When Wi-Fi coexists with Bluetooth, the radio still sleeps outside of the time slices
+    /// assigned to Wi-Fi.
+    None,
+    /// Wake up for every DTIM beacon (the default of ESP-IDF)
+    #[default]
+    Minimum,
+    /// Wake up only every `listen_interval` beacons
+    Maximum,
+}
+
+impl From<PowerSaveMode> for wifi_ps_type_t {
+    fn from(mode: PowerSaveMode) -> Self {
+        match mode {
+            PowerSaveMode::None => wifi_ps_type_t_WIFI_PS_NONE,
+            PowerSaveMode::Minimum => wifi_ps_type_t_WIFI_PS_MIN_MODEM,
+            PowerSaveMode::Maximum => wifi_ps_type_t_WIFI_PS_MAX_MODEM,
+        }
+    }
+}
+
+#[allow(non_upper_case_globals)]
+impl From<wifi_ps_type_t> for PowerSaveMode {
+    fn from(mode: wifi_ps_type_t) -> Self {
+        match mode {
+            wifi_ps_type_t_WIFI_PS_NONE => PowerSaveMode::None,
+            wifi_ps_type_t_WIFI_PS_MIN_MODEM => PowerSaveMode::Minimum,
+            wifi_ps_type_t_WIFI_PS_MAX_MODEM => PowerSaveMode::Maximum,
+            _ => unreachable!(),
+        }
+    }
+}
+
+/// The inner (phase 2) authentication method of EAP-TTLS.
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_0_5,
+    esp_idf_version_patch_at_least_5_1_2,
+    esp_idf_version_at_least_5_2_0
+))]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+pub enum TtlsPhase2Method {
+    Eap,
+    MsChapV2,
+    MsChap,
+    Pap,
+    Chap,
+}
+
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_0_5,
+    esp_idf_version_patch_at_least_5_1_2,
+    esp_idf_version_at_least_5_2_0
+))]
+impl From<TtlsPhase2Method> for esp_eap_ttls_phase2_types {
+    fn from(method: TtlsPhase2Method) -> Self {
+        match method {
+            TtlsPhase2Method::Eap => esp_eap_ttls_phase2_types_ESP_EAP_TTLS_PHASE2_EAP,
+            TtlsPhase2Method::MsChapV2 => esp_eap_ttls_phase2_types_ESP_EAP_TTLS_PHASE2_MSCHAPV2,
+            TtlsPhase2Method::MsChap => esp_eap_ttls_phase2_types_ESP_EAP_TTLS_PHASE2_MSCHAP,
+            TtlsPhase2Method::Pap => esp_eap_ttls_phase2_types_ESP_EAP_TTLS_PHASE2_PAP,
+            TtlsPhase2Method::Chap => esp_eap_ttls_phase2_types_ESP_EAP_TTLS_PHASE2_CHAP,
+        }
+    }
+}
+
+/// The WPA2 / WPA3 Enterprise (802.1X / EAP) authentication of the Wi-Fi station
+/// (see [`WifiDriver::enable_enterprise`]).
+///
+/// Which fields are needed depends on the EAP method of the network: PEAP and EAP-TTLS use a
+/// username and a password, while EAP-TLS uses a client certificate and its private key instead.
+/// With a CA certificate, the authentication server is validated.
+///
+/// ESP-IDF copies the identity, the username and the password, but keeps referring to the
+/// certificates, the private key and its password, hence these have to be `'static`.
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_0_5,
+    esp_idf_version_patch_at_least_5_1_2,
+    esp_idf_version_at_least_5_2_0
+))]
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub struct EnterpriseConfiguration<'a> {
+    /// The outer (anonymous) identity
+    pub identity: Option<&'a str>,
+    pub username: Option<&'a str>,
+    pub password: Option<&'a str>,
+    /// The CA certificate for validating the authentication server
+    pub ca_certificate: Option<X509<'static>>,
+    /// The client certificate for EAP-TLS, which needs `private_key` as well
+    pub client_certificate: Option<X509<'static>>,
+    /// The private key of `client_certificate`
+    pub private_key: Option<X509<'static>>,
+    pub private_key_password: Option<&'static str>,
+    /// The inner authentication method of EAP-TTLS; ESP-IDF's default if `None`
+    pub ttls_phase2_method: Option<TtlsPhase2Method>,
+}
+
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_0_5,
+    esp_idf_version_patch_at_least_5_1_2,
+    esp_idf_version_at_least_5_2_0
+))]
+impl EnterpriseConfiguration<'_> {
+    /// Create a configuration with no settings.
+    pub const fn new() -> Self {
+        Self {
+            identity: None,
+            username: None,
+            password: None,
+            ca_certificate: None,
+            client_certificate: None,
+            private_key: None,
+            private_key_password: None,
+            ttls_phase2_method: None,
+        }
+    }
+}
+
+#[cfg(any(
+    esp_idf_version_patch_at_least_5_0_5,
+    esp_idf_version_patch_at_least_5_1_2,
+    esp_idf_version_at_least_5_2_0
+))]
+impl Default for EnterpriseConfiguration<'_> {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -1116,6 +1305,14 @@ impl<'d> WifiDriver<'d> {
         Ok(ap_info)
     }
 
+    /// Get the PHY mode the station negotiated with the AP it is associated with.
+    pub fn get_negotiated_phy_mode(&self) -> Result<PhyMode, EspError> {
+        let mut mode: wifi_phy_mode_t = 0;
+        esp!(unsafe { esp_wifi_sta_get_negotiated_phymode(&mut mode) })?;
+
+        mode.try_into()
+    }
+
     /// Set RSSI threshold below which APP will get an WifiEvent::StaBssRssiLow,
     /// as per [`crate::sys::esp_wifi_set_rssi_threshold`](crate::sys::esp_wifi_set_rssi_threshold)
     /// `rssi_threshold`: threshold value in dbm between -100 to 0
@@ -1394,6 +1591,128 @@ impl<'d> WifiDriver<'d> {
             esp_wifi_sta_get_rssi(&mut rssi as *mut core::ffi::c_int);
         };
         Ok(rssi as i32)
+    }
+
+    /// Get the power saving (modem sleep) mode of the station.
+    pub fn get_power_save(&self) -> Result<PowerSaveMode, EspError> {
+        let mut mode: wifi_ps_type_t = 0;
+        esp!(unsafe { esp_wifi_get_ps(&mut mode) })?;
+
+        Ok(mode.into())
+    }
+
+    /// Set the power saving (modem sleep) mode of the station.
+    ///
+    /// See [`PowerSaveMode`] for the trade-off between latency and power consumption.
+    pub fn set_power_save(&mut self, mode: PowerSaveMode) -> Result<(), EspError> {
+        esp!(unsafe { esp_wifi_set_ps(mode.into()) })
+    }
+
+    /// Enable WPA2 / WPA3 Enterprise (802.1X / EAP) authentication of the station, with the
+    /// given configuration replacing any previous one.
+    ///
+    /// To be used with the `auth_method` of the [`ClientConfiguration`] set to an Enterprise
+    /// method, before connecting.
+    ///
+    /// Returns `ESP_ERR_INVALID_ARG` if only one of `client_certificate` and `private_key` is set.
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_0_5,
+        esp_idf_version_patch_at_least_5_1_2,
+        esp_idf_version_at_least_5_2_0
+    ))]
+    pub fn enable_enterprise(
+        &mut self,
+        conf: &EnterpriseConfiguration<'_>,
+    ) -> Result<(), EspError> {
+        if conf.client_certificate.is_some() != conf.private_key.is_some() {
+            return Err(EspError::from_infallible::<ESP_ERR_INVALID_ARG>());
+        }
+
+        Self::clear_enterprise_configuration();
+
+        unsafe {
+            if let Some(identity) = conf.identity {
+                esp!(esp_eap_client_set_identity(
+                    identity.as_ptr(),
+                    identity.len() as _
+                ))?;
+            }
+
+            if let Some(username) = conf.username {
+                esp!(esp_eap_client_set_username(
+                    username.as_ptr(),
+                    username.len() as _
+                ))?;
+            }
+
+            if let Some(password) = conf.password {
+                esp!(esp_eap_client_set_password(
+                    password.as_ptr(),
+                    password.len() as _
+                ))?;
+            }
+
+            if let Some(ca_certificate) = conf.ca_certificate {
+                esp!(esp_eap_client_set_ca_cert(
+                    ca_certificate.as_esp_idf_raw_ptr() as _,
+                    ca_certificate.as_esp_idf_raw_len() as _,
+                ))?;
+            }
+
+            if let (Some(client_certificate), Some(private_key)) =
+                (conf.client_certificate, conf.private_key)
+            {
+                let (password, password_len) = conf
+                    .private_key_password
+                    .map(|password| (password.as_ptr(), password.len()))
+                    .unwrap_or((core::ptr::null(), 0));
+
+                esp!(esp_eap_client_set_certificate_and_key(
+                    client_certificate.as_esp_idf_raw_ptr() as _,
+                    client_certificate.as_esp_idf_raw_len() as _,
+                    private_key.as_esp_idf_raw_ptr() as _,
+                    private_key.as_esp_idf_raw_len() as _,
+                    password,
+                    password_len as _,
+                ))?;
+            }
+
+            if let Some(method) = conf.ttls_phase2_method {
+                esp!(esp_eap_client_set_ttls_phase2_method(method.into()))?;
+            }
+
+            esp!(esp_wifi_sta_enterprise_enable())
+        }
+    }
+
+    /// Disable WPA2 / WPA3 Enterprise authentication of the station, and clear its
+    /// configuration.
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_0_5,
+        esp_idf_version_patch_at_least_5_1_2,
+        esp_idf_version_at_least_5_2_0
+    ))]
+    pub fn disable_enterprise(&mut self) -> Result<(), EspError> {
+        esp!(unsafe { esp_wifi_sta_enterprise_disable() })?;
+
+        Self::clear_enterprise_configuration();
+
+        Ok(())
+    }
+
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_0_5,
+        esp_idf_version_patch_at_least_5_1_2,
+        esp_idf_version_at_least_5_2_0
+    ))]
+    fn clear_enterprise_configuration() {
+        unsafe {
+            esp_eap_client_clear_identity();
+            esp_eap_client_clear_username();
+            esp_eap_client_clear_password();
+            esp_eap_client_clear_ca_cert();
+            esp_eap_client_clear_certificate_and_key();
+        }
     }
 }
 
@@ -1848,10 +2167,52 @@ impl<'d> EspWifi<'d> {
         self.driver().get_rssi()
     }
 
+    /// Get the power saving (modem sleep) mode of the station.
+    pub fn get_power_save(&self) -> Result<PowerSaveMode, EspError> {
+        self.driver().get_power_save()
+    }
+
+    /// Set the power saving (modem sleep) mode of the station.
+    ///
+    /// See [`PowerSaveMode`] for the trade-off between latency and power consumption.
+    pub fn set_power_save(&mut self, mode: PowerSaveMode) -> Result<(), EspError> {
+        self.driver_mut().set_power_save(mode)
+    }
+
+    /// Enable WPA2 / WPA3 Enterprise (802.1X / EAP) authentication of the station
+    /// (see [`WifiDriver::enable_enterprise`]).
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_0_5,
+        esp_idf_version_patch_at_least_5_1_2,
+        esp_idf_version_at_least_5_2_0
+    ))]
+    pub fn enable_enterprise(
+        &mut self,
+        conf: &EnterpriseConfiguration<'_>,
+    ) -> Result<(), EspError> {
+        self.driver_mut().enable_enterprise(conf)
+    }
+
+    /// Disable WPA2 / WPA3 Enterprise authentication of the station
+    /// (see [`WifiDriver::disable_enterprise`]).
+    #[cfg(any(
+        esp_idf_version_patch_at_least_5_0_5,
+        esp_idf_version_patch_at_least_5_1_2,
+        esp_idf_version_at_least_5_2_0
+    ))]
+    pub fn disable_enterprise(&mut self) -> Result<(), EspError> {
+        self.driver_mut().disable_enterprise()
+    }
+
     /// Get information about the AP with which the station is associated.
     /// Useful to get the current signal strength of the AP.
     pub fn get_ap_info(&self) -> Result<AccessPointInfo, EspError> {
         self.driver().get_ap_info()
+    }
+
+    /// Get the PHY mode the station negotiated with the AP it is associated with.
+    pub fn get_negotiated_phy_mode(&self) -> Result<PhyMode, EspError> {
+        self.driver().get_negotiated_phy_mode()
     }
 }
 
@@ -2210,9 +2571,6 @@ impl TryFrom<u32> for WifiSecondChan {
 }
 
 /// Payload reference for [`WifiEvent::StaNeighborRep`].
-///
-/// The neighbor report bytes are stored in a flexible array member that
-/// immediately follows the fixed header in memory.
 #[cfg(esp_idf_version_at_least_5_3_0)]
 #[repr(transparent)]
 pub struct StaNeighborRepRef(wifi_event_neighbor_report_t);
@@ -2225,16 +2583,32 @@ impl StaNeighborRepRef {
     }
 
     /// The raw neighbor report bytes received from the AP.
-    ///
-    /// The slice is reconstructed from the flexible array member
-    /// (`n_report`) that immediately follows the fixed header in memory.
     pub fn report(&self) -> &[u8] {
-        // SAFETY: `wifi_event_neighbor_report_t` is followed in memory by
-        // exactly `report_len` bytes of report data (the `n_report` FAM).
-        // The pointer arithmetic is safe because `as_payload()` hands us a
-        // reference to the full event payload buffer whose size is at least
-        // `sizeof(wifi_event_neighbor_report_t) + report_len`.
-        unsafe { core::slice::from_raw_parts(self.0.n_report.as_ptr(), self.report_len()) }
+        // Since ESP-IDF 5.3.3 / 5.4.1, the report is stored in a flexible array member
+        // (`n_report`) that immediately follows the fixed header in memory.
+        #[cfg(any(
+            esp_idf_version_patch_at_least_5_3_3,
+            esp_idf_version_patch_at_least_5_4_1,
+            esp_idf_version_at_least_5_5_0
+        ))]
+        {
+            // SAFETY: `wifi_event_neighbor_report_t` is followed in memory by
+            // exactly `report_len` bytes of report data (the `n_report` FAM).
+            // The pointer arithmetic is safe because `as_payload()` hands us a
+            // reference to the full event payload buffer whose size is at least
+            // `sizeof(wifi_event_neighbor_report_t) + report_len`.
+            unsafe { core::slice::from_raw_parts(self.0.n_report.as_ptr(), self.report_len()) }
+        }
+
+        // Before that, the report is stored in a fixed-size array (`report`)
+        #[cfg(not(any(
+            esp_idf_version_patch_at_least_5_3_3,
+            esp_idf_version_patch_at_least_5_4_1,
+            esp_idf_version_at_least_5_5_0
+        )))]
+        {
+            &self.0.report[..self.report_len().min(self.0.report.len())]
+        }
     }
 }
 
@@ -2533,6 +2907,43 @@ pub enum WifiEvent<'a> {
     /// arrives, allowing applications to remain forward-compatible with
     /// ESP-IDF versions that introduce new WiFi events.
     Other(i32),
+}
+
+/// `WIFI_EVENT_STA_CONNECTED` alone.
+///
+/// Handlers subscribed to a specific event run after the ones subscribed to all events of the
+/// same source, and after the ones subscribed to that event earlier - such as the handler with
+/// which ESP-IDF's Wi-Fi netif glue brings the STA netif up when the link comes up.
+#[cfg(esp_idf_comp_esp_netif_enabled)]
+struct WifiStaConnectedEvent;
+
+#[cfg(esp_idf_comp_esp_netif_enabled)]
+unsafe impl EspEventSource for WifiStaConnectedEvent {
+    fn source() -> Option<&'static ffi::CStr> {
+        WifiEvent::source()
+    }
+
+    fn event_id() -> Option<i32> {
+        Some(wifi_event_t_WIFI_EVENT_STA_CONNECTED as _)
+    }
+}
+
+/// `WIFI_EVENT_AP_START` alone.
+///
+/// As [`WifiStaConnectedEvent`], but for the handler with which ESP-IDF's Wi-Fi netif glue
+/// brings the AP netif up when the access point starts.
+#[cfg(all(esp_idf_comp_esp_netif_enabled, esp_idf_esp_wifi_softap_support))]
+struct WifiApStartEvent;
+
+#[cfg(all(esp_idf_comp_esp_netif_enabled, esp_idf_esp_wifi_softap_support))]
+unsafe impl EspEventSource for WifiApStartEvent {
+    fn source() -> Option<&'static ffi::CStr> {
+        WifiEvent::source()
+    }
+
+    fn event_id() -> Option<i32> {
+        Some(wifi_event_t_WIFI_EVENT_AP_START as _)
+    }
 }
 
 unsafe impl EspEventSource for WifiEvent<'_> {
@@ -2849,7 +3260,15 @@ where
 
     /// Waits until the underlaying network interface is up.
     pub fn wait_netif_up(&self) -> Result<(), EspError> {
-        self.ip_wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+        // With a static IP, a netif comes up together with the link (or the access point),
+        // without ESP-IDF posting an IP event, hence also wake up once that happened
+        let wait = Wait::new::<IpEvent>(&self.event_loop)?
+            .also::<WifiStaConnectedEvent>(&self.event_loop)?;
+
+        #[cfg(esp_idf_esp_wifi_softap_support)]
+        let wait = wait.also::<WifiApStartEvent>(&self.event_loop)?;
+
+        wait.wait_while(|| self.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
     }
 
     /// As [`BlockingWifi::wifi_wait_while()`], but for `EspWifi` events
@@ -3104,7 +3523,22 @@ where
 
     /// Waits until the underlaying network interface is up.
     pub async fn wait_netif_up(&mut self) -> Result<(), EspError> {
-        self.ip_wait_while(|this| this.wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
+        // With a static IP, a netif comes up together with the link (or the access point),
+        // without ESP-IDF posting an IP event, hence also wake up once that happened
+        let wait =
+            crate::eventloop::AsyncWait::<IpEvent, _>::new(&self.event_loop, &self.timer_service)?
+                .also::<WifiStaConnectedEvent>(&self.event_loop)?;
+
+        #[cfg(esp_idf_esp_wifi_softap_support)]
+        let wait = wait.also::<WifiApStartEvent>(&self.event_loop)?;
+
+        let mut wait = wait;
+
+        // Moving a `&mut` into the closure keeps the future `Send` without requiring the
+        // netif status to be `Sync`
+        let wifi = &mut self.wifi;
+
+        wait.wait_while(move || wifi.is_up().map(|s| !s), Some(CONNECT_TIMEOUT))
             .await
     }
 

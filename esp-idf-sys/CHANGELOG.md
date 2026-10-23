@@ -8,13 +8,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Bindings for formatting the log timestamp with log v2 (`esp_log_timestamp_str`, `esp_log_timestamp64`)
+- Support for esp32h4 and esp32h21 (ESP-IDF v6.1+)
 - Support for the esp32s31 (ESP-IDF v6.1+; select it with `MCU=esp32s31` on the `riscv32imafc-esp-espidf` target)
+- bindings: the Digital Signature peripheral (`esp_ds.h`) on the chips which have it (ESP-IDF v5.1+)
+- bindings: the OpenThread FTD API (`openthread/thread_ftd.h`) with `CONFIG_OPENTHREAD_FTD=y`
 
 ### Changed
 - bindings: the Bluedroid Classic BT headers are included for the esp32s31 as well as the esp32
 
 ### Fixed
+- With a target dir other than `<workspace>/target`, relative sdkconfig paths were silently ignored and `.embuild` went inside the target dir; configured sdkconfig paths matching no file now warn
+- bindings: support the esp_tinyusb v2.x remote component, which no longer has `tinyusb_types.h` and `tusb_tasks.h`, and pick up `-D` defines passed by components as compile options (embuild 0.33.6), so that the TinyUSB bindings no longer fail with `'FreeRTOS.h' file not found`
+- bindings: include `ulp_lp_core.h` instead of `ulp_riscv.h` when the ULP is an LP core (`CONFIG_ULP_COPROC_TYPE_LP_CORE`: esp32c5, esp32c6, esp32p4 and esp32s31); bindgen failed because `ulp_riscv.h` does not exist on those chips
 - Sort the extra components' dirs so that we get a predictable build hash by the ESP-IDF Component Manager
+- `checks/libc.rs`: gate the IPv4-specific checks (`sockaddr_in`, `ip_mreq`, `IP_ADD_MEMBERSHIP`, `IP_DROP_MEMBERSHIP`) on `esp_idf_lwip_ipv4`, so builds with `CONFIG_LWIP_IPV4=n` no longer fail
 
 ## [0.38.1] - 2026-09-16
 
