@@ -320,9 +320,7 @@
 
 #ifdef ESP_IDF_COMP_LWIP_ENABLED
 #include "lwip/dns.h"
-#if ESP_IDF_VERSION_MAJOR < 6
 #include "lwip/lwip_napt.h"
-#endif
 #include "lwip/netdb.h"
 #include "lwip/sockets.h"
 // The POSIX wrapper of the ESP-IDF lwip port. Brings in `net/if.h`, where ESP-IDF defines
